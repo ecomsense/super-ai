@@ -67,9 +67,21 @@ class Openingbalance:
                     if sell_order is None:
                         raise Exception("sell order is not found")
                     else:
-                        self._set_target()
+                        self._fn = "find_fill_price"
         except Exception as e:
             print(f"{e} while waiting for breakout")
+
+    def find_fill_price(self):
+        order = self._trade_manager.find_order_if_exists(
+            self._trade_manager.position.entry["order_id"], self._orders
+        )
+        if isinstance(order, dict):
+            self._fill_price = order["fill_price"]
+            self._fn = "try_exiting_trade"
+        else:
+            logging.warning(
+                f"order not found {self._trade_manager.position.entry['order_id']}"
+            )
 
     def _set_target(self):
         try:
@@ -97,7 +109,6 @@ class Openingbalance:
                         f"txn: {txn_cost} = orders:{count} * txn_rate:{self._txn} / 2"
                     )
                     rate_to_be_added += txn_cost
-
                     logging.debug(
                         f"final {rate_to_be_added=} because of negative {total_rpnl=} and {txn_cost=} "
                     )
@@ -121,7 +132,11 @@ class Openingbalance:
                     self._trade_manager.position.exit.order_id, self.trade.last_price
                 )
             else:
-                return self._trade_manager.is_stopped(self._orders)
+                order = self._trade_manager.find_order_if_exists(
+                    self._trade_manager.position.exit["order_id"], self._orders
+                )
+                if isinstance(order, dict):
+                    return True
 
         except Exception as e:
             logging.error(f"{e} is stoploss hit {self.trade.symbol}")
@@ -140,6 +155,7 @@ class Openingbalance:
 
     def try_exiting_trade(self):
         try:
+            self._set_target()
             if self._is_stoploss_hit():
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._is_trading_below_low = False

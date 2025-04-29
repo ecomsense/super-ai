@@ -1,4 +1,4 @@
 clear
 w
-cd ~/no_venv/mohnish-ort
+cd ~/no_venv/super-ai
 dir *.sh

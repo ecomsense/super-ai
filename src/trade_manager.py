@@ -48,6 +48,12 @@ class TradeManager:
                 break
         return flag
 
+    def find_order_if_exists(self, needle, order_hay):
+        for order in order_hay:
+            if needle == order["order_id"]:
+                return order
+        return
+
     def complete_exit(self, **kwargs):
         exit_order_args = asdict(self.position.exit)
         print(f"contents of position.ext {exit_order_args}")

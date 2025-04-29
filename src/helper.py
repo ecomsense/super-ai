@@ -76,7 +76,6 @@ def history(api, exchange, token):
             while data_now is not None and len(data_now) == 1:
                 blink()
                 data_now = api.historical(exchange, token, fm, to)
-                logging.debug(f"data_now: {data_now}")
 
             if data_now is not None and len(data_now) > 1:
                 return data_now
@@ -155,6 +154,7 @@ class QuoteApi:
 class RestApi:
 
     completed_trades = []
+    _positions = [{}]
 
     def __init__(self, session):
         self._api = session
@@ -189,13 +189,17 @@ class RestApi:
             logging.warning(message)
             print_exc()
 
+    @is_not_rate_limited
     def positions(self):
         try:
-            resp = self._api.positions
-            if resp and any(resp):
-                # print(orders[0].keys())
-                return resp
-            return [{}]
+            now = pdlm.now()
+            if self.positions_last_updated > now:
+                self.positions_last_updated = now
+                resp = self._api.positions
+                if resp and any(resp):
+                    # print(orders[0].keys())
+                    self._positions = resp
+            return self._positions
 
         except Exception as e:
             logging.warning(f"Error fetching positions: {e}")
@@ -304,6 +308,7 @@ class Helper:
             ws = Wserver(cls._api, ["NSE:24"])
             cls._quote = QuoteApi(ws)
         cls.wait_till = pdlm.now().add(seconds=1)
+        cls.positions_last_updated = pdlm.now().subtract(seconds=1)
         return cls._api
 
 
