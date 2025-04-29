@@ -1,0 +1,30 @@
+trade:
+  target: 2
+  start: "9:17"
+  stop: "23:50"
+  live: 1      # 0 for paper 1 for live
+  strategy: renko
+log:
+  show: 0
+  level: 10
+BANKNIFTY:
+  base: BANKNIFTY
+  option_exchange: NFO
+  moneyness: -1      # 0=atm 1=otm -1=itm
+  expiry: 24APR25
+  quantity: 30
+  target: 5
+  txn: 2             # points for each losing trade
+  rest_min: 1
+  brick_size: 5
+NATURALGAS:
+  base: NATURALGAS
+  option_exchange: MCX
+  moneyness: 1      # 0=atm 1=otm -1=itm
+  expiry: 23APR25
+  quantity: 1250
+  target: 4
+  txn: 0.2  # points for each losing trade
+  rest_min: 3
+  future_expiry: 25APR25 
+  brick_size: 0.5

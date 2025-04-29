@@ -1,0 +1,14 @@
+wheel
+setuptools==58.2.0
+PyYAML
+pyOpenssl==21.0
+numpy==1.26.4
+git+https://github.com/ecomsense/stock-brokers
+git+https://github.com/pannet1/toolkit
+pandas
+pendulum
+pyotp
+requests
+websocket_client
+
+

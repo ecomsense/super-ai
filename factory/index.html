@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Real-time Strategy Tracking</title>
+    <script>
+        function fetchFileContent() {
+            fetch('read_file.php')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('fileContent').innerHTML = data;
+                })
+                .catch(error => console.error('Error fetching file content:', error));
+        }
+
+        setInterval(fetchFileContent, 30000); // Fetch content every 30 seconds
+    </script>
+</head>
+<body>
+    <h1>Real-time Strategy Tracking</h1>
+    <div id="fileContent">Loading...</div>
+</body>
+</html>
+
