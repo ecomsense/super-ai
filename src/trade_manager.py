@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import Optional
 from trade import Trade
 
@@ -6,8 +6,8 @@ from trade import Trade
 @dataclass
 class Position:
     symbol: Optional[str] = None
-    entry: Trade = Trade()
-    exit: Trade = Trade()
+    entry: Trade = field(default_factory=Trade)
+    exit: Trade = field(default_factory=Trade)
     stop_price: Optional[float] = None
     target_price: Optional[float] = None
     is_position: bool = True
