@@ -155,6 +155,7 @@ class RestApi:
 
     completed_trades = []
     _positions = [{}]
+    _positions_last_updated = pdlm.now().subtract(seconds=1)
 
     def __init__(self, session):
         self._api = session
@@ -193,8 +194,8 @@ class RestApi:
     def positions(self):
         try:
             now = pdlm.now()
-            if self.positions_last_updated > now:
-                self.positions_last_updated = now
+            if self._positions_last_updated > now:
+                self._positions_last_updated = now
                 resp = self._api.positions
                 if resp and any(resp):
                     # print(orders[0].keys())
@@ -308,7 +309,6 @@ class Helper:
             ws = Wserver(cls._api, ["NSE:24"])
             cls._quote = QuoteApi(ws)
         cls.wait_till = pdlm.now().add(seconds=1)
-        cls.positions_last_updated = pdlm.now().subtract(seconds=1)
         return cls._api
 
 
