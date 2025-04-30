@@ -73,7 +73,7 @@ class Openingbalance:
 
     def find_fill_price(self):
         order = self._trade_manager.find_order_if_exists(
-            self._trade_manager.position.entry["order_id"], self._orders
+            self._trade_manager.position.entry.order_id, self._orders
         )
         if isinstance(order, dict):
             self._fill_price = order["fill_price"]
@@ -133,7 +133,7 @@ class Openingbalance:
                 )
             else:
                 order = self._trade_manager.find_order_if_exists(
-                    self._trade_manager.position.exit["order_id"], self._orders
+                    self._trade_manager.position.exit.order_id, self._orders
                 )
                 if isinstance(order, dict):
                     return True

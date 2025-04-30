@@ -106,7 +106,7 @@ class Renko:
     def exit_on_sell_signal(self):
         in_position = True
         order = self._trade_manager.find_order_if_exists(
-            self._trade_manager.position.exit["order_id"], self._orders
+            self._trade_manager.position.exit.order_id, self._orders
         )
         if isinstance(order, dict):
             in_position = False
