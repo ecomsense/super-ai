@@ -3,7 +3,7 @@ from typing import Optional
 from trade import Trade
 
 
-@dataclass
+@dataclass(slots=True)
 class Position:
     symbol: Optional[str] = None
     entry: Trade = field(default_factory=Trade)
@@ -14,13 +14,16 @@ class Position:
 
 
 def order_place(stock_broker, trade):
-    kwargs = asdict(trade)
-    kwargs = {k: v for k, v in kwargs.items() if v is not None}
-    order_id = stock_broker.order_place(**kwargs)
-    if order_id:
-        trade.order_id = order_id
-        return trade
-    return None
+    try:
+        kwargs = asdict(trade)
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        order_id = stock_broker.order_place(**kwargs)
+        if order_id:
+            trade.order_id = order_id
+            return trade
+        return None
+    except Exception as e:
+        print(f"{e} in order place")
 
 
 class TradeManager:

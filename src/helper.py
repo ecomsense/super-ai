@@ -55,7 +55,7 @@ def is_not_rate_limited(func):
     def wrapper(*args, **kwargs):
         while pdlm.now() < Helper.wait_till:
             blink()
-        Helper.wait_till = pdlm.now().add(seconds=1)
+        Helper.wait_till = pdlm.now().add(seconds=2)
         return func(*args, **kwargs)
 
     return wrapper
@@ -194,8 +194,8 @@ class RestApi:
     def positions(self):
         try:
             now = pdlm.now()
-            if self._positions_last_updated > now:
-                self._positions_last_updated = now
+            if self._positions_last_updated < now:
+                self._positions_last_updated = now.add(seconds=2)
                 resp = self._api.positions
                 if resp and any(resp):
                     # print(orders[0].keys())

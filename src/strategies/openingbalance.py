@@ -68,6 +68,10 @@ class Openingbalance:
                         raise Exception("sell order is not found")
                     else:
                         self._fn = "find_fill_price"
+                else:
+                    logging.warning(
+                        f"unable to get buy order number for {self.trade.symbol}"
+                    )
         except Exception as e:
             print(f"{e} while waiting for breakout")
 
