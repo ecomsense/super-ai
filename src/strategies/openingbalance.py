@@ -80,7 +80,7 @@ class Openingbalance:
             self._trade_manager.position.entry.order_id, self._orders
         )
         if isinstance(order, dict):
-            self._fill_price = order["fill_price"]
+            self._fill_price = float(order["fill_price"])
             self._fn = "try_exiting_trade"
         else:
             logging.warning(
