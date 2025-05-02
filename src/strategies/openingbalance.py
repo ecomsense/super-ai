@@ -11,6 +11,7 @@ from traceback import print_exc
 from time_manager import TimeManager
 import pendulum as pdlm
 from trade import Trade
+from toolkit.kokoo import timer
 
 
 class Openingbalance:
@@ -56,6 +57,7 @@ class Openingbalance:
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry"
                 buy_order = self._trade_manager.complete_entry(self.trade)
+
                 if buy_order is not None:
                     self.trade.side = "S"
                     self.trade.disclosed_quantity = 0
@@ -64,14 +66,16 @@ class Openingbalance:
                     self.trade.order_type = "SL-LMT"
                     self.trade.tag = "stoploss"
                     sell_order = self._trade_manager.pending_exit(self.trade)
-                    if sell_order is None:
-                        raise Exception("sell order is not found")
-                    else:
+                    if sell_order is not None:
                         self._fn = "find_fill_price"
+                    else:
+                        raise Exception("sell order is not found")
                 else:
                     logging.warning(
-                        f"unable to get buy order number for {self.trade.symbol}"
+                        f"got {buy_order} instead of buy order for {self.trade.symbol}"
                     )
+                    logging.info("sleeping")
+                    timer(5)
         except Exception as e:
             print(f"{e} while waiting for breakout")
 
@@ -84,7 +88,7 @@ class Openingbalance:
             self._fn = "try_exiting_trade"
         else:
             logging.warning(
-                f"order not found {self._trade_manager.position.entry['order_id']}"
+                f"order not found {self._trade_manager.position.entry.order_id}"
             )
 
     def _set_target(self):
