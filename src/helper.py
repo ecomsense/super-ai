@@ -190,12 +190,11 @@ class RestApi:
             logging.warning(message)
             print_exc()
 
-    @is_not_rate_limited
     def positions(self):
         try:
             now = pdlm.now()
             if self._positions_last_updated < now:
-                self._positions_last_updated = now.add(seconds=2)
+                self._positions_last_updated = now.add(seconds=4)
                 resp = self._api.positions
                 if resp and any(resp):
                     # print(orders[0].keys())
