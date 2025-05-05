@@ -155,6 +155,7 @@ class Renko:
                 return
             elif len(self._df_renko) < MIN_CANDLES_REQUIRED:
                 print(f"candles are less than {MIN_CANDLES_REQUIRED}")
+                return
             else:
                 print(self._df_renko.tail(5))
 
