@@ -59,7 +59,7 @@ class Renko:
             if self._time_mgr.can_trade and self._is_buy_signal():
                 self.trade.side = "B"
                 self.trade.price = self.trade.last_price + 2
-                self.trade.trigger_price = None
+                self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry"
                 buy_order = self._trade_manager.complete_entry(self.trade)
@@ -79,6 +79,7 @@ class Renko:
                     logging.warning(
                         f"ignoring buy signal for {self.trade.symbol} because unable to place order"
                     )
+                    print_exc()
         except Exception as e:
             logging.error(f"{e} exiting")
             __import__("sys").exit(1)
@@ -179,7 +180,7 @@ class Renko:
                 if self.trade.last_price > self._highest
                 else self._highest
             )
-            logging.info(f"highest:{self._highest} ltp:{self.trade.last_price}")
+            logging.debug(f"highest:{self._highest} ltp:{self.trade.last_price}")
             return method_returned
         except Exception as e:
             logging.error(f"{e} in run")
