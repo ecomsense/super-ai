@@ -59,6 +59,7 @@ class Renko:
             if self._time_mgr.can_trade and self._is_buy_signal():
                 self.trade.side = "B"
                 self.trade.price = self.trade.last_price + 2
+                self.trade.disclosed_quantity = None
                 self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry"

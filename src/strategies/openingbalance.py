@@ -53,7 +53,7 @@ class Openingbalance:
             if self.trade.last_price >= self._low and self._time_mgr.can_trade:
                 self.trade.side = "B"
                 self.trade.price = self.trade.last_price + 2
-                self.trade.trigger_price = None
+                self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry"
                 buy_order = self._trade_manager.complete_entry(self.trade)
