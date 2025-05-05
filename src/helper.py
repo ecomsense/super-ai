@@ -1,9 +1,14 @@
 from importlib import import_module
 from traceback import print_exc
-from constants import O_CNFG, logging, O_SETG
+from constants import O_CNFG, logging, O_SETG, S_DATA
 import pendulum as pdlm
 from toolkit.kokoo import blink, timer
 from wserver import Wserver
+import pandas as pd
+
+
+def df_to_csv(df, csv_file, is_index=False):
+    df.to_csv(S_DATA + csv_file, index=is_index)
 
 
 def get_broker():
@@ -313,7 +318,6 @@ class Helper:
 
 if __name__ == "__main__":
     from pprint import pprint
-    import pandas as pd
     from constants import S_DATA
 
     try:

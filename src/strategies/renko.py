@@ -6,6 +6,7 @@ from traceback import print_exc
 from time_manager import TimeManager
 from trade import Trade
 import pendulum as pdlm
+from helper import df_to_csv
 
 MAGIC = 15
 GFX = False
@@ -74,6 +75,10 @@ class Renko:
                     sell_order = self._trade_manager.pending_exit(self.trade)
                     if sell_order.order_id is not None:
                         self._fn = "exit_on_sell_signal"
+                        df_to_csv(
+                            df=self._df_renko,
+                            csv_file=f"entry_{dt.now().timestamp()}.csv",
+                        )
                     else:
                         raise Exception("sell order is not found")
                 else:
@@ -114,6 +119,10 @@ class Renko:
         if not in_position:
             self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
             self._fn = "enter_on_buy_signal"
+            df_to_csv(
+                df=self._df_renko,
+                csv_file=f"exit_{dt.now().timestamp()}.csv",
+            )
 
     def _initialize_plot(self):
 
