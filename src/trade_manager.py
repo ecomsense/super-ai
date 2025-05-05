@@ -17,12 +17,8 @@ def order_place(stock_broker, trade):
     try:
         kwargs = asdict(trade)
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
-        order_id = stock_broker.order_place(**kwargs)
-        if order_id is not None:
-            print(f"order# is {order_id}")
-            trade.order_id = order_id
-            return trade
-        return None
+        trade.order_id = stock_broker.order_place(**kwargs)
+        return trade
     except Exception as e:
         print(f"{e} in order place")
 

@@ -226,7 +226,7 @@ def main():
         strgy_to_be_removed = []
         while not is_time_past(O_SETG["trade"]["stop"]):
             for strgy in strategies:
-                msg = f"{strgy.trade.symbol} ltp:{strgy.trade.last_price} low:{strgy._low} {strgy._fn}"
+                msg = f"{strgy.trade.symbol} ltp:{strgy.trade.last_price} {strgy._fn}"
                 resp = strgy.run(
                     Helper._rest.trades(),
                     Helper._quote.get_quotes(),

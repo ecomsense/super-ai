@@ -58,7 +58,7 @@ class Openingbalance:
                 self.trade.tag = "entry"
                 buy_order = self._trade_manager.complete_entry(self.trade)
 
-                if buy_order is not None:
+                if buy_order.order_id is not None:
                     self.trade.side = "S"
                     self.trade.disclosed_quantity = 0
                     self.trade.price = self._low - 2
@@ -66,7 +66,7 @@ class Openingbalance:
                     self.trade.order_type = "SL-LMT"
                     self.trade.tag = "stoploss"
                     sell_order = self._trade_manager.pending_exit(self.trade)
-                    if sell_order is not None:
+                    if sell_order.order_id is not None:
                         self._fn = "find_fill_price"
                     else:
                         raise Exception("sell order is not found")

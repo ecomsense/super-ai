@@ -9,7 +9,7 @@ import pendulum as pdlm
 
 MAGIC = 15
 GFX = False
-MIN_CANDLES_REQUIRED = 2
+MIN_CANDLES_REQUIRED = 3
 
 if GFX:
     import mplfinance as mpf
@@ -18,7 +18,6 @@ if GFX:
 
 class Renko:
     _orders = []
-    _low = 0.0
     _target = None
     _removable = False
     _trade_manager = None
@@ -32,34 +31,31 @@ class Renko:
             exchange=user_settings["option_exchange"],
             quantity=user_settings["quantity"],
         )
+        self._brick_size = user_settings["brick_size"]
+        self._highest = symbol_info["ltp"]
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         now = dt.now().timestamp()
         self._df_ticks = pd.DataFrame(
             columns=["timestamp", "Symbol", "close"],
             data=[[now, self.trade.symbol, self.trade.last_price]],
         )
-        self.r = RenkoWS(
-            now, self.trade.last_price, brick_size=user_settings["brick_size"]
-        )
+        self.r = RenkoWS(now, self.trade.last_price, brick_size=self._brick_size)
         if GFX:
             _ = self._initialize_plot()
         self._fn = "enter_on_buy_signal"
 
     def _is_buy_signal(self):
         try:
-            if (
-                self._df_renko.iloc[-2]["close"] > self._df_renko.iloc[-2]["open"]
-                and self._df_renko.iloc[-1]["close"] > self._df_renko.iloc[-1]["open"]
-            ):
-                self._low = self._df_renko.iloc[-2]["close"]
-                print(f"found new stop loss and low {self._low}")
-                return True
-            return False
+            return (
+                self.trade.last_price >= self._highest
+                and self._df_renko.iloc[-2]["close"] > self._df_renko.iloc[-2]["open"]
+            )
         except Exception as e:
             print(f"{e} error in is_buy_signal")
 
     def enter_on_buy_signal(self):
         try:
+            stoploss = self._df_renko.iloc[-3]["low"]
             if self._time_mgr.can_trade and self._is_buy_signal():
                 self.trade.side = "B"
                 self.trade.price = self.trade.last_price + 2
@@ -67,18 +63,18 @@ class Renko:
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry"
                 buy_order = self._trade_manager.complete_entry(self.trade)
-                if buy_order is not None:
+                if buy_order.order_id is not None:
                     self.trade.side = "S"
                     self.trade.disclosed_quantity = 0
-                    self.trade.price = self._low - 2
-                    self.trade.trigger_price = self._low
+                    self.trade.price = stoploss - 2
+                    self.trade.trigger_price = stoploss
                     self.trade.order_type = "SL-LMT"
                     self.trade.tag = "stoploss"
                     sell_order = self._trade_manager.pending_exit(self.trade)
-                    if sell_order is None:
-                        raise Exception("sell order is not found")
-                    else:
+                    if sell_order.order_id is not None:
                         self._fn = "exit_on_sell_signal"
+                    else:
+                        raise Exception("sell order is not found")
                 else:
                     logging.warning(
                         f"ignoring buy signal for {self.trade.symbol} because unable to place order"
@@ -174,7 +170,14 @@ class Renko:
                 self.fig.canvas.flush_events
                 plt.pause(0.001)  # 👈 required to allow the GUI event loop to update
 
-            return getattr(self, self._fn)()
+            method_returned = getattr(self, self._fn)()
+
+            self._highest = (
+                self.trade.last_price
+                if self.trade.last_price > self._highest
+                else self._highest
+            )
+            return method_returned
         except Exception as e:
             logging.error(f"{e} in run")
             print_exc()
