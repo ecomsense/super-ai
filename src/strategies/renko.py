@@ -150,14 +150,15 @@ class Renko:
                 self.trade.last_price = float(ltp)
 
             self._df_renko = self.common_func()
+
+            print(self._df_renko.tail(5))
+
             if self._df_renko is None or self._df_renko.empty:
                 print("No data to plot.")
                 return
             elif len(self._df_renko) < MIN_CANDLES_REQUIRED:
                 print(f"candles are less than {MIN_CANDLES_REQUIRED}")
                 return
-            else:
-                print(self._df_renko.tail(5))
 
             if GFX:
                 self.ax1.clear()
