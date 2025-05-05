@@ -179,6 +179,7 @@ class Renko:
                 if self.trade.last_price > self._highest
                 else self._highest
             )
+            logging.info(f"highest:{self._highest} ltp:{self.trade.last_price}")
             return method_returned
         except Exception as e:
             logging.error(f"{e} in run")
