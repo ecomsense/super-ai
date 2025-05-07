@@ -52,12 +52,12 @@ class Openingbalance:
         try:
             if self.trade.last_price >= self._low and self._time_mgr.can_trade:
                 self.trade.side = "B"
+                self.trade.disclosed_quantity = None
                 self.trade.price = self.trade.last_price + 2
                 self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry"
                 buy_order = self._trade_manager.complete_entry(self.trade)
-
                 if buy_order.order_id is not None:
                     self.trade.side = "S"
                     self.trade.disclosed_quantity = 0
@@ -87,7 +87,7 @@ class Openingbalance:
             self._fill_price = float(order["fill_price"])
             self._fn = "try_exiting_trade"
         else:
-            logging.warning(
+            logging.error(
                 f"order not found {self._trade_manager.position.entry.order_id}"
             )
 
