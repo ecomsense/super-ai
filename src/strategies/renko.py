@@ -10,7 +10,7 @@ from helper import df_to_csv
 
 MAGIC = 15
 GFX = False
-MIN_CANDLES_REQUIRED = 3
+MIN_CANDLES_REQUIRED = 1
 
 if GFX:
     import mplfinance as mpf
@@ -18,45 +18,43 @@ if GFX:
 
 
 class Renko:
-    _orders = []
-    _target = None
-    _removable = False
-    _trade_manager = None
+    _candle_count = 1
     _df_renko = pd.DataFrame()
+    _orders = []
+    _removable = False
+    _target = None
+    _trade_manager = None
 
     def __init__(self, prefix, user_settings: dict, symbol_info: dict) -> None:
+        now = dt.now().timestamp()
+        self._brick_size = user_settings["brick_size"]
+        self._df_ticks = pd.DataFrame(
+            columns=["timestamp", "Symbol", "close"],
+            data=[[now, symbol_info["symbol"], symbol_info["ltp"]]],
+        )
+        self._highest = symbol_info["ltp"]
         self._prefix = prefix
+        self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
+        self.r = RenkoWS(now, symbol_info["ltp"], brick_size=self._brick_size)
         self.trade = Trade(
             symbol=symbol_info["symbol"],
             last_price=symbol_info["ltp"],
             exchange=user_settings["option_exchange"],
             quantity=user_settings["quantity"],
         )
-        self._brick_size = user_settings["brick_size"]
-        self._highest = symbol_info["ltp"]
-        self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
-        now = dt.now().timestamp()
-        self._df_ticks = pd.DataFrame(
-            columns=["timestamp", "Symbol", "close"],
-            data=[[now, self.trade.symbol, self.trade.last_price]],
-        )
-        self.r = RenkoWS(now, self.trade.last_price, brick_size=self._brick_size)
         if GFX:
             _ = self._initialize_plot()
         self._fn = "enter_on_buy_signal"
 
     def _is_buy_signal(self):
         try:
-            return (
-                self.trade.last_price >= self._highest
-                and self._df_renko.iloc[-2]["close"] > self._df_renko.iloc[-2]["open"]
-            )
+            return self.trade.last_price > self._highest
         except Exception as e:
             print(f"{e} error in is_buy_signal")
 
     def enter_on_buy_signal(self):
         try:
-            stoploss = self._df_renko.iloc[-3]["low"]
+            stoploss = self._highest
             if self._time_mgr.can_trade and self._is_buy_signal():
                 self.trade.side = "B"
                 self.trade.price = self.trade.last_price + 2
@@ -91,9 +89,7 @@ class Renko:
             __import__("sys").exit(1)
 
     def _is_sell_signal(self):
-        if self._df_renko.iloc[-2]["close"] < self._df_renko.iloc[-2]["open"]:
-            return True
-        return False
+        return self.trade.last_price < self._highest
 
     def _modify_to_exit(self):
         kwargs = dict(
@@ -108,6 +104,7 @@ class Renko:
 
     def exit_on_sell_signal(self):
         in_position = True
+
         order = self._trade_manager.find_order_if_exists(
             self._trade_manager.position.exit.order_id, self._orders
         )
@@ -116,6 +113,7 @@ class Renko:
         elif self._is_sell_signal():
             if self._modify_to_exit():
                 in_position = False
+
         if not in_position:
             self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
             self._fn = "enter_on_buy_signal"
@@ -185,11 +183,9 @@ class Renko:
 
             method_returned = getattr(self, self._fn)()
 
-            self._highest = (
-                self.trade.last_price
-                if self.trade.last_price > self._highest
-                else self._highest
-            )
+            if len(self._df_renko) > self._candle_count:
+                self._highest = self._df_renko.iloc[-1]["high"]
+                logging.debug("new candle detected")
             logging.debug(f"highest:{self._highest} ltp:{self.trade.last_price}")
             return method_returned
         except Exception as e:
