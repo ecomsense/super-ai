@@ -160,9 +160,7 @@ class Openingbalance:
             order_type="LIMIT",
             last_price=self.trade.last_price,
         )
-        if self._trade_manager.complete_exit(**kwargs):
-            return True
-        return False
+        return self._trade_manager.complete_exit(**kwargs):
 
     def try_exiting_trade(self):
         try:
@@ -173,9 +171,10 @@ class Openingbalance:
                 self._fn = "is_trading_below_low"
                 return True
             elif self.trade.last_price >= self._trade_manager.position.target_price:
-                if self._modify_to_exit():
-                    self._fn = "remove_me"
-                    return self._prefix
+                resp = self._modify_to_exit()
+                logging.debug(f"modify returned {resp}")
+                self._fn = "remove_me"
+                return self._prefix
             else:
                 msg = (
                     f"{self.trade.symbol} target: {self._trade_manager.position.target_price} < {self.trade.last_price} > sl: {self._low} "
@@ -188,7 +187,9 @@ class Openingbalance:
             print_exc()
 
     def remove_me(self):
-        if self._fn == "try_exiting_trade":
+        if self._fn == "find_fill_price":
+            self.find_fill_price()
+        elif self._fn == "try_exiting_trade":
             logging.info(f"{self.trade.symbol} going to REMOVE after force modify")
             _ = self._modify_to_exit()
         else:
