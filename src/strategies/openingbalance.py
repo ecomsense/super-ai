@@ -11,7 +11,6 @@ from traceback import print_exc
 from time_manager import TimeManager
 import pendulum as pdlm
 from trade import Trade
-from toolkit.kokoo import timer
 
 
 class Openingbalance:
@@ -56,26 +55,17 @@ class Openingbalance:
                 self.trade.price = self.trade.last_price + 2
                 self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
-                self.trade.tag = "entry"
+                self.trade.tag = "entry_ob"
+                self.trade.filled_price = None
+                self.trade.status = None
+                self.trade.order_id = None
                 buy_order = self._trade_manager.complete_entry(self.trade)
                 if buy_order.order_id is not None:
-                    self.trade.side = "S"
-                    self.trade.disclosed_quantity = 0
-                    self.trade.price = self._low - 2
-                    self.trade.trigger_price = self._low
-                    self.trade.order_type = "SL-LMT"
-                    self.trade.tag = "stoploss"
-                    sell_order = self._trade_manager.pending_exit(self.trade)
-                    if sell_order.order_id is not None:
-                        self._fn = "find_fill_price"
-                    else:
-                        raise Exception("sell order is not found")
+                    self._fn = "find_fill_price"
                 else:
                     logging.warning(
-                        f"got {buy_order} instead of buy order for {self.trade.symbol}"
+                        f"got {buy_order} without buy order order id {self.trade.symbol}"
                     )
-                    logging.info("sleeping")
-                    timer(5)
         except Exception as e:
             print(f"{e} while waiting for breakout")
 
@@ -85,10 +75,24 @@ class Openingbalance:
         )
         if isinstance(order, dict):
             self._fill_price = float(order["fill_price"])
-            self._fn = "try_exiting_trade"
+            # place sell order only if buy order is filled
+            self.trade.side = "S"
+            self.trade.disclosed_quantity = 0
+            self.trade.price = self._low - 2
+            self.trade.trigger_price = self._low
+            self.trade.order_type = "SL-LMT"
+            self.trade.tag = "sl_ob"
+            self.trade.filled_price = None
+            self.trade.status = None
+            self.trade.order_id = None
+            sell_order = self._trade_manager.pending_exit(self.trade)
+            if sell_order.order_id is not None:
+                self._fn = "try_exiting_trade"
+            else:
+                logging.error(f"id is not found for sell {sell_order}")
         else:
             logging.error(
-                f"order not found {self._trade_manager.position.entry.order_id}"
+                f"order {self._trade_manager.position.entry.order_id} not complete"
             )
 
     def _set_target(self):
@@ -153,8 +157,7 @@ class Openingbalance:
     def _modify_to_exit(self):
         kwargs = dict(
             trigger_price=0.0,
-            order_type="LMT",
-            tag=None,
+            order_type="LIMIT",
             last_price=self.trade.last_price,
         )
         if self._trade_manager.complete_exit(**kwargs):

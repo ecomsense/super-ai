@@ -1,6 +1,7 @@
 from dataclasses import dataclass, asdict, field
 from typing import Optional
 from trade import Trade
+from constants import logging
 
 
 @dataclass(slots=True)
@@ -55,9 +56,19 @@ class TradeManager:
         return
 
     def complete_exit(self, **kwargs):
-        exit_order_args = asdict(self.position.exit)
-        print(f"contents of position.ext {exit_order_args}")
-        exit_order_args.update(kwargs)
-        exit_order_args = {k: v for k, v in exit_order_args.items() if v is not None}
-        self.stock_broker.order_modify(**exit_order_args)
-        return True
+        try:
+            exit_order_args = dict(
+                order_id=self.position.exit.order_id,
+                symbol=self.position.exit.symbol,
+                quantity=self.position.exit.quantity,
+                disclosed_quantity=self.position.exit.disclosed_quantity,
+                product=self.position.exit.product,
+                side=self.position.exit.side,
+                price=self.position.exit.price,
+                exchange=self.position.exit.exchange,
+            )
+            exit_order_args.update(kwargs)
+            logging.debug(f"contents of position.ext {exit_order_args}")
+            return self.stock_broker.order_modify(**exit_order_args)
+        except Exception as e:
+            logging.error(f"Error in complete_exit {e}")

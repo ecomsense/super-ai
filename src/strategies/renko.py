@@ -54,7 +54,6 @@ class Renko:
 
     def enter_on_buy_signal(self):
         try:
-            stoploss = self._highest
             if self._time_mgr.can_trade and self._is_buy_signal():
                 self.trade.side = "B"
                 self.trade.price = self.trade.last_price + 2
@@ -62,31 +61,45 @@ class Renko:
                 self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry"
+                self.trade.filled_price: None
+                self.trade.status: None
+                self.trade.order_id: None
                 buy_order = self._trade_manager.complete_entry(self.trade)
+                df_to_csv(
+                    df=self._df_renko,
+                        csv_file=f"entry_{pdlm.now().format('HH:mm:ss')}.csv",
+                )
                 if buy_order.order_id is not None:
-                    self.trade.side = "S"
-                    self.trade.disclosed_quantity = 0
-                    self.trade.price = stoploss - 2
-                    self.trade.trigger_price = stoploss
-                    self.trade.order_type = "SL-LMT"
-                    self.trade.tag = "stoploss"
-                    sell_order = self._trade_manager.pending_exit(self.trade)
-                    if sell_order.order_id is not None:
-                        self._fn = "exit_on_sell_signal"
-                        df_to_csv(
-                            df=self._df_renko,
-                            csv_file=f"entry_{dt.now().timestamp()}.csv",
-                        )
-                    else:
-                        raise Exception("sell order is not found")
-                else:
-                    logging.warning(
-                        f"ignoring buy signal for {self.trade.symbol} because unable to place order"
-                    )
-                    print_exc()
+                    self._fn = "place_stop_order"
         except Exception as e:
             logging.error(f"{e} exiting")
             __import__("sys").exit(1)
+
+    def place_stop_order(self):
+        stoploss = min(self._highest, self.trade.last_price)
+        order = self._trade_manager.find_order_if_exists(
+            self._trade_manager.position.entry.order_id, self._orders
+        )
+        if isinstance(order, dict):
+            self.trade.side = "S"
+            self.trade.disclosed_quantity = 0
+            self.trade.price = stoploss - 2
+            self.trade.trigger_price = stoploss
+            self.trade.order_type = "SL-LMT"
+            self.trade.tag = "stoploss"
+            self.trade.filled_price: None
+            self.trade.status: None
+            self.trade.order_id: None
+            sell_order = self._trade_manager.pending_exit(self.trade)
+            if sell_order.order_id is not None:
+                self._fn = "exit_on_sell_signal"
+            else:
+                raise Exception("sell order id is not found")
+        else:
+            logging.warning(
+                f"ignoring buy signal for {self.trade.symbol} because unable to complete order"
+            )
+            print_exc()
 
     def _is_sell_signal(self):
         return self.trade.last_price < self._highest
@@ -94,13 +107,11 @@ class Renko:
     def _modify_to_exit(self):
         kwargs = dict(
             trigger_price=0.0,
-            order_type="LMT",
-            tag=None,
+            order_type="LIMIT",
+            tag="renko_modify",
             last_price=self.trade.last_price,
         )
-        if self._trade_manager.complete_exit(**kwargs):
-            return True
-        return False
+        return self._trade_manager.complete_exit(**kwargs):
 
     def exit_on_sell_signal(self):
         in_position = True
@@ -111,15 +122,20 @@ class Renko:
         if isinstance(order, dict):
             in_position = False
         elif self._is_sell_signal():
-            if self._modify_to_exit():
-                in_position = False
+            resp = self._modify_to_exit()
+            logging.debug(f"modify returned {resp}")
+            df_to_csv(
+                df=self._df_renko,
+                    csv_file=f"modify_{pdlm.now().format('HH:mm:ss')}.csv",
+            )
+            in_position = False
 
         if not in_position:
             self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
             self._fn = "enter_on_buy_signal"
             df_to_csv(
                 df=self._df_renko,
-                csv_file=f"exit_{dt.now().timestamp()}.csv",
+                csv_file=f"exit_{pdlm.now().format('HH:mm:ss')}.csv",
             )
 
     def _initialize_plot(self):
