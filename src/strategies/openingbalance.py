@@ -155,12 +155,16 @@ class Openingbalance:
             print_exc()
 
     def _modify_to_exit(self):
-        kwargs = dict(
-            trigger_price=0.0,
-            order_type="LIMIT",
-            last_price=self.trade.last_price,
-        )
-        return self._trade_manager.complete_exit(**kwargs):
+        try:
+            kwargs = dict(
+                trigger_price=0.0,
+                order_type="LIMIT",
+                last_price=self.trade.last_price,
+            )
+            return self._trade_manager.complete_exit(**kwargs)
+        except Exception as e:
+            logging.error(f"{e} while modify to exit {self.trade.symbol}")
+            print_exc()
 
     def try_exiting_trade(self):
         try:
