@@ -116,7 +116,8 @@ class Openingbalance:
                         ]
                     )
                     rate_to_be_added = abs(total_rpnl) / self.trade.quantity
-                    txn_cost = int(count * self._txn / 2) + self._txn
+                    txn_cost = count * self._txn / 2
+                    txn_cost = txn_cost + 0.5 if txn_cost % 1 == 0.5 else txn_cost
                     logging.debug(
                         f"txn: {txn_cost} = orders:{count} * txn_rate:{self._txn} / 2"
                     )
