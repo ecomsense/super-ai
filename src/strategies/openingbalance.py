@@ -19,7 +19,6 @@ class Openingbalance:
     _fill_price = 0
     _sell_order = None
     _orders = []
-    _is_trading_below_low = False
     _target_price = None
     _removable = False
     _trade_manager = None
@@ -38,13 +37,17 @@ class Openingbalance:
         self._txn = user_settings["txn"]
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "is_trading_below_low"
+        logging.info(f"low is {self._low} for {self.trade.symbol}")
 
     def is_trading_below_low(self) -> bool:
         """checks if symbol is trading below or equal to low and return true or false"""
-        if self.trade.last_price <= self._low:
+        Flag = False
+        if hasattr(self, "_is_trading_below_low") or self.trade.last_price <= self._low:
             self._is_trading_below_low = True
+            Flag = True 
             self._fn = "wait_for_breakout"
-        return self._is_trading_below_low
+        return Flag
+
 
     def wait_for_breakout(self):
         """if trading below above is true, we wait for ltp to be equal or greater than low"""
@@ -172,7 +175,6 @@ class Openingbalance:
             self._set_target()
             if self._is_stoploss_hit():
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
-                self._is_trading_below_low = False
                 self._fn = "is_trading_below_low"
                 return True
             elif self.trade.last_price >= self._trade_manager.position.target_price:

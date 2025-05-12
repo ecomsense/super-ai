@@ -282,7 +282,7 @@ class RestApi:
                 "rpnl",
             ]
             """
-            if any(resp):
+            if resp and any(resp):
                 pd.DataFrame(resp).to_csv(S_DATA + "positions.csv", index=False)
                 # calc value
                 # list []
@@ -331,7 +331,7 @@ if __name__ == "__main__":
 
         def orders():
             resp = Helper._api.broker.get_order_book()
-            if any(resp):
+            if resp and any(resp):
                 pd.DataFrame(resp).to_csv(S_DATA + "orders.csv", index=False)
                 print(pd.DataFrame(resp))
             else:
