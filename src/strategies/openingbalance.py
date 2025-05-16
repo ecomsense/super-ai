@@ -94,7 +94,7 @@ class Openingbalance:
             resp = Helper._rest.positions()
             if resp and any(resp):
                 total_rpnl = sum(
-                    item["rpnl"]
+                    item["rpnl"] + item["urmtom"]
                     for item in resp
                     if item["symbol"].startswith(self._prefix)
                 )
