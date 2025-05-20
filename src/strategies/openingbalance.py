@@ -98,8 +98,13 @@ class Openingbalance:
                     for item in resp
                     if item["symbol"].startswith(self._prefix)
                 )
-                m2m = next(item["urmtom"] for item in resp if item["symbol"] == self.trade.symbol,
-                    0
+                m2m = next(
+                    (
+                        item["urmtom"]
+                        for item in resp
+                        if item["symbol"] == self.trade.symbol
+                    ),
+                    0,
                 )
                 total_profit = total_profit - m2m if m2m > 0 else total_profit
                 logging.debug(f"looking to add loss if any {total_profit=}")
