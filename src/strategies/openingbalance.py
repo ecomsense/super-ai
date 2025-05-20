@@ -93,13 +93,17 @@ class Openingbalance:
             logging.debug(f"setting target for {self.trade.symbol}")
             resp = Helper._rest.positions()
             if resp and any(resp):
-                total_rpnl = sum(
+                total_profit = sum(
                     item["rpnl"] + item["urmtom"]
                     for item in resp
                     if item["symbol"].startswith(self._prefix)
                 )
-                logging.debug(f"looking to add loss if any {total_rpnl=}")
-                if total_rpnl < 0:
+                m2m = next(item["urmtom"] for item in resp if item["symbol"] == self.trade.symbol,
+                    0
+                )
+                total_profit = total_profit - m2m if m2m > 0 else total_profit
+                logging.debug(f"looking to add loss if any {total_profit=}")
+                if total_profit < 0:
                     count = len(
                         [
                             order
@@ -107,7 +111,7 @@ class Openingbalance:
                             if order["symbol"].startswith(self._prefix)
                         ]
                     )
-                    rate_to_be_added = abs(total_rpnl) / self.trade.quantity
+                    rate_to_be_added = abs(total_profit) / self.trade.quantity
                     txn_cost = count * self._txn / 2
                     txn_cost = txn_cost + 0.5 if txn_cost % 1 == 0.5 else txn_cost
                     logging.debug(
@@ -115,7 +119,7 @@ class Openingbalance:
                     )
                     rate_to_be_added += txn_cost
                     logging.debug(
-                        f"final {rate_to_be_added=} because of negative {total_rpnl=} and {txn_cost=} "
+                        f"final {rate_to_be_added=} because of negative {total_profit=} and {txn_cost=} "
                     )
             else:
                 logging.warning(f"no positions for {self.trade.symbol} in {resp}")
