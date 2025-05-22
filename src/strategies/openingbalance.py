@@ -1,10 +1,3 @@
-"""
-Purchase price for each trade plus 5% should be auto exit separately
-Options stike chart respective 9.16 one min candle low will be stop loss
-Buy will be manual  and sell will be algo with both target and stoploss.
-Multiple trades will be triggered and to be tracked separetely.
-"""
-
 from constants import logging, O_SETG
 from helper import Helper
 from traceback import print_exc
@@ -14,16 +7,19 @@ from trade import Trade
 
 
 class Openingbalance:
-    _id = None
-    _buy_order = {}
-    _fill_price = 0
-    _sell_order = None
-    _orders = []
-    _target_price = None
-    _removable = False
-    _trade_manager = None
 
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict):
+        self._id = None
+        self._buy_order = {}
+        self._fill_price = 0
+        self._sell_order = None
+        self._orders = []
+        self._target_price = None
+        self._removable = False
+        self._trade_manager = None
+        self._reduced_target_sequence = 0
+        self._t1 = 10
+        self._t2 = 2
         self._prefix = prefix
         self.trade = Trade(
             symbol=symbol_info["symbol"],
@@ -33,10 +29,25 @@ class Openingbalance:
         )
         self._low = float(symbol_info["low"])
         self._stop = symbol_info["low"]
-        self._target = user_settings["target"]
+        self._target = self._t1
         self._txn = user_settings["txn"]
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "wait_for_breakout"
+
+    @property
+    def reduced_target_sequence(self):
+        return self._reduced_target_sequence
+
+    @reduced_target_sequence.setter
+    def reduced_target_sequence(self, sequence):
+        if self._reduced_target_sequence == sequence - 1:
+            self._reduced_target_sequence = sequence
+            logging.info(f"new target sequence reached {self._reduced_target_sequence}")
+
+    def _reset_trade(self):
+        self.trade.filled_price = None
+        self.trade.status = None
+        self.trade.order_id = None
 
     def wait_for_breakout(self):
         """if trading below above is true, we wait for ltp to be equal or greater than low"""
@@ -48,12 +59,11 @@ class Openingbalance:
                 self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry_ob"
-                self.trade.filled_price = None
-                self.trade.status = None
-                self.trade.order_id = None
+                self._reset_trade()
                 buy_order = self._trade_manager.complete_entry(self.trade)
                 if buy_order.order_id is not None:
                     self._fn = "find_fill_price"
+                    self.reduced_target_sequence = 1
                 else:
                     logging.warning(
                         f"got {buy_order} without buy order order id {self.trade.symbol}"
@@ -74,9 +84,7 @@ class Openingbalance:
             self.trade.trigger_price = self._low
             self.trade.order_type = "SL-LMT"
             self.trade.tag = "sl_ob"
-            self.trade.filled_price = None
-            self.trade.status = None
-            self.trade.order_id = None
+            self._reset_trade()
             sell_order = self._trade_manager.pending_exit(self.trade)
             if sell_order.order_id is not None:
                 self._fn = "try_exiting_trade"
