@@ -10,7 +10,7 @@ if tmux has-session -t "$sess" 2>/dev/null; then
 else
   # If the session doesn't exist, create it
   echo "updating"
-  #git reset --hard && git pull
+  git reset --hard && git pull
   echo "Creating and attaching to session $sess."
   tmux new-session -d -s "$sess"
   tmux send-keys -t "$sess" "cd src" C-m
