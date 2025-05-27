@@ -29,7 +29,7 @@ class Openingbalance:
         )
         self._low = float(symbol_info["low"])
         self._stop = symbol_info["low"]
-        self._target = self._t1
+        self._target = user_settings["target"]
         self._txn = user_settings["txn"]
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "wait_for_breakout"
@@ -187,6 +187,7 @@ class Openingbalance:
         except Exception as e:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
+
     def try_exiting_trade(self):
         try:
             self._set_target()
