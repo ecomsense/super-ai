@@ -176,11 +176,26 @@ class Openingbalance:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
 
+    def _modify_to_kill(self):
+        try:
+            kwargs = dict(
+                price=0.0,
+                order_type="MARKET",
+                last_price=self.trade.last_price,
+            )
+            return self._trade_manager.complete_exit(**kwargs)
+        except Exception as e:
+            logging.error(f"{e} while modify to exit {self.trade.symbol}")
+            print_exc()
     def try_exiting_trade(self):
         try:
             self._set_target()
             if self._is_stoploss_hit():
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+                self._fn = "wait_for_breakout"
+            elif self.trade.last_price< self._low:
+                resp = self._modify_to_kill()
+                logging.debug(f"kill returned {resp}")
                 self._fn = "wait_for_breakout"
             elif self.trade.last_price >= self._trade_manager.position.target_price:
                 resp = self._modify_to_exit()
