@@ -247,10 +247,10 @@ class Openingbalance:
 
             for id, info in sequence_info.items():
                 if (
-                    id != self._id and 
-                    info["_prefix"] == self._prefix and 
-                    info["_reduced_target_sequence"] == 2 and
-                    self.reduced_target_sequence() == 2
+                    id != self._id and #if ce != pe
+                    info["_prefix"] == self._prefix and # if nifty == nifty
+                    info["_reduced_target_sequence"] == 2 and # if pe tgt seq == 2
+                    self.reduced_target_sequence == 2 # if my (ce) tgt seq == 2
                 ):
                     self._target = self._t2
                     break
