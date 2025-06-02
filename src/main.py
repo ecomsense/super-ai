@@ -224,13 +224,19 @@ def main():
         strategies: list = create_strategies(symbols_to_trade)
 
         strgy_to_be_removed = []
+        sequence_info = {}
         while not is_time_past(O_SETG["trade"]["stop"]):
             for strgy in strategies:
                 msg = f"{strgy.trade.symbol} ltp:{strgy.trade.last_price} {strgy._fn}"
+                sequence_info[strgy._id]  = dict(
+                    _prefix = strgy._prefix,
+                    _reduced_target_sequence = strgy._reduced_target_sequence
+                )
                 resp = strgy.run(
                     Helper._rest.trades(),
                     Helper._quote.get_quotes(),
                     strgy_to_be_removed,
+                    sequence_info
                 )
                 if isinstance(resp, str):
                     strgy_to_be_removed.append(resp)

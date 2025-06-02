@@ -9,7 +9,7 @@ from trade import Trade
 class Openingbalance:
 
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict):
-        self._id = None
+        self._id = symbol_info["symbol"]
         self._buy_order = {}
         self._fill_price = 0
         self._sell_order = None
@@ -29,7 +29,8 @@ class Openingbalance:
         )
         self._low = float(symbol_info["low"])
         self._stop = symbol_info["low"]
-        self._target = user_settings["target"]
+        # self._target = user_settings["target"]
+        self._target = self._t1
         self._txn = user_settings["txn"]
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "wait_for_breakout"
@@ -194,10 +195,12 @@ class Openingbalance:
             if self._is_stoploss_hit():
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
+                self.reduced_target_sequence = 2
             elif self.trade.last_price< self._low:
                 resp = self._modify_to_kill()
                 logging.debug(f"kill returned {resp}")
                 self._fn = "wait_for_breakout"
+                self.reduced_target_sequence = 2
             elif self.trade.last_price >= self._trade_manager.position.target_price:
                 resp = self._modify_to_exit()
                 logging.debug(f"modify returned {resp}")
@@ -209,6 +212,7 @@ class Openingbalance:
                     f"Remaining to target: {int(((self._trade_manager.position.target_price - self.trade.last_price) / (self._trade_manager.position.target_price - self._low)) * 100)}%"
                 )
                 logging.info(msg)
+
 
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -230,18 +234,31 @@ class Openingbalance:
         self._fn = "remove_me"
         self._removable = True
 
-    def run(self, orders, ltps, prefixes: list):
+    def run(self, orders, ltps, prefixes: list, sequence_info: dict):
         try:
             self._orders = orders
+
             ltp = ltps.get(self.trade.symbol, None)
             if ltp is not None:
                 self.trade.last_price = float(ltp)
+
             if self._prefix in prefixes:
                 self.remove_me()
+
+            for id, info in sequence_info.items():
+                if (
+                    id != self._id and 
+                    info["_prefix"] == self._prefix and 
+                    info["_reduced_target_sequence"] == 2 and
+                    self.reduced_target_sequence() == 2
+                ):
+                    self._target = self._t2
+                    break
+
             result = getattr(self, self._fn)()
             return result
         except Exception as e:
-            logging.error(f"{e} in run for buy order {self._id}")
+            logging.error(f"{e} in running {self.trade.symbol}")
             print_exc()
 
 
