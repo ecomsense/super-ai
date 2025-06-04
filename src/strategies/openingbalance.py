@@ -243,16 +243,18 @@ class Openingbalance:
 
             if self._prefix in prefixes:
                 self.remove_me()
-
-            for id, info in sequence_info.items():
-                if (
-                    id != self._id and #if ce != pe
-                    info["_prefix"] == self._prefix and # if nifty == nifty
-                    info["_reduced_target_sequence"] == 2 and # if pe tgt seq == 2
-                    self.reduced_target_sequence == 2 # if my (ce) tgt seq == 2
-                ):
-                    self._target = self._t2
-                    break
+            
+            if self._target != self._t2:
+                for id, info in sequence_info.items():
+                    if (
+                        id != self._id and #if ce != pe
+                        info["_prefix"] == self._prefix and # if nifty == nifty
+                        info["_reduced_target_sequence"] == 2 and # if pe tgt seq == 2
+                        self.reduced_target_sequence == 2 # if my (ce) tgt seq == 2
+                    ):
+                        logging.warning(f"{self._target} TARGET is going to be altered to {self._t2}")
+                        self._target = self._t2
+                        break
 
             result = getattr(self, self._fn)()
             return result
