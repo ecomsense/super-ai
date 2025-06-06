@@ -60,7 +60,7 @@ def is_not_rate_limited(func):
     def wrapper(*args, **kwargs):
         while pdlm.now() < Helper.wait_till:
             blink()
-        Helper.wait_till = pdlm.now().add(seconds=2)
+        Helper.wait_till = pdlm.now().add(seconds=1)
         return func(*args, **kwargs)
 
     return wrapper

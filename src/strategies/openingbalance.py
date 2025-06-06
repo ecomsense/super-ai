@@ -97,10 +97,11 @@ class Openingbalance:
 
     def _set_target(self):
         try:
-            rate_to_be_added = 0
+            rate_to_be_added = txn_cost = 0
             logging.debug(f"setting target for {self.trade.symbol}")
             resp = Helper._rest.positions()
             if resp and any(resp):
+                # calculate other trade pnl
                 total_profit = sum(
                     item["rpnl"] + item["urmtom"]
                     for item in resp
@@ -114,34 +115,37 @@ class Openingbalance:
                     ),
                     0,
                 )
-                total_profit = total_profit - m2m if m2m > 0 else total_profit
-                logging.debug(f"looking to add loss if any {total_profit=}")
+                total_profit = total_profit - abs(m2m)
+                logging.debug(f"{total_profit=} excluding current {m2m=} if in profit")
+
+                # calculate txn cost
+                count = len(
+                    [
+                        order
+                        for order in self._orders
+                        if order["symbol"].startswith(self._prefix)
+                    ]
+                )
+                count = 1 if count == 0 else count/2
+                count = count + 0.5 if txn_cost % 1 == 0.5 else count
+                txn_cost = count * self._txn
+                logging.debug(
+                    f"{txn_cost=} trades{count} * txn_rate:{self._txn}"
+                )
+
                 if total_profit < 0:
-                    count = len(
-                        [
-                            order
-                            for order in self._orders
-                            if order["symbol"].startswith(self._prefix)
-                        ]
-                    )
                     rate_to_be_added = abs(total_profit) / self.trade.quantity
-                    txn_cost = count * self._txn / 2
-                    txn_cost = txn_cost + 0.5 if txn_cost % 1 == 0.5 else txn_cost
                     logging.debug(
-                        f"txn: {txn_cost} = orders:{count} * txn_rate:{self._txn} / 2"
-                    )
-                    rate_to_be_added += txn_cost
-                    logging.debug(
-                        f"final {rate_to_be_added=} because of negative {total_profit=} and {txn_cost=} "
+                        f"{rate_to_be_added=} because of negative {total_profit=}"
                     )
             else:
                 logging.warning(f"no positions for {self.trade.symbol} in {resp}")
 
             target_buffer = self._target * self._fill_price / 100
-            target_virtual = self._fill_price + target_buffer + rate_to_be_added
+            target_virtual = self._fill_price + target_buffer + rate_to_be_added + txn_cost
+            logging.debug(f"TARGET: {target_virtual} fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}")
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
-
         except Exception as e:
             print_exc()
             logging.error(f"{e} while set target")
@@ -195,7 +199,7 @@ class Openingbalance:
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
                 self.reduced_target_sequence = 2
-            elif self.trade.last_price< self._low:
+            elif self.trade.last_price <= self._low:
                 resp = self._modify_to_kill()
                 logging.debug(f"kill returned {resp}")
                 self._fn = "wait_for_breakout"
