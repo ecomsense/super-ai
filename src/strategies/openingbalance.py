@@ -144,6 +144,8 @@ class Openingbalance:
             target_buffer = self._target * self._fill_price / 100
             target_virtual = self._fill_price + target_buffer + rate_to_be_added + txn_cost
             logging.debug(f"TARGET: {target_virtual} fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}")
+            TARGET = (target_virtual - target_buffer - self.trade.last_price) / self._fill_price x 100
+            logging.debug(f"TARGET: {TARGET}")
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
         except Exception as e:
@@ -212,7 +214,6 @@ class Openingbalance:
             else:
                 msg = (
                     f"{self.trade.symbol} target: {self._trade_manager.position.target_price} < {self.trade.last_price} > sl: {self._low} "
-                    f"Remaining to target: {int(((self._trade_manager.position.target_price - self.trade.last_price) / (self._trade_manager.position.target_price - self._low)) * 100)}%"
                 )
                 logging.info(msg)
 
