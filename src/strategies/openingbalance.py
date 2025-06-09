@@ -126,12 +126,10 @@ class Openingbalance:
                         if order["symbol"].startswith(self._prefix)
                     ]
                 )
-                count = 1 if count == 0 else count/2
+                count = 1 if count == 0 else count / 2
                 count = count + 0.5 if txn_cost % 1 == 0.5 else count
                 txn_cost = count * self._txn
-                logging.debug(
-                    f"{txn_cost=} trades{count} * txn_rate:{self._txn}"
-                )
+                logging.debug(f"{txn_cost=} trades{count} * txn_rate:{self._txn}")
 
                 if total_profit < 0:
                     rate_to_be_added = abs(total_profit) / self.trade.quantity
@@ -142,9 +140,17 @@ class Openingbalance:
                 logging.warning(f"no positions for {self.trade.symbol} in {resp}")
 
             target_buffer = self._target * self._fill_price / 100
-            target_virtual = self._fill_price + target_buffer + rate_to_be_added + txn_cost
-            logging.debug(f"TARGET: {target_virtual} fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}")
-            TARGET = (target_virtual - target_buffer - self.trade.last_price) / self._fill_price x 100
+            target_virtual = (
+                self._fill_price + target_buffer + rate_to_be_added + txn_cost
+            )
+            logging.debug(
+                f"TARGET: {target_virtual} fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}"
+            )
+            TARGET = (
+                (target_virtual - target_buffer - self.trade.last_price)
+                / self._fill_price
+                * 100
+            )
             logging.debug(f"TARGET: {TARGET}")
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
@@ -212,11 +218,8 @@ class Openingbalance:
                 self._fn = "remove_me"
                 return self._prefix
             else:
-                msg = (
-                    f"{self.trade.symbol} target: {self._trade_manager.position.target_price} < {self.trade.last_price} > sl: {self._low} "
-                )
+                msg = f"{self.trade.symbol} target: {self._trade_manager.position.target_price} < {self.trade.last_price} > sl: {self._low} "
                 logging.info(msg)
-
 
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -248,16 +251,18 @@ class Openingbalance:
 
             if self._prefix in prefixes:
                 self.remove_me()
-            
+
             if self._target != self._t2:
                 for id, info in sequence_info.items():
                     if (
-                        id != self._id and #if ce != pe
-                        info["_prefix"] == self._prefix and # if nifty == nifty
-                        info["_reduced_target_sequence"] == 2 and # if pe tgt seq == 2
-                        self.reduced_target_sequence == 2 # if my (ce) tgt seq == 2
+                        id != self._id  # if ce != pe
+                        and info["_prefix"] == self._prefix  # if nifty == nifty
+                        and info["_reduced_target_sequence"] == 2  # if pe tgt seq == 2
+                        and self.reduced_target_sequence == 2  # if my (ce) tgt seq == 2
                     ):
-                        logging.warning(f"{self._target} TARGET is going to be altered to {self._t2}")
+                        logging.warning(
+                            f"{self._target} TARGET is going to be altered to {self._t2}"
+                        )
                         self._target = self._t2
                         break
 
