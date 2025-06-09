@@ -74,10 +74,58 @@ def find_instrument_tokens_to_trade(symbols_to_trade) -> dict[str, Any]:
         return {}
 
 
-def _find_trading_symbol(
+def find_tradingsymbol_by_ltp(
     ce_or_pe: Literal["C", "P"], symbol_item: dict[str, Any]
 ) -> dict[str, Any]:
     """
+    find trading symbol to trade based on the atm giuser_settingsen the
+    symbol item
+
+    Args:
+        ce_or_pe (Literal["C", "P"]): A string that denotes Call or Put
+        symbol_item (dict[str, Any]): symbol item selected to find trading symbol
+
+    Returns:
+        symbol_info: trading symbol
+
+    Raises:
+        Exception: If there is any error
+
+    """
+    try:
+        for keyword, user_settings in symbol_item.items():
+            sym = Symbols(
+                option_exchange=user_settings["option_exchange"],
+                base=user_settings["base"],
+                expiry=user_settings["expiry"],
+            )
+            exchange = dct_sym[keyword]["exchange"]
+            # TODO will be missing in futures
+            token = dct_sym[keyword]["token"]
+            ltp_for_underlying = Helper._rest.ltp(exchange, token)
+            # find from ltp
+            atm = sym.get_atm(ltp_for_underlying)
+            logging.info(f"atm {atm} for underlying {keyword} from {ltp_for_underlying=}")
+            result = sym.find_option_by_distance(
+                atm=atm,
+                distance=user_settings["moneyness"],
+                c_or_p=ce_or_pe,
+                dct_symbols=Helper.tokens_for_all_trading_symbols,
+            )
+            symbol_info: dict[str, Any] = Helper._quote.symbol_info(
+                user_settings["option_exchange"], result["symbol"]
+            )
+            return symbol_info
+    except Exception as e:
+        logging.error(f"{e} while finding the trading symbol")
+        print_exc()
+        return {}
+
+def find_tradingsymbol_by_low(
+    ce_or_pe: Literal["C", "P"], symbol_item: dict[str, Any]
+) -> dict[str, Any]:
+    """
+    note used
     find trading symbol to trade based on the atm giuser_settingsen the
     symbol item
 
@@ -187,8 +235,7 @@ def create_strategies(symbols_to_trade: dict[str, Any]) -> list:
         for prefix, user_settings in symbols_to_trade.items():
             lst_of_option_type = ["C", "P"]
             for option_type in lst_of_option_type:
-                symbol_info = _find_trading_symbol(option_type, {prefix: user_settings})
-                # symbol_info = _temp(option_type, {prefix: user_settings})
+                symbol_info = find_tradingsymbol_by_ltp(option_type, {prefix: user_settings})
                 if any(symbol_info):
                     strgy = Strategy(
                         prefix=prefix,
