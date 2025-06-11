@@ -77,14 +77,19 @@ def history(api, exchange, token):
                 .timestamp()
             )
             to = pdlm.now().subtract(days=0).timestamp()
-            data_now = [i]
-            while data_now is not None and len(data_now) == 1:
-                blink()
+            data_now = api.historical(exchange, token, fm, to)
+            # we have some data but it is not full
+            if data_now and len(data_now) == 1:
+                secs = 60
+                logging.debug(f"found partial low data, retrying after ..{secs} secs")
+                timer(secs)
                 data_now = api.historical(exchange, token, fm, to)
-
-            if data_now is not None and len(data_now) > 1:
+            if data_now and len(data_now) > 1:
+                logging.debug("successfully found low")
                 return data_now
+            blink()
             i += 1
+            logging.debug("rewinding to the previous day ..")
     except Exception as e:
         logging.error(f"{e} in history")
     """
