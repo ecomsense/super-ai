@@ -1,6 +1,6 @@
 from constants import logging, O_SETG
 from helper import Helper, history
-from toolkit.kokoo import is_time_past
+from toolkit.kokoo import is_time_past, timer
 from traceback import print_exc
 from symbols import Symbols, dct_sym
 from typing import Any, Literal
@@ -102,10 +102,18 @@ def find_tradingsymbol_by_ltp(
             exchange = dct_sym[keyword]["exchange"]
             # TODO will be missing in futures
             token = dct_sym[keyword]["token"]
-            ltp_for_underlying = Helper._rest.ltp(exchange, token)
+            i, ltp_for_underlying = 1, None
+            while not ltp_for_underlying:
+                logging.debug(f"try #{i} to find ltp for {user_settings['base']}")
+                ltp_for_underlying = Helper._rest.ltp(exchange, token)
+                logging.debug(f"found None and sleeping for {i} second(s)")
+                timer(i)
+                i += 1
             # find from ltp
             atm = sym.get_atm(ltp_for_underlying)
-            logging.info(f"atm {atm} for underlying {keyword} from {ltp_for_underlying=}")
+            logging.info(
+                f"atm {atm} for underlying {keyword} from {ltp_for_underlying=}"
+            )
             result = sym.find_option_by_distance(
                 atm=atm,
                 distance=user_settings["moneyness"],
@@ -120,6 +128,7 @@ def find_tradingsymbol_by_ltp(
         logging.error(f"{e} while finding the trading symbol")
         print_exc()
         return {}
+
 
 def find_tradingsymbol_by_low(
     ce_or_pe: Literal["C", "P"], symbol_item: dict[str, Any]
@@ -235,7 +244,9 @@ def create_strategies(symbols_to_trade: dict[str, Any]) -> list:
         for prefix, user_settings in symbols_to_trade.items():
             lst_of_option_type = ["C", "P"]
             for option_type in lst_of_option_type:
-                symbol_info = find_tradingsymbol_by_ltp(option_type, {prefix: user_settings})
+                symbol_info = find_tradingsymbol_by_ltp(
+                    option_type, {prefix: user_settings}
+                )
                 if any(symbol_info):
                     strgy = Strategy(
                         prefix=prefix,
@@ -275,15 +286,15 @@ def main():
         while not is_time_past(O_SETG["trade"]["stop"]):
             for strgy in strategies:
                 msg = f"{strgy.trade.symbol} ltp:{strgy.trade.last_price} {strgy._fn}"
-                sequence_info[strgy._id]  = dict(
-                    _prefix = strgy._prefix,
-                    _reduced_target_sequence = strgy._reduced_target_sequence
+                sequence_info[strgy._id] = dict(
+                    _prefix=strgy._prefix,
+                    _reduced_target_sequence=strgy._reduced_target_sequence,
                 )
                 resp = strgy.run(
                     Helper._rest.trades(),
                     Helper._quote.get_quotes(),
                     strgy_to_be_removed,
-                    sequence_info
+                    sequence_info,
                 )
                 if isinstance(resp, str):
                     strgy_to_be_removed.append(resp)
