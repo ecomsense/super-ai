@@ -6,6 +6,7 @@ from symbols import Symbols, dct_sym
 from typing import Any, Literal
 from importlib import import_module
 from trade_manager import TradeManager
+from strategies.pivot import Grid
 
 
 def get_symbols_to_trade() -> dict[str, Any]:
@@ -159,69 +160,27 @@ def find_tradingsymbol_by_low(
             exchange = dct_sym[keyword]["exchange"]
             # TODO will be missing in futures
             token = dct_sym[keyword]["token"]
-            resp = history(Helper._api, exchange, token)
-            if resp and any(resp):
-                low = resp[-2]["intl"]
-                atm = sym.get_atm(float(low))
-                logging.info(f"atm {atm} for underlying {keyword} from {low}")
-                result = sym.find_option_by_distance(
-                    atm=atm,
-                    distance=user_settings["moneyness"],
-                    c_or_p=ce_or_pe,
-                    dct_symbols=Helper.tokens_for_all_trading_symbols,
-                )
-                symbol_info: dict[str, Any] = Helper._quote.symbol_info(
-                    user_settings["option_exchange"], result["symbol"]
-                )
-                return symbol_info
-            else:
-                exc = f"History {resp} is empty for {exchange=} and {token=}"
-                raise Exception(exc)
-        return {}
-    except Exception as e:
-        logging.error(f"{e} while finding the trading symbol")
-        print_exc()
-        return {}
-
-
-def _temp(ce_or_pe: Literal["C", "P"], symbol_item: dict[str, Any]):
-    """
-    find trading symbol to trade based on the atm giuser_settingsen the
-    symbol item
-
-    Args:
-        ce_or_pe (Literal["C", "P"]): A string that denotes Call or Put
-        symbol_item (dict[str, Any]): symbol item selected to find trading symbol
-
-    Returns:
-        symbol_info: trading symbol
-
-    Raises:
-        Exception: If there is any error
-
-    """
-    try:
-        for keyword, user_settings in symbol_item.items():
-            sym = Symbols(
-                option_exchange=user_settings["option_exchange"],
-                base=user_settings["base"],
-                expiry=user_settings["expiry"],
+            low = history(Helper._api, exchange, token, loc=-2, key="intl")
+            atm = sym.get_atm(float(low))
+            logging.info(f"atm {atm} for underlying {keyword} from {low}")
+            result = sym.find_option_by_distance(
+                atm=atm,
+                distance=user_settings["moneyness"],
+                c_or_p=ce_or_pe,
+                dct_symbols=Helper.tokens_for_all_trading_symbols,
             )
-            result_symbol = sym.find_closest_premium(
-                Helper._quote.get_quotes(), premium=200, contains=ce_or_pe
-            )
-            print(result_symbol)
             symbol_info: dict[str, Any] = Helper._quote.symbol_info(
-                user_settings["option_exchange"], result_symbol
+                user_settings["option_exchange"], result["symbol"]
             )
             return symbol_info
+        return {}
     except Exception as e:
         logging.error(f"{e} while finding the trading symbol")
         print_exc()
         return {}
 
 
-def create_strategies(symbols_to_trade: dict[str, Any]) -> list:
+def create_strategies(symbols_to_trade: dict[str, Any], strategy_name) -> list:
     """
     Creates a list of strategies based on the provided symbols_to_trade.
 
@@ -235,7 +194,6 @@ def create_strategies(symbols_to_trade: dict[str, Any]) -> list:
         Exception: If there is any error
     """
     try:
-        strategy_name = O_SETG["trade"]["strategy"]
         module_path = f"strategies.{strategy_name}"
         strategy_module = import_module(module_path)
         Strategy = getattr(strategy_module, strategy_name.capitalize())
@@ -244,19 +202,25 @@ def create_strategies(symbols_to_trade: dict[str, Any]) -> list:
         for prefix, user_settings in symbols_to_trade.items():
             lst_of_option_type = ["C", "P"]
             for option_type in lst_of_option_type:
-                symbol_info = find_tradingsymbol_by_ltp(
-                    option_type, {prefix: user_settings}
+                strgy = Strategy(
+                    prefix=prefix,
+                    symbol_info=find_tradingsymbol_by_ltp(
+                        option_type, {prefix: user_settings}
+                    ),
+                    user_settings=user_settings,
+                    pivot_grids=(
+                        Grid().run(
+                            api=Helper.api(),
+                            prefix=prefix,
+                            exchange=dct_sym[prefix]["exchange"],
+                            tradingsymbol=dct_sym[prefix]["index"],
+                        )
+                        if strategy_name == "pivot"
+                        else None
+                    ),
                 )
-                if any(symbol_info):
-                    strgy = Strategy(
-                        prefix=prefix,
-                        symbol_info=symbol_info,
-                        user_settings=user_settings,
-                    )
-                    strgy._trade_manager = TradeManager(Helper._api)
-                    strategies.append(strgy)
-                else:
-                    logging.error(f"Could not find trading symbol for {prefix}")
+                strgy._trade_manager = TradeManager(Helper._api)
+                strategies.append(strgy)
         return strategies
     except Exception as e:
         logging.error(f"{e} while creating the strategies")
@@ -279,25 +243,33 @@ def main():
             symbols_to_trade
         )
         # make strategy oject for each symbol selected
-        strategies: list = create_strategies(symbols_to_trade)
+        strategy_name = O_SETG["trade"]["strategy"]
+        strategies: list = create_strategies(symbols_to_trade, strategy_name)
 
         strgy_to_be_removed = []
         sequence_info = {}
         while not is_time_past(O_SETG["trade"]["stop"]):
             for strgy in strategies:
                 msg = f"{strgy.trade.symbol} ltp:{strgy.trade.last_price} {strgy._fn}"
-                sequence_info[strgy._id] = dict(
-                    _prefix=strgy._prefix,
-                    _reduced_target_sequence=strgy._reduced_target_sequence,
-                )
-                resp = strgy.run(
-                    Helper._rest.trades(),
-                    Helper._quote.get_quotes(),
-                    strgy_to_be_removed,
-                    sequence_info,
-                )
-                if isinstance(resp, str):
-                    strgy_to_be_removed.append(resp)
+                if strategy_name == "openingbalance":
+                    sequence_info[strgy._id] = dict(
+                        _prefix=strgy._prefix,
+                        _reduced_target_sequence=strgy._reduced_target_sequence,
+                    )
+                    resp = strgy.run(
+                        Helper._rest.trades(),
+                        Helper._quote.get_quotes(),
+                        strgy_to_be_removed,
+                        sequence_info,
+                    )
+                    if isinstance(resp, str):
+                        strgy_to_be_removed.append(resp)
+                elif strategy_name == "pivot":
+                    resp = strgy.run(
+                        Helper._rest.trades(),
+                        Helper._quote.get_quotes(),
+                        underlying_ltp=0,
+                    )
                 logging.info(f"{msg} returned {resp}")
             strategies = [strgy for strgy in strategies if not strgy._removable]
     except KeyboardInterrupt:

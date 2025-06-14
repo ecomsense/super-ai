@@ -8,7 +8,9 @@ from trade import Trade
 
 class Openingbalance:
 
-    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict):
+    def __init__(
+        self, prefix: str, symbol_info: dict, user_settings: dict, pivot_grids: list
+    ):
         self._id = symbol_info["symbol"]
         self._buy_order = {}
         self._fill_price = 0

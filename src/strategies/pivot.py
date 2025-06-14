@@ -6,9 +6,34 @@ import pendulum as pdlm
 from trade import Trade
 
 
+class Grid:
+    ohlc = {}
+
+    @classmethod
+    def run(
+        cls,
+        api,
+        prefix,
+        exchange,
+        tradingsymbol,
+    ):
+        if cls.ohlc.get(prefix, None) is None:
+            start = pdlm.now().subtract(days=4).timestamp()
+            now = pdlm.now().timestamp()
+            ret = api.broker.get_daily_price_series(
+                exchange=exchange,
+                tradingsymbol=tradingsymbol,
+                startdate=start,
+                enddate=now,
+            )
+            cls.ohlc["prefix"] = ret
+        return cls.ohlc[prefix]
+
+
 class Pivot:
 
-    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict):
+    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, pivot_grid):
+        print(pivot_grid)
         self._id = symbol_info["symbol"]
         self._buy_order = {}
         self._fill_price = 0
@@ -33,3 +58,19 @@ class Pivot:
         self._txn = user_settings["txn"]
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "wait_for_breakout"
+
+    def wait_for_breakout(self):
+        print("waiting for breakout")
+
+    def run(self, orders, ltps, underlying_ltp):
+        try:
+            self._orders = orders
+
+            ltp = ltps.get(self.trade.symbol, None)
+            if ltp is not None:
+                self.trade.last_price = float(ltp)
+
+            return getattr(self, self._fn)()
+        except Exception as e:
+            logging.error(f"{e} in running {self.trade.symbol}")
+            print_exc()
