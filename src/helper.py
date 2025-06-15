@@ -66,7 +66,7 @@ def is_not_rate_limited(func):
     return wrapper
 
 
-def history(api, exchange, token):
+def history(api, exchange, token, loc, key):
     try:
         i = 0
         for i in range(5):
@@ -79,14 +79,14 @@ def history(api, exchange, token):
             to = pdlm.now().subtract(days=0).timestamp()
             data_now = api.historical(exchange, token, fm, to)
             # we have some data but it is not full
-            if data_now and len(data_now) == 1:
-                secs = 60
+            while data_now and len(data_now) > 0 and len(data_now) < abs(loc):
+                secs = 2
                 logging.debug(f"found partial low data, retrying after ..{secs} secs")
                 timer(secs)
                 data_now = api.historical(exchange, token, fm, to)
-            if data_now and len(data_now) > 1:
+            if data_now and len(data_now) >= abs(loc):
                 logging.debug("successfully found low")
-                return data_now
+                return float(data_now[loc][key])
             blink()
             i += 1
             logging.debug("rewinding to the previous day ..")
@@ -142,8 +142,7 @@ class QuoteApi:
                 key = exchange + "|" + str(token)
                 if not low:
                     logging.debug(f"trying to get low for {symbol=} and {token=}")
-                    resp = history(self._ws.api, exchange, token)
-                    low = resp[-2]["intl"]
+                    low = history(self._ws.api, exchange, token, loc=-2, key="intl")
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,

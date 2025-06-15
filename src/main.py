@@ -197,7 +197,6 @@ def create_strategies(symbols_to_trade: dict[str, Any], strategy_name) -> list:
         module_path = f"strategies.{strategy_name}"
         strategy_module = import_module(module_path)
         Strategy = getattr(strategy_module, strategy_name.capitalize())
-
         strategies = []
         for prefix, user_settings in symbols_to_trade.items():
             lst_of_option_type = ["C", "P"]
@@ -210,10 +209,7 @@ def create_strategies(symbols_to_trade: dict[str, Any], strategy_name) -> list:
                     user_settings=user_settings,
                     pivot_grids=(
                         Grid().run(
-                            api=Helper.api(),
-                            prefix=prefix,
-                            exchange=dct_sym[prefix]["exchange"],
-                            tradingsymbol=dct_sym[prefix]["index"],
+                            api=Helper.api(), prefix=prefix, symbol_constant=dct_sym
                         )
                         if strategy_name == "pivot"
                         else None
@@ -224,6 +220,7 @@ def create_strategies(symbols_to_trade: dict[str, Any], strategy_name) -> list:
         return strategies
     except Exception as e:
         logging.error(f"{e} while creating the strategies")
+        print_exc()
         return []
 
 
@@ -251,9 +248,10 @@ def main():
         while not is_time_past(O_SETG["trade"]["stop"]):
             for strgy in strategies:
                 msg = f"{strgy.trade.symbol} ltp:{strgy.trade.last_price} {strgy._fn}"
+                prefix = strgy._prefix
                 if strategy_name == "openingbalance":
                     sequence_info[strgy._id] = dict(
-                        _prefix=strgy._prefix,
+                        _prefix=prefix,
                         _reduced_target_sequence=strgy._reduced_target_sequence,
                     )
                     resp = strgy.run(
@@ -268,7 +266,9 @@ def main():
                     resp = strgy.run(
                         Helper._rest.trades(),
                         Helper._quote.get_quotes(),
-                        underlying_ltp=0,
+                        underlying_ltp=Helper._rest.ltp(
+                            dct_sym[prefix]["exchange"], dct_sym[prefix]["token"]
+                        ),
                     )
                 logging.info(f"{msg} returned {resp}")
             strategies = [strgy for strgy in strategies if not strgy._removable]
