@@ -28,7 +28,6 @@ def compute(ohlc_prefix):
         R4 = R3 + R2 + R1 + pivot + S1 + S2 + S3
         lst = [R4, R3, R2, R1, pivot, S1, S2, S3, 0]
         lst = [int(item) for item in lst]
-        print("compute", lst)
         return lst
     except Exception as e:
         logging.error(f"{e} while computing grid")
@@ -70,7 +69,7 @@ class Gridlines:
         for idx, (a, b) in enumerate(self.lines):
             low, high = min(a, b), max(a, b)
             if low <= ltp < high:
-                logging.debug(f"pivot l:{low} h:{high}")
+                logging.debug(f"pivot l:{low} ltp:{ltp} h:{high}")
                 return idx
 
 
@@ -145,7 +144,7 @@ class Pivot:
                         f"got {buy_order} without buy order order id {self.trade.symbol}"
                     )
         except Exception as e:
-            print(f"{e} while waiting for breakout")
+            logging.error(f"{e} while waiting for breakout")
             print_exc()
 
     def find_fill_price(self):
@@ -236,7 +235,6 @@ class Pivot:
 
     def run(self, orders, ltps, underlying_ltp):
         try:
-            print("underlying_ltp", underlying_ltp)
             self._orders = orders
 
             ltp = ltps.get(self.trade.symbol, None)
