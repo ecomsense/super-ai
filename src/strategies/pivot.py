@@ -92,7 +92,7 @@ class Pivot:
         reverse = True if option_type == "P" else False
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
         self.curr_idx = 100
-        self.is_breakout = "index_breakout"
+        self.is_breakout = "_index_breakout"
         self._fn = "wait_for_breakout"
 
     @property
@@ -109,22 +109,26 @@ class Pivot:
         self.trade.order_id = None
 
     @property
-    def index_breakout(self):
+    def _index_breakout(self):
         idx = self.lines.find_current_grid(self.underlying_ltp)
         if idx > self.curr_idx and self._time_mgr.can_trade:
-            logging.info("PIVOT breakout detected")
             return True
+        msg = (
+            f"{self.trade.symbol} waiting ... curr pivot: {idx} > prev pivot:{self.curr_idx} "
+            f"and can_trade: {self._time_mgr.can_trade}"
+        )
+        logging.debug(msg)
         self.curr_idx = idx
         return False
 
     @property
-    def option_breakout(self):
+    def _option_breakout(self):
         if self.trade.last_price >= self._low and self._time_mgr.can_trade:
             return True
 
         msg = (
             f"{self.trade.symbol} waiting ... ltp: {self.trade.last_price} > low: {self._low} "
-            f"or can trade: {self._time_mgr.can_trade}"
+            f"and can trade: {self._time_mgr.can_trade}"
         )
         logging.debug(msg)
         return False
@@ -141,9 +145,9 @@ class Pivot:
                 self._reset_trade()
                 buy_order = self._trade_manager.complete_entry(self.trade)
                 if buy_order.order_id is not None:
-                    if self.is_breakout == "index_breakout":
+                    if self.is_breakout == "_index_breakout":
                         self._low = self.trade.last_price
-                        self.is_breakout = "option_breakout"
+                        self.is_breakout = "_option_breakout"
                     self._fn = "find_fill_price"
                 else:
                     logging.warning(
@@ -220,19 +224,18 @@ class Pivot:
 
     def try_exiting_trade(self):
         try:
-            idx = self.lines.find_current_grid(self.underlying_ltp)
-            if idx > self.curr_idx:
+            if self.lines.find_current_grid(self.underlying_ltp) > self.curr_idx:
+                logging.info("TARGET reached")
                 self._modify_to_exit()
-                self.is_breakout = "index_breakout"
-                # dont update idx
-            if self._is_stoploss_hit():
-                logging.debug(f"{self.trade.symbol} stop loss: {self._fill_price} hit")
+                self.is_breakout = "_index_breakout"
+                self._fn = "wait_for_breakout"
+            elif self._is_stoploss_hit():
+                logging.info(f"{self.trade.symbol} stop loss: {self._fill_price} hit")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
-                # todo reset idex
             elif self.trade.last_price <= self._fill_price:
                 resp = self._modify_to_kill()
-                logging.debug(f"kill returned {resp}")
+                logging.info(f"stop hit: kill returned {resp}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
 
