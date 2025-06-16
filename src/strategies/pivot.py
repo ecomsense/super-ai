@@ -113,6 +113,7 @@ class Pivot:
     def index_breakout(self):
         idx = self.lines.find_current_grid(self.underlying_ltp)
         if idx > self.curr_idx and self._time_mgr.can_trade:
+            logging.info("PIVOT breakout detected")
             return True
         self.curr_idx = idx
         return False
