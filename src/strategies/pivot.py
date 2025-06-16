@@ -69,6 +69,7 @@ class Gridlines:
         for idx, (a, b) in enumerate(self.lines):
             low, high = min(a, b), max(a, b)
             if low <= ltp < high:
+                logging.debug(f"pivot l:{low} h:{high}")
                 return idx
 
 
@@ -123,7 +124,7 @@ class Pivot:
 
     def wait_for_breakout(self):
         try:
-            if getattr(self, self.is_breakout)():
+            if getattr(self, self.is_breakout):
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
                 self.trade.price = self.trade.last_price + 2
@@ -143,6 +144,7 @@ class Pivot:
                     )
         except Exception as e:
             print(f"{e} while waiting for breakout")
+            print_exc()
 
     def find_fill_price(self):
         order = self._trade_manager.find_order_if_exists(
