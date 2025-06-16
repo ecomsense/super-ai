@@ -56,6 +56,7 @@ class Grid:
         except Exception as e:
             logging.error(f"{e} while computing grid")
             print_exc()
+            __import__("sys").exit(1)
 
 
 class Gridlines:
