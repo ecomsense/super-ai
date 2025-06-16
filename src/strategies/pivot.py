@@ -79,17 +79,19 @@ class Pivot:
         self._removable = False
         self._prefix = prefix
         self._id = symbol_info["symbol"]
+        self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self.trade = Trade(
             symbol=symbol_info["symbol"],
             last_price=symbol_info["ltp"],
             exchange=user_settings["option_exchange"],
             quantity=user_settings["quantity"],
         )
-        self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
-        option_type = "PE"
-        reverse = True if option_type == "PE" else False
+        base_expiry = user_settings["base"] + user_settings["expiry"]
+        option_type = symbol_info["symbol"][len(base_expiry) :][0]
+        reverse = True if option_type == "P" else False
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
         self.curr_idx = 100
+        self.is_breakout = "index_breakout"
         self._fn = "wait_for_breakout"
 
     @property
@@ -100,15 +102,132 @@ class Pivot:
     def curr_idx(self, idx):
         self._curr_idx = idx
 
+    def _reset_trade(self):
+        self.trade.filled_price = None
+        self.trade.status = None
+        self.trade.order_id = None
+
+    @property
+    def index_breakout(self):
+        idx = self.lines.find_current_grid(self.underlying_ltp)
+        if idx > self.curr_idx and self._time_mgr.can_trade:
+            return True
+        self.curr_idx = idx
+        return False
+
+    @property
+    def option_breakout(self):
+        if self.trade.last_price >= self._low and self._time_mgr.can_trade:
+            return True
+        return False
+
     def wait_for_breakout(self):
+        try:
+            if getattr(self, self.is_breakout)():
+                self.trade.side = "B"
+                self.trade.disclosed_quantity = None
+                self.trade.price = self.trade.last_price + 2
+                self.trade.trigger_price = 0.0
+                self.trade.order_type = "LMT"
+                self.trade.tag = "entry_pivot"
+                self._reset_trade()
+                buy_order = self._trade_manager.complete_entry(self.trade)
+                if buy_order.order_id is not None:
+                    if self.is_breakout == "index_breakout":
+                        self._low = self.trade.last_price
+                        self.is_breakout = "option_breakout"
+                    self._fn = "find_fill_price"
+                else:
+                    logging.warning(
+                        f"got {buy_order} without buy order order id {self.trade.symbol}"
+                    )
+        except Exception as e:
+            print(f"{e} while waiting for breakout")
+
+    def find_fill_price(self):
+        order = self._trade_manager.find_order_if_exists(
+            self._trade_manager.position.entry.order_id, self._orders
+        )
+        if isinstance(order, dict):
+            self._fill_price = float(order["fill_price"])
+            # place sell order only if buy order is filled
+            self.trade.side = "S"
+            self.trade.disclosed_quantity = 0
+            self.trade.price = self._fill_price - 2
+            self.trade.trigger_price = self._fill_price
+            self.trade.order_type = "SL-LMT"
+            self.trade.tag = "sl_pivot"
+            self._reset_trade()
+            sell_order = self._trade_manager.pending_exit(self.trade)
+            if sell_order.order_id is not None:
+                self._fn = "try_exiting_trade"
+            else:
+                logging.error(f"id is not found for sell {sell_order}")
+        else:
+            logging.error(
+                f"order {self._trade_manager.position.entry.order_id} not complete"
+            )
+
+    def _is_stoploss_hit(self):
+        try:
+            if O_SETG["trade"].get("live", 0) == 0:
+                logging.debug("CHECKING STOP IN PAPER MODE")
+                return Helper.api.can_move_order_to_trade(
+                    self._trade_manager.position.exit.order_id, self.trade.last_price
+                )
+            else:
+                order = self._trade_manager.find_order_if_exists(
+                    self._trade_manager.position.exit.order_id, self._orders
+                )
+                if isinstance(order, dict):
+                    return True
+        except Exception as e:
+            logging.error(f"{e} is stoploss hit {self.trade.symbol}")
+            print_exc()
+
+    def _modify_to_exit(self):
+        try:
+            kwargs = dict(
+                trigger_price=0.0,
+                order_type="LIMIT",
+                last_price=self.trade.last_price,
+            )
+            return self._trade_manager.complete_exit(**kwargs)
+        except Exception as e:
+            logging.error(f"{e} while modify to exit {self.trade.symbol}")
+            print_exc()
+
+    def _modify_to_kill(self):
+        try:
+            kwargs = dict(
+                price=0.0,
+                order_type="MARKET",
+                last_price=self.trade.last_price,
+            )
+            return self._trade_manager.complete_exit(**kwargs)
+        except Exception as e:
+            logging.error(f"{e} while modify to exit {self.trade.symbol}")
+            print_exc()
+
+    def try_exiting_trade(self):
         try:
             idx = self.lines.find_current_grid(self.underlying_ltp)
             if idx > self.curr_idx:
-                pass
-            print("breakout")
-            self.curr_idx = idx
+                self._modify_to_exit()
+                self.is_breakout = "index_breakout"
+                # dont update idx
+            if self._is_stoploss_hit():
+                logging.debug(f"{self.trade.symbol} stop loss: {self._fill_price} hit")
+                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+                self._fn = "wait_for_breakout"
+                # todo reset idex
+            elif self.trade.last_price <= self._fill_price:
+                resp = self._modify_to_kill()
+                logging.debug(f"kill returned {resp}")
+                self._fn = "wait_for_breakout"
+
         except Exception as e:
-            logging.error(f"{e} in wait_for_breakout")
+            logging.error(f"{e} while exit order")
             print_exc()
 
     def run(self, orders, ltps, underlying_ltp):
@@ -120,7 +239,9 @@ class Pivot:
             if ltp is not None:
                 self.trade.last_price = float(ltp)
 
-            self.underlying_ltp = underlying_ltp
+            self.underlying_ltp = (
+                underlying_ltp if underlying_ltp else self.underlying_ltp
+            )
 
             return getattr(self, self._fn)()
         except Exception as e:
