@@ -121,6 +121,12 @@ class Pivot:
     def option_breakout(self):
         if self.trade.last_price >= self._low and self._time_mgr.can_trade:
             return True
+
+        msg = (
+            f"{self.trade.symbol} waiting ... ltp: {self.trade.last_price} > low: {self._low} "
+            f"or can trade: {self._time_mgr.can_trade}"
+        )
+        logging.debug(msg)
         return False
 
     def wait_for_breakout(self):
@@ -227,6 +233,7 @@ class Pivot:
             elif self.trade.last_price <= self._fill_price:
                 resp = self._modify_to_kill()
                 logging.debug(f"kill returned {resp}")
+                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
 
         except Exception as e:
