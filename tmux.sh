@@ -13,6 +13,6 @@ else
   git reset --hard && git pull
   echo "Creating and attaching to session $sess."
   tmux new-session -d -s "$sess"
-  tmux send-keys -t "$sess" "python3 src/main.py && tmux kill-session -t $sess" C-m
+  tmux send-keys -t "$sess" "python3 -m src.main && tmux kill-session -t $sess" C-m
   tmux attach -t "$sess"
 fi

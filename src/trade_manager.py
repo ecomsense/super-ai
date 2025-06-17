@@ -1,7 +1,7 @@
+from src.trade import Trade
+from src.constants import logging
 from dataclasses import dataclass, asdict, field
 from typing import Optional
-from trade import Trade
-from constants import logging
 
 
 @dataclass(slots=True)
