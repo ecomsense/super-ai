@@ -12,7 +12,7 @@ from toolkit.logger import Logger
 from toolkit.fileutils import Fileutils
 
 O_FUTL = Fileutils()
-S_DATA = "../data/"
+S_DATA = "data/"
 S_LOG = S_DATA + "log.txt"
 
 if not O_FUTL.is_file_exists(S_LOG):
@@ -49,7 +49,7 @@ def yml_to_obj(arg=None):
         # reverse the words seperated by -
         lst = folder.split("-")
         file = "_".join(reversed(lst))
-        file = "../../" + file + ".yml"
+        file = "../" + file + ".yml"
     else:
         file = S_DATA + arg
 
@@ -57,7 +57,7 @@ def yml_to_obj(arg=None):
 
     if not flag and arg:
         print(f"using default {file=}")
-        O_FUTL.copy_file("../factory/", "../data/", "settings.yml")
+        O_FUTL.copy_file("factory/", "data/", "settings.yml")
     elif not flag and arg is None:
         print(f"fill the {file=} file and try again")
         __import__("sys").exit()

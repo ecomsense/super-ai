@@ -1,5 +1,5 @@
+from src.constants import logging
 import time
-from constants import logging
 
 
 class Wserver:
