@@ -91,47 +91,49 @@ class Pivot:
         option_type = symbol_info["symbol"][len(base_expiry) :][0]
         reverse = True if option_type == "P" else False
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
-        self.curr_idx = 100
         self.is_breakout = "_index_breakout"
         self._fn = "wait_for_breakout"
 
     @property
     def curr_idx(self):
-        return self._curr_idx
+        try:
+            return self._curr_idx
+        except AttributeError:
+            self._curr_idx = self.lines.find_current_grid(self.underlying_ltp)
+            return self._curr_idx
 
     @curr_idx.setter
     def curr_idx(self, idx):
         self._curr_idx = idx
 
-    def _reset_trade(self):
-        self.trade.filled_price = None
-        self.trade.status = None
-        self.trade.order_id = None
-
     @property
     def _index_breakout(self):
         idx = self.lines.find_current_grid(self.underlying_ltp)
         if idx > self.curr_idx and self._time_mgr.can_trade:
+            self.curr_idx = idx
             return True
         msg = (
             f"{self.trade.symbol} waiting ... curr pivot: {idx} > prev pivot:{self.curr_idx} "
             f"and can_trade: {self._time_mgr.can_trade}"
         )
         logging.debug(msg)
-        self.curr_idx = idx
         return False
 
     @property
     def _option_breakout(self):
         if self.trade.last_price >= self._low and self._time_mgr.can_trade:
             return True
-
         msg = (
             f"{self.trade.symbol} waiting ... ltp: {self.trade.last_price} > low: {self._low} "
             f"and can trade: {self._time_mgr.can_trade}"
         )
         logging.debug(msg)
         return False
+
+    def _reset_trade(self):
+        self.trade.filled_price = None
+        self.trade.status = None
+        self.trade.order_id = None
 
     def wait_for_breakout(self):
         try:
