@@ -194,7 +194,7 @@ def create_strategies(symbols_to_trade: dict[str, Any], strategy_name) -> list:
         Exception: If there is any error
     """
     try:
-        module_path = f"strategies.{strategy_name}"
+        module_path = f"src.strategies.{strategy_name}"
         strategy_module = import_module(module_path)
         Strategy = getattr(strategy_module, strategy_name.capitalize())
         strategies = []
