@@ -75,7 +75,7 @@ def find_instrument_tokens_to_trade(symbols_to_trade) -> dict[str, Any]:
         return {}
 
 
-def find_tradingsymbol_by_ltp(
+def not_used_for_this_project(
     ce_or_pe: Literal["C", "P"], symbol_item: dict[str, Any]
 ) -> dict[str, Any]:
     """
@@ -203,7 +203,7 @@ def create_strategies(symbols_to_trade: dict[str, Any], strategy_name) -> list:
             for option_type in lst_of_option_type:
                 strgy = Strategy(
                     prefix=prefix,
-                    symbol_info=find_tradingsymbol_by_ltp(
+                    symbol_info=find_tradingsymbol_by_low(
                         option_type, {prefix: user_settings}
                     ),
                     user_settings=user_settings,
