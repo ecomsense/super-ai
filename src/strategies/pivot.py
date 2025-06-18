@@ -111,6 +111,8 @@ class Pivot:
         idx = self.lines.find_current_grid(self.underlying_ltp)
         if idx > self.curr_idx and self._time_mgr.can_trade:
             self.curr_idx = idx
+            self._low = self.trade.last_price
+            self.is_breakout = "_option_breakout"
             return True
         msg = (
             f"{self.trade.symbol} waiting ... curr pivot: {idx} > prev pivot:{self.curr_idx} "
@@ -147,9 +149,6 @@ class Pivot:
                 self._reset_trade()
                 buy_order = self._trade_manager.complete_entry(self.trade)
                 if buy_order.order_id is not None:
-                    if self.is_breakout == "_index_breakout":
-                        self._low = self.trade.last_price
-                        self.is_breakout = "_option_breakout"
                     self._fn = "find_fill_price"
                 else:
                     logging.warning(
@@ -168,8 +167,8 @@ class Pivot:
             # place sell order only if buy order is filled
             self.trade.side = "S"
             self.trade.disclosed_quantity = 0
-            self.trade.price = self._fill_price - 2
-            self.trade.trigger_price = self._fill_price
+            self.trade.price = self._low - 2
+            self.trade.trigger_price = self._low
             self.trade.order_type = "SL-LMT"
             self.trade.tag = "sl_pivot"
             self._reset_trade()
