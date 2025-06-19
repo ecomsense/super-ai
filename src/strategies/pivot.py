@@ -80,6 +80,7 @@ class Pivot:
         self._removable = False
         self._prefix = prefix
         self._id = symbol_info["symbol"]
+        self._low = None
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self.trade = Trade(
             symbol=symbol_info["symbol"],
@@ -110,10 +111,12 @@ class Pivot:
     def _index_breakout(self):
         idx = self.lines.find_current_grid(self.underlying_ltp)
         if idx > self.curr_idx and self._time_mgr.can_trade:
-            self.curr_idx = idx
+            # self.curr_idx = idx
             self._low = self.trade.last_price
             self.is_breakout = "_option_breakout"
             return True
+
+        self.curr_idx = idx
         msg = (
             f"{self.trade.symbol} waiting ... curr pivot: {idx} > prev pivot:{self.curr_idx} "
             f"and can_trade: {self._time_mgr.can_trade}"
@@ -234,7 +237,7 @@ class Pivot:
                 logging.info(f"{self.trade.symbol} stop loss: {self._fill_price} hit")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
-            elif self.trade.last_price <= self._fill_price:
+            elif self.trade.last_price <= self._low:
                 resp = self._modify_to_kill()
                 logging.info(f"stop hit: kill returned {resp}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
