@@ -111,7 +111,9 @@ class Pivot:
     def _index_breakout(self):
         idx = self.lines.find_current_grid(self.underlying_ltp)
         if idx > self.curr_idx and self._time_mgr.can_trade:
-            # self.curr_idx = idx
+            # set the idx of the grid from which trade happened
+            self.curr_idx = idx
+            # set low to the new trade price
             self._low = self.trade.last_price
             self.is_breakout = "_option_breakout"
             return True
