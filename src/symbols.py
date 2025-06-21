@@ -61,7 +61,7 @@ class Symbols:
         self._option_exchange = option_exchange
         self._base = base
         self.expiry = expiry
-        self.csvfile = f"../data/{self._option_exchange}_symbols.csv"
+        self.csvfile = f"./data/{self._option_exchange}_symbols.csv"
 
     def get_exchange_token_map_finvasia(self):
         if Fileutils().is_file_not_2day(self.csvfile):
