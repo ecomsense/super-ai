@@ -1,3 +1,4 @@
+from urllib.parse import uses_relative
 from src.constants import logging, O_SETG
 from src.helper import Helper, history
 from src.trade_manager import TradeManager
@@ -11,46 +12,50 @@ class Builder:
     def __init__(self, user_settings: dict[str, Any]):
         self.user_settings = user_settings
         self.strategy_name = user_settings["trade"]["strategy"]
-        self.symbols_to_trade = self._get_symbols_to_trade()
-        self.tokens_for_all_trading_symbols = self._find_instrument_tokens_to_trade()
+        self.symbols_to_trade = self.merge_settings_and_symbols()
+        self.tokens_for_all_trading_symbols = self.find_fno_tokens()
 
-    def _get_symbols_to_trade(self) -> dict[str, Any]:
+    def merge_settings_and_symbols(self) -> dict[str, Any]:
         """
         Retrieves tokens for all trading symbols.
         """
         try:
-            black_list = ["log", "trade", "target", "MCX"]
+            black_list = ["log", "trade"]
             symbols_to_trade = {
                 k: settings for k, settings in O_SETG.items() if k not in black_list
             }
             for k, settings in symbols_to_trade.items():
-                token = dct_sym[k].get("token", None)
+                symbol_item = dct_sym[k]
+                token = symbol_item.get("token", None)
                 if not token:
-                    symbol = k + settings["future_expiry"]
-                    exchange = settings["option_exchange"]
-                    underlying_future = Helper._quote.symbol_info(exchange, symbol)
-                    dct_sym[k]["token"] = underlying_future["key"].split("|")[1]
+                    symbol_item["index"] = k + settings["future_expiry"]
+                    symbol_item["exchange"] = settings["option_exchange"]
+                    underlying_future = Helper._quote.symbol_info(
+                        symbol_item["exchange"], symbol_item["index"]
+                    )
+                    symbol_item["token"] = underlying_future["key"].split("|")[1]
+                symbols_to_trade[k] = settings | symbol_item
             return symbols_to_trade
         except Exception as e:
             logging.error(f"{e} while getting symbols to trade in StrategyBuilder")
             return {}
 
-    def _find_instrument_tokens_to_trade(self) -> dict[str, Any]:
+    def find_fno_tokens(self) -> dict[str, Any]:
         """
         get instrument tokens from broker for each symbol to trade and merge them together
         (Refactored from your original find_instrument_tokens_to_trade)
         """
         try:
             tokens_of_all_trading_symbols = {}
-            for k, user_settings in self.symbols_to_trade.items():
+            for k, symbol_info in self.symbols_to_trade.items():
                 sym = Symbols(
-                    option_exchange=user_settings["option_exchange"],
-                    base=user_settings["base"],
-                    expiry=user_settings["expiry"],
+                    option_exchange=symbol_info["option_exchange"],
+                    base=symbol_info["base"],
+                    expiry=symbol_info["expiry"],
                 )
                 sym.get_exchange_token_map_finvasia()
-                exchange = dct_sym[k]["exchange"]
-                token = dct_sym[k]["token"]
+                exchange = symbol_info["exchange"]
+                token = symbol_info["token"]
                 ltp_for_underlying = Helper._rest.ltp(exchange, token)
                 atm = sym.get_atm(ltp_for_underlying)
                 logging.info(f"atm {atm} for underlying {k} from {ltp_for_underlying}")
@@ -79,6 +84,7 @@ class Builder:
                 low = history(Helper._api, exchange, token, loc=-2, key="intl")
                 atm = sym.get_atm(float(low))
                 logging.info(f"atm {atm} for underlying {keyword} from {low}")
+                print(user_settings["moneyness"])
                 result = sym.find_option_by_distance(
                     atm=atm,
                     distance=user_settings["moneyness"],
@@ -160,3 +166,13 @@ class Builder:
         else:
             # Default arguments if no specific handling is defined
             return (trades, quotes)
+
+
+if __name__ == "__main__":
+    from src.constants import O_SETG
+    from pprint import pprint
+
+    Helper.api()
+    bldr = Builder(O_SETG)
+    resp = bldr.create_strategies()
+    pprint(resp)
