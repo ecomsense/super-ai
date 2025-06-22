@@ -19,14 +19,18 @@ def compute(ohlc_prefix):
         bc = (high + low) / 2.0
         tc = (pivot - bc) + pivot
         """
+        R5 = (pivot * 4) + high - (4 * low)
+        R4 = (pivot * 3) + high - (3 * low)
         R3 = high + (2 * (pivot - low))
         R2 = pivot + (high - low)
         R1 = (2 * pivot) - low
         S1 = (2 * pivot) - high
         S2 = pivot - (high - low)
         S3 = low - (2 * (high - pivot))
-        R4 = R3 + R2 + R1 + pivot + S1 + S2 + S3
-        lst = [R4, R3, R2, R1, pivot, S1, S2, S3, 0]
+        S4 = (pivot * 3) - (high * 3) - low
+        S5 = (pivot * 4) - (high * 4) - low
+        r9 = R3 + R2 + R1 + pivot + S1 + S2 + S3
+        lst = [r9, R5, R4, R3, R2, R1, pivot, S1, S2, S3, S4, S5, 0]
         lst = [int(item) for item in lst]
         return lst
     except Exception as e:
