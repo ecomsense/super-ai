@@ -43,18 +43,26 @@ class Grid:
 
     @classmethod
     def run(cls, api, prefix, symbol_constant):
+        print("Grid running", symbol_constant)
         try:
             if cls.grid.get(prefix, None) is None:
                 start = pdlm.now().subtract(days=4).timestamp()
                 now = pdlm.now().timestamp()
-                ret = api.broker.get_daily_price_series(
-                    exchange=symbol_constant[prefix]["exchange"],
-                    tradingsymbol=symbol_constant[prefix]["index"],
-                    startdate=start,
-                    enddate=now,
-                )
-                ohlc = loads(ret[0])
-                cls.grid[prefix] = compute(ohlc)
+                if all(k in symbol_constant for k in ["intl", "inth", "intc"]):
+                    cls.grid[prefix] = compute(symbol_constant)
+                else:
+                    ret = api.broker.get_daily_price_series(
+                        exchange=symbol_constant["exchange"],
+                        tradingsymbol=symbol_constant["index"],
+                        startdate=start,
+                        enddate=now,
+                    )
+                    if not ret:
+                        msg = f'daily price series {symbol_constant["index"]} {ret}'
+                        logging.error(msg)
+                    ohlc = loads(ret[0])
+                    print("from grid", ohlc)
+                    cls.grid[prefix] = compute(ohlc)
             return cls.grid[prefix]
         except Exception as e:
             logging.error(f"{e} while computing grid")
@@ -274,8 +282,8 @@ class Pivot:
 """
 into = history(
     api=api,
-    exchange=symbol_constant[prefix]["exchange"],
-    token=symbol_constant[prefix]["token"],
+    exchange=symbol_constant["exchange"],
+    token=symbol_constant["token"],
     loc=-1,
     key="into",
 )

@@ -1,4 +1,3 @@
-from urllib.parse import uses_relative
 from src.constants import logging, O_SETG
 from src.helper import Helper, history
 from src.trade_manager import TradeManager
@@ -67,35 +66,42 @@ class Builder:
             return {}
 
     def _find_tradingsymbol_by_low(
-        self, ce_or_pe: Literal["C", "P"], symbol_item: dict[str, Any]
+        self, ce_or_pe: Literal["C", "P"], user_settings
     ) -> dict[str, Any]:
         """
         (Refactored from your original find_tradingsymbol_by_low)
+        output:
+            {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'low': 297.7, 'ltp': 274.85}
         """
         try:
-            for keyword, user_settings in symbol_item.items():
-                sym = Symbols(
-                    option_exchange=user_settings["option_exchange"],
-                    base=user_settings["base"],
-                    expiry=user_settings["expiry"],
-                )
-                exchange = dct_sym[keyword]["exchange"]
-                token = dct_sym[keyword]["token"]
-                low = history(Helper._api, exchange, token, loc=-2, key="intl")
-                atm = sym.get_atm(float(low))
-                logging.info(f"atm {atm} for underlying {keyword} from {low}")
-                print(user_settings["moneyness"])
-                result = sym.find_option_by_distance(
-                    atm=atm,
-                    distance=user_settings["moneyness"],
-                    c_or_p=ce_or_pe,
-                    dct_symbols=self.tokens_for_all_trading_symbols,
-                )
-                symbol_info: dict[str, Any] = Helper._quote.symbol_info(
-                    user_settings["option_exchange"], result["symbol"]
-                )
-                return symbol_info
-            return {}
+            sym = Symbols(
+                option_exchange=user_settings["option_exchange"],
+                base=user_settings["base"],
+                expiry=user_settings["expiry"],
+            )
+            """
+            exchange = dct_sym[keyword]["exchange"]
+            token = dct_sym[keyword]["token"]
+            """
+            low = history(
+                Helper._api,
+                user_settings["exchange"],
+                user_settings["token"],
+                loc=-2,
+                key="intl",
+            )
+            atm = sym.get_atm(float(low))
+            logging.info(f"atm {atm} from {low}")
+            result = sym.find_option_by_distance(
+                atm=atm,
+                distance=user_settings["moneyness"],
+                c_or_p=ce_or_pe,
+                dct_symbols=self.tokens_for_all_trading_symbols,
+            )
+            symbol_info: dict[str, Any] = Helper._quote.symbol_info(
+                user_settings["option_exchange"], result["symbol"]
+            )
+            return symbol_info
         except Exception as e:
             logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
             print_exc()
@@ -111,16 +117,18 @@ class Builder:
             Strategy = getattr(strategy_module, self.strategy_name.capitalize())
             strategies = []
             for prefix, user_settings in self.symbols_to_trade.items():
+                print("user setting", user_settings)
                 lst_of_option_type = ["C", "P"]
                 for option_type in lst_of_option_type:
                     # Prepare common arguments for strategy __init__
                     common_init_kwargs = {
                         "prefix": prefix,
                         "symbol_info": self._find_tradingsymbol_by_low(
-                            option_type, {prefix: user_settings}
+                            option_type, user_settings
                         ),
                         "user_settings": user_settings,
                     }
+                    #
 
                     # Add strategy-specific arguments for __init__
                     if self.strategy_name == "pivot":
@@ -128,7 +136,9 @@ class Builder:
                             import_module("src.strategies.pivot")
                             .Grid()
                             .run(
-                                api=Helper.api(), prefix=prefix, symbol_constant=dct_sym
+                                api=Helper.api(),
+                                prefix=prefix,
+                                symbol_constant=user_settings,
                             )
                         )
                     else:
@@ -174,5 +184,7 @@ if __name__ == "__main__":
 
     Helper.api()
     bldr = Builder(O_SETG)
-    resp = bldr.create_strategies()
-    pprint(resp)
+    sgys = bldr.create_strategies()
+    for sgy in sgys:
+        resp = bldr.get_run_arguments(sgy)
+        pprint(resp)
