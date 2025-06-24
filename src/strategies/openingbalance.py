@@ -29,7 +29,7 @@ class Openingbalance:
             exchange=user_settings["option_exchange"],
             quantity=user_settings["quantity"],
         )
-        self._low = symbol_info["ltp"]
+        self._low = symbol_info["low"]
         self._stop = symbol_info["ltp"]
         self._target = self._t1
         self._txn = user_settings["txn"]

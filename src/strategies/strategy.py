@@ -1,5 +1,5 @@
 from src.constants import logging, O_SETG
-from src.helper import Helper, history
+from src.helper import Helper
 from src.trade_manager import TradeManager
 from src.symbols import Symbols, dct_sym
 from traceback import print_exc
@@ -59,13 +59,14 @@ class Builder:
                 atm = sym.get_atm(ltp_for_underlying)
                 logging.info(f"atm {atm} for underlying {k} from {ltp_for_underlying}")
                 tokens_of_all_trading_symbols.update(sym.get_tokens(atm))
+                self.symbols_to_trade[k]["atm"] = atm
             return tokens_of_all_trading_symbols
         except Exception as e:
             logging.error(f"{e} while finding instrument to trade in StrategyBuilder")
             print_exc()
             return {}
 
-    def _find_tradingsymbol_by_low(
+    def _find_tradingsymbol_by_atm(
         self, ce_or_pe: Literal["C", "P"], user_settings
     ) -> dict[str, Any]:
         """
@@ -82,7 +83,6 @@ class Builder:
             """
             exchange = dct_sym[keyword]["exchange"]
             token = dct_sym[keyword]["token"]
-            """
             low = history(
                 Helper._api,
                 user_settings["exchange"],
@@ -92,6 +92,8 @@ class Builder:
             )
             atm = sym.get_atm(float(low))
             logging.info(f"atm {atm} from {low}")
+            """
+            atm = user_settings["atm"]
             result = sym.find_option_by_distance(
                 atm=atm,
                 distance=user_settings["moneyness"],
@@ -123,13 +125,11 @@ class Builder:
                     # Prepare common arguments for strategy __init__
                     common_init_kwargs = {
                         "prefix": prefix,
-                        "symbol_info": self._find_tradingsymbol_by_low(
+                        "symbol_info": self._find_tradingsymbol_by_atm(
                             option_type, user_settings
                         ),
                         "user_settings": user_settings,
                     }
-                    #
-
                     # Add strategy-specific arguments for __init__
                     if self.strategy_name == "pivot":
                         common_init_kwargs["pivot_grids"] = (

@@ -141,8 +141,8 @@ class QuoteApi:
                 token = self._ws.api.instrument_symbol(exchange, symbol)
                 key = exchange + "|" + str(token)
                 if not low:
-                    logging.debug(f"trying to get low for {symbol=} and {token=}")
                     low = history(self._ws.api, exchange, token, loc=-2, key="intl")
+                    logging.debug(f"got {low=} for {symbol=} and {token=}")
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,
@@ -322,7 +322,7 @@ class Helper:
 
 if __name__ == "__main__":
     from pprint import pprint
-    from constants import S_DATA
+    from src.constants import S_DATA
 
     try:
         Helper.api()
