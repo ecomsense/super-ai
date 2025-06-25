@@ -152,6 +152,7 @@ class Openingbalance:
                 (target_virtual - target_buffer - self.trade.last_price)
                 / self._fill_price
                 * 100
+                * -1
             )
             logging.debug(f"TARGET: {TARGET}")
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
