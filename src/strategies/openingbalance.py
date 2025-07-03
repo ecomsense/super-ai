@@ -32,9 +32,28 @@ class Openingbalance:
         self._low = symbol_info["low"]
         self._stop = symbol_info["ltp"]
         self._target = self._t1
+        self._max_target_reached = 0
         self._txn = user_settings["txn"]
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "wait_for_breakout"
+
+    def _is_trail_stopped(self, target_virtual):
+        percent = round(
+            (self.trade.last_price - self._fill_price)
+            / (target_virtual - self._fill_price)
+            * 100,
+            2,
+        )
+
+        if max(percent, self._max_target_reached) == percent:
+            self._max_target_reached = percent
+        trailing_target = self._max_target_reached / 2
+        msg = f"currently percent is {percent} < {trailing_target=}"
+        if percent > self._t2 and percent < trailing_target:
+            return True
+        else:
+            logging.debug(msg)
+        return False
 
     @property
     def reduced_target_sequence(self):
@@ -146,15 +165,20 @@ class Openingbalance:
                 self._fill_price + target_buffer + rate_to_be_added + txn_cost
             )
             logging.debug(
-                f"TARGET: {target_virtual} fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}"
+                f"target_price: {target_virtual}= fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}"
             )
-            TARGET = (
+            target_progress = (
                 (target_virtual - target_buffer - self.trade.last_price)
                 / self._fill_price
                 * 100
                 * -1
             )
-            logging.debug(f"TARGET: {TARGET}")
+            logging.debug(f"target_progress: {target_progress}")
+
+            # trailing stop
+            if self._is_trail_stopped(target_virtual):
+                self._modify_to_exit()
+
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
         except Exception as e:
@@ -264,7 +288,7 @@ class Openingbalance:
                         and self.reduced_target_sequence == 2  # if my (ce) tgt seq == 2
                     ):
                         logging.warning(
-                            f"{self._target} TARGET is going to be altered to {self._t2}"
+                            f"{self._target} target is going to be altered to {self._t2}"
                         )
                         self._target = self._t2
                         break
