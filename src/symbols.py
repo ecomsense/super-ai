@@ -2,7 +2,7 @@ import pandas as pd
 import re
 from toolkit.fileutils import Fileutils
 from typing import Dict, Optional
-from constants import dct_sym
+from src.constants import dct_sym
 
 
 class Symbols:
