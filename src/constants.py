@@ -10,6 +10,7 @@ from traceback import print_exc
 from pprint import pprint
 from toolkit.logger import Logger
 from toolkit.fileutils import Fileutils
+import yaml
 
 O_FUTL = Fileutils()
 S_DATA = "data/"
@@ -83,6 +84,18 @@ pprint(O_CNFG)
 
 print("settings " + "\n" + "*****************")
 pprint(O_SETG)
+
+
+def get_symbols():
+    URL = (
+        "https://raw.githubusercontent.com/ecomsense/super-ai/main/factory/symbols.yaml"
+    )
+    response = __import__("requests").get(URL)
+    response.raise_for_status()
+    return yaml.safe_load(response.text)
+
+
+dct_sym = get_symbols()
 
 
 def set_logger():

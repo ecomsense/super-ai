@@ -1,7 +1,7 @@
-from src.constants import logging, O_SETG
+from src.constants import logging, O_SETG, dct_sym
 from src.helper import Helper
 from src.trade_manager import TradeManager
-from src.symbols import Symbols, dct_sym
+from src.symbols import Symbols
 from traceback import print_exc
 from typing import Any, Literal
 from importlib import import_module
