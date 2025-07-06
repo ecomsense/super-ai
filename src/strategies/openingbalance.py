@@ -37,17 +37,11 @@ class Openingbalance:
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "wait_for_breakout"
 
-    def _is_trail_stopped(self, target_virtual):
-        percent = round(
-            (self.trade.last_price - self._fill_price)
-            / (target_virtual - self._fill_price)
-            * 100,
-            2,
-        )
-
+    def _is_trail_stopped(self, percent):
         if max(percent, self._max_target_reached) == percent:
             self._max_target_reached = percent
         trailing_target = self._max_target_reached / 2
+
         msg = f"currently percent is {percent} < {trailing_target=}"
         if percent > self._t2 and percent < trailing_target:
             return True
@@ -173,11 +167,13 @@ class Openingbalance:
                 * 100
                 * -1
             )
-            logging.debug(f"target_progress: {target_progress}")
 
             # trailing stop
-            if self._is_trail_stopped(target_virtual):
-                self._modify_to_exit()
+            if self._is_trail_stopped(target_progress):
+                resp = self._modify_to_exit()
+                logging.debug(f"modify returned {resp}")
+                self._fn = "remove_me"
+                return self._prefix
 
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
