@@ -41,14 +41,19 @@ def login():
         else:
             logging.info("Live trading mode")
             BrokerClass = get_broker()
-            O_CNFG.pop("broker", None)
+            #O_CNFG.pop("broker", None)
             api = BrokerClass(**O_CNFG)
+  
 
-        if api and api.authenticate():
+        if api.authenticate():
             print("authentication successfull")
             return api
         else:
             print("Failed to authenticate. .. exiting")
+            for attr in dir(api):
+                if not callable(getattr(api, attr)) and not attr.startswith("__"):
+                    print(f"{attr} = {getattr(api, attr)}")
+            
     except Exception as e:
         print(f"login exception {e}")
         __import__("sys").exit(1)
