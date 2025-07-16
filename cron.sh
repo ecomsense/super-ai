@@ -1,7 +1,8 @@
-#!/bin/bash
-
+#!/bin/env bash
+env > /tmp/cron_log.txt
 # Source user profile (adjust to your shell: .bashrc, .zshrc, etc.)
-source "$HOME/.bashrc"
+new_home="$HOME/home/konkakurnool/"
+source "$new_home/.bashrc"
 
 # OR if you use virtualenvs or conda:
 # source "$HOME/miniconda3/etc/profile.d/conda.sh"
@@ -15,7 +16,8 @@ if tmux has-session -t "$sess" 2>/dev/null; then
   exit 0
 fi
 
-cd "$HOME/no_venv/super-ai" || exit 1
+cd "$new_home/no_venv/super-ai" || exit 1
+
 
 tmux new-session -d -s "$sess"
-tmux send-keys -t "$sess" "python3 -m src.main && tmux kill-session -t $sess" C-m
+tmux send-keys -t "$sess" "usr/bin/python3 -m src.main && tmux kill-session -t $sess" C-m
