@@ -1,5 +1,8 @@
 #!/bin/env bash
 env > /tmp/cron_log.txt
+
+python3 -c "import sys; print(sys.path)" > /tmp/sys_path_from_cron.txt 2>&1
+
 # Source user profile (adjust to your shell: .bashrc, .zshrc, etc.)
 new_home="$HOME/home/konkakurnool/"
 source "$new_home/.bashrc"
