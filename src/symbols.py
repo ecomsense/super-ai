@@ -4,6 +4,9 @@ from toolkit.fileutils import Fileutils
 from typing import Dict, Optional
 from src.constants import dct_sym
 
+from datetime import datetime
+
+
 
 class Symbols:
     """
@@ -20,12 +23,42 @@ class Symbols:
     -------
     None
     """
+    def get_nearest_expiry_suffix(self) -> str | None:
+        try:
+            df = pd.read_csv(self.csvfile)
 
-    def __init__(self, option_exchange: str, base: str, expiry: str):
+            # Clean expiry column first
+            df["Expiry"] = df["Expiry"].astype(str).str.strip()
+
+            # Only keep rows where Expiry matches 6-character pattern like 30SEP25
+            df = df[df["Expiry"].str.match(r"^\d{2}[A-Z]{3}\d{2}$")]
+
+            if df.empty:
+                raise ValueError("No valid expiry rows after cleanup.")
+
+            # Convert to datetime
+            df["Expiry"] = pd.to_datetime(df["Expiry"], format="%d%b%y")
+
+            today = pd.Timestamp.today().normalize()
+            df_filtered = df[(df["Symbol"] == self._base) & (df["Expiry"] >= today)]
+
+            if df_filtered.empty:
+                raise ValueError(f"No future expiry found for symbol: {self._base}")
+
+            nearest_expiry = df_filtered["Expiry"].min()
+            return nearest_expiry.strftime("%d%b%y").upper()
+
+        except Exception as e:
+            print(f"{e} while finding nearest expiry")
+            return None
+
+
+    def __init__(self, option_exchange: str, base = None, expiry = None):
         self._option_exchange = option_exchange
         self._base = base
-        self.expiry = expiry
         self.csvfile = f"./data/{self._option_exchange}_symbols.csv"
+        self.expiry = expiry if expiry else self.get_nearest_expiry_suffix()
+        print(self.expiry)
 
     def get_exchange_token_map_finvasia(self):
         if Fileutils().is_file_not_2day(self.csvfile):
@@ -168,8 +201,8 @@ class Symbols:
 
 
 if __name__ == "__main__":
-    symbols = Symbols("NFO", "BANKNIFTY", "26JUN24")
+    symbols = Symbols("NFO", "NIFTY")
     symbols.get_exchange_token_map_finvasia()
-    dct_tokens = symbols.get_tokens(50000)
+    dct_tokens = symbols.get_tokens(21500)
     print(dct_tokens)
     # print(symbols.find_option_type("BANKNIFTY28DEC23C47000"))
