@@ -15,8 +15,7 @@ if tmux has-session -t "$sess" 2>/dev/null; then
   exit 0
 fi
 
-cd /path/to/project || exit 1
-git reset --hard && git pull
+cd "$HOME/no_venv/super-ai" || exit 1
 
 tmux new-session -d -s "$sess"
 tmux send-keys -t "$sess" "python3 -m src.main && tmux kill-session -t $sess" C-m
