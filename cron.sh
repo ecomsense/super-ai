@@ -20,4 +20,4 @@ cd "$new_home/no_venv/super-ai" || exit 1
 
 
 tmux new-session -d -s "$sess"
-tmux send-keys -t "$sess" "usr/bin/python3 -m src.main && tmux kill-session -t $sess" C-m
+tmux send-keys -t "$sess" "/usr/bin/python3 -m src.main && tmux kill-session -t $sess" C-m
