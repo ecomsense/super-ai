@@ -1,5 +1,7 @@
 #!/bin/env bash
-ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
+#ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
+ACTUAL_HOME="$HOME/home/konkakurnool"
+
 
 export PATH="$ACTUAL_HOME/.local/bin:$PATH"
 export PYTHONPATH="$ACTUAL_HOME/.local/lib/python3.11/site-packages"
