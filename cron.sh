@@ -1,13 +1,7 @@
 #!/bin/env bash
 
-# Capture debug info
-{
-    USERNAME=$(getent passwd "$(id -u)" | cut -d: -f1)
-    USER_HOME=$(getent passwd "$(id -u)" | cut -d: -f6)
-echo "Running as: $USERNAME"
-echo "Home dir: $USER_HOME"
-
-} > /tmp/cron_debug.txt 2>&1
+actual_user=$(awk -F: -v home="$HOME" '$6 == home { print $1 }' /etc/passwd)
+echo "Actual user: $actual_user" > /tmp/debug.txt
 
 #ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
 ACTUAL_HOME="$HOME/home/konkakurnool"
