@@ -2,9 +2,11 @@
 
 # Capture debug info
 {
-    echo "from whoami: $(getent passwd $(whoami) | cut -d: -f6)"
-    echo "from id: $(getent passwd $(id -un) | cut -d: -f6)"
-    echo "from HOME env: $HOME"
+    USERNAME=$(getent passwd "$(id -u)" | cut -d: -f1)
+    USER_HOME=$(getent passwd "$(id -u)" | cut -d: -f6)
+echo "Running as: $USERNAME"
+echo "Home dir: $USER_HOME"
+
 } > /tmp/cron_debug.txt 2>&1
 
 #ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
