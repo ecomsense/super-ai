@@ -13,7 +13,7 @@ fi
     echo "Real user: $REAL_USER"
 } > /tmp/debug.txt 2>&1
 
-env > /tmp/env.txt 2>&1
+printenv > /tmp/env.txt 2>&1
 
 #ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
 ACTUAL_HOME="$HOME/home/konkakurnool"
