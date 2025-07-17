@@ -15,5 +15,4 @@ fi
 
 cd "$PROJECT" || exit 1
 tmux new-session -d -s "$sess"
-#tmux send-keys -t "$sess" "python3 -m src.main && tmux kill-session -t $sess" C-m
-echo "success"
+tmux send-keys -t "$sess" "python3 -m src.main && tmux kill-session -t $sess" C-m
