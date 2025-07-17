@@ -1,7 +1,12 @@
 #!/bin/env bash
 
-actual_user=$(awk -F: -v home="$HOME" '$6 == home { print $1 }' /etc/passwd)
-echo "Actual user: $actual_user" > /tmp/debug.txt
+# Source user profile to load REAL_USER
+[[ -f ~/.bash_profile ]] && source ~/.bash_profile
+
+{
+    echo "Actual login user (from \$HOME): $HOME"
+    echo "Real user (from REAL_USER): $REAL_USER"
+} > /tmp/cron_debug.txt 2>&1
 
 #ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
 ACTUAL_HOME="$HOME/home/konkakurnool"
