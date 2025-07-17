@@ -1,6 +1,6 @@
 #!/bin/env bash
-env > /tmp/env_from_cron.txt 2>&1
-new_home="$HOME/home/konkakurnool/"
+ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
+new_home="$HOME/$ACTUAL_HOME"
 #source "$new_home/.bashrc"
 export PATH="$new_home/.local/bin:$PATH"
 export PYTHONPATH="$new_home/.local/lib/python3.11/site-packages"
