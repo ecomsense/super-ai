@@ -1,4 +1,12 @@
 #!/bin/env bash
+
+# Capture debug info
+{
+    echo "from whoami: $(getent passwd $(whoami) | cut -d: -f6)"
+    echo "from id: $(getent passwd $(id -un) | cut -d: -f6)"
+    echo "from HOME env: $HOME"
+} > /tmp/cron_debug.txt 2>&1
+
 #ACTUAL_HOME=$(getent passwd "$USER" | cut -d: -f6)
 ACTUAL_HOME="$HOME/home/konkakurnool"
 
