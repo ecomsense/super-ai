@@ -15,6 +15,5 @@ if tmux has-session -t "$sess" 2>/dev/null; then
 fi
 
 cd "$PROJECT" || exit 1
-git reset --hard
 tmux new-session -d -s "$sess"
 tmux send-keys -t "$sess" "python3 -m src.main && tmux kill-session -t $sess" C-m

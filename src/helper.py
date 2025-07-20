@@ -84,14 +84,16 @@ def history(api, exchange, token, loc, key):
             to = pdlm.now().subtract(days=0).timestamp()
             data_now = api.historical(exchange, token, fm, to)
             # we have some data but it is not full
-            while data_now and len(data_now) > 0 and len(data_now) < abs(loc):
+            while isinstance(data_now, list) and len(data_now) < abs(loc):
                 secs = 2
                 logging.debug(f"found partial low data, retrying after ..{secs} secs")
                 timer(secs)
                 data_now = api.historical(exchange, token, fm, to)
-            if data_now and len(data_now) >= abs(loc):
-                logging.debug("successfully found low")
-                return float(data_now[loc][key])
+
+            if isinstance(data_now, list) and len(data_now) >= abs(loc):
+                low = float(data_now[loc][key])
+                logging.debug(f"successfully found low {low}")
+                return low
             blink()
             i += 1
             logging.debug("rewinding to the previous day ..")
@@ -141,18 +143,20 @@ class QuoteApi:
     def symbol_info(self, exchange, symbol):
         try:
             # TODO undo this code
-            low = False
+            # low = False
             if self.subscribed.get(symbol, None) is None:
                 token = self._ws.api.instrument_symbol(exchange, symbol)
                 key = exchange + "|" + str(token)
+                """
                 if not low:
                     low = history(self._ws.api, exchange, token, loc=-2, key="intl")
                     logging.debug(f"got {low=} for {symbol=} and {token=}")
+                """
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,
                     # "low": 0,
-                    "low": low,
+                    "token": token,
                     "ltp": self._subscribe_till_ltp(key),
                 }
             if self.subscribed.get(symbol, None) is not None:

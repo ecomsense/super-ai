@@ -1,5 +1,5 @@
 from src.constants import logging, O_SETG
-from src.helper import Helper
+from src.helper import Helper, history
 from src.time_manager import TimeManager
 from src.trade import Trade
 from traceback import print_exc
@@ -29,7 +29,8 @@ class Openingbalance:
             exchange=user_settings["option_exchange"],
             quantity=user_settings["quantity"],
         )
-        self._low = symbol_info["low"]
+        self._token = symbol_info["token"]
+        self._low = None
         self._stop = symbol_info["ltp"]
         self._target = self._t1
         self._max_target_reached = 0
@@ -37,7 +38,7 @@ class Openingbalance:
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._fn = "wait_for_breakout"
 
-    def _is_trail_stopped(self, percent):
+    def _is_trailstopped(self, percent):
         if max(percent, self._max_target_reached) == percent:
             self._max_target_reached = percent
         trailing_target = self._max_target_reached / 2
@@ -65,9 +66,9 @@ class Openingbalance:
         self.trade.order_id = None
 
     def wait_for_breakout(self):
-        """if trading below above is true, we wait for ltp to be equal or greater than low"""
+        """if trading below above is true, we wait for ltp to be equal or greater than stop"""
         try:
-            if self.trade.last_price >= self._low and self._time_mgr.can_trade:
+            if self.trade.last_price >= self._stop and self._time_mgr.can_trade:
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
                 self.trade.price = self.trade.last_price + 2
@@ -95,8 +96,8 @@ class Openingbalance:
             # place sell order only if buy order is filled
             self.trade.side = "S"
             self.trade.disclosed_quantity = 0
-            self.trade.price = self._low - 2
-            self.trade.trigger_price = self._low
+            self.trade.price = self._stop - 2
+            self.trade.trigger_price = self._stop
             self.trade.order_type = "SL-LMT"
             self.trade.tag = "sl_ob"
             self._reset_trade()
@@ -168,8 +169,8 @@ class Openingbalance:
                 * -1
             )
 
-            # trailing stop
-            if self._is_trail_stopped(target_progress):
+            # trailing
+            if self._is_trailstopped(target_progress):
                 resp = self._modify_to_exit()
                 logging.debug(f"modify returned {resp}")
                 self._fn = "remove_me"
@@ -223,26 +224,48 @@ class Openingbalance:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
 
+    def _set_new_stop_from_low(self):
+        try:
+            if not self._low:
+                low = history(
+                    Helper._api,
+                    self.trade.exchange,
+                    self._token,
+                    loc=-2,
+                    key="intl",
+                )
+                if low:
+                    self._low = low
+                    self._stop = low
+                    logging.debug(f"successfull in setting {low=} ")
+                else:
+                    logging.warning("unable to find low this time")
+        except Exception as e:
+            logging.error(f"while setting new stop from low")            
+            print_exc()
+
     def try_exiting_trade(self):
         try:
             self._set_target()
             if self._is_stoploss_hit():
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
-                self.reduced_target_sequence = 2
-            elif self.trade.last_price <= self._low:
+            elif self.trade.last_price <= self._stop:
                 resp = self._modify_to_kill()
                 logging.debug(f"kill returned {resp}")
                 self._fn = "wait_for_breakout"
-                self.reduced_target_sequence = 2
             elif self.trade.last_price >= self._trade_manager.position.target_price:
                 resp = self._modify_to_exit()
                 logging.debug(f"modify returned {resp}")
                 self._fn = "remove_me"
                 return self._prefix
             else:
-                msg = f"{self.trade.symbol} target: {self._trade_manager.position.target_price} < {self.trade.last_price} > sl: {self._low} "
+                msg = f"{self.trade.symbol} target: {self._trade_manager.position.target_price} < {self.trade.last_price} > sl: {self._stop} "
                 logging.info(msg)
+
+            if self._fn == "wait_for_breakout":
+                self.reduced_target_sequence = 2
+                self._set_new_stop_from_low()
 
         except Exception as e:
             logging.error(f"{e} while exit order")

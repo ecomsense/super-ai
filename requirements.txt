@@ -10,5 +10,3 @@ pendulum
 pyotp
 requests
 websocket_client
-
-

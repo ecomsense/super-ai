@@ -5,6 +5,7 @@ from src.symbols import Symbols
 from traceback import print_exc
 from typing import Any, Literal
 from importlib import import_module
+from toolkit.kokoo import is_time_past
 
 
 class Builder:
@@ -100,10 +101,14 @@ class Builder:
                 c_or_p=ce_or_pe,
                 dct_symbols=self.tokens_for_all_trading_symbols,
             )
-            symbol_info: dict[str, Any] = Helper._quote.symbol_info(
-                user_settings["option_exchange"], result["symbol"]
-            )
-            return symbol_info
+            trade_start = "9:16"
+            while not is_time_past(trade_start):
+                logging.debug(f"waiting till {trade_start}")
+            else:
+                symbol_info: dict[str, Any] = Helper._quote.symbol_info(
+                    user_settings["option_exchange"], result["symbol"]
+                )
+                return symbol_info
         except Exception as e:
             logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
             print_exc()
