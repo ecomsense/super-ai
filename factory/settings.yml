@@ -7,27 +7,20 @@ algo:
 NIFTY:
   base: NIFTY
   option_exchange: NFO
-  moneyness: -4 # 0=atm 1=otm -1=itm
-  expiry: 26JUN25
+  moneyness: -1       # 0=atm 1=otm -1=itm
+  expiry: 24JUL25
   quantity: 75
-  t1: 5 
-  t2: 2
-  txn: 1 # points for each losing trade
-  rest_min: 1
-  brick_size: 15
-NATURALGAS:
-  base: NATURALGAS
-  option_exchange: MCX
-  moneyness: -2      # 0=atm 1=otm -1=itm
-  expiry: 23JUN25
-  quantity: 1250
-  t1: 5 
-  t2: 2
-  txn: 0.1  # points for each losing trade
-  rest_min: 3
-  brick_size: 1.15
-  future_expiry: 25JUN25 
-  inth: 359.20
-  intl: 331.60
-  intc: 333.10
-
+  t1: 10 #target if everything goes well        
+  t2: 2  #alternative target for sideways
+  txn: 1             # points for each losing trade
+  rest_min: 2
+BANKNIFTY:
+  base: BANKNIFTY
+  option_exchange: NFO
+  moneyness: -2       # 0=atm 1=otm -1=itm
+  expiry: 31JUL25
+  quantity: 35
+  t1: 10 #target if everything goes well        
+  t2: 2  #alternative target for sideways
+  txn: 1             # points for each losing trade
+  rest_min: 2
