@@ -8,8 +8,8 @@ from src.strategies.strategy import Builder  # Import the new builder
 
 def main():
     try:
-        logging.info(f"WAITING: till {O_SETG['trade']['start']}")
-        while not is_time_past(O_SETG["trade"]["start"]):
+        logging.info(f"WAITING: till {O_SETG['algo']['start']}")
+        while not is_time_past(O_SETG["algo"]["start"]):
             blink()
 
         # login to broker api

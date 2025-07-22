@@ -105,8 +105,8 @@ def set_logger():
         display or write to file
         based on user choice from settings
     """
-    level = O_SETG["log"]["level"]
-    if O_SETG["log"]["show"]:
+    level = O_SETG["algo"]["log_level"]
+    if O_SETG["algo"]["log_show"]:
         return Logger(level)
     return Logger(level, S_LOG)
 

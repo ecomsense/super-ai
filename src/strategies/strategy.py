@@ -11,7 +11,7 @@ from toolkit.kokoo import is_time_past, blink
 class Builder:
     def __init__(self, user_settings: dict[str, Any]):
         self.user_settings = user_settings
-        self.strategy_name = user_settings["trade"]["strategy"]
+        self.strategy_name = user_settings["algo"]["strategy"]
         self.symbols_to_trade = self.merge_settings_and_symbols()
         self.tokens_for_all_trading_symbols = self.find_fno_tokens()
 
@@ -20,7 +20,7 @@ class Builder:
         Retrieves tokens for all trading symbols.
         """
         try:
-            black_list = ["log", "trade"]
+            black_list = ["algo"]
             symbols_to_trade = {
                 k: settings for k, settings in O_SETG.items() if k not in black_list
             }

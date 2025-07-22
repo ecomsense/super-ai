@@ -1,12 +1,9 @@
-trade:
-  target: 2
-  start: "0:17"
-  stop: "23:50"
-  live: 1 # 0 for paper 1 for live
-  strategy: pivot #pivot/openingbalance/renko
-log:
-  show: 1
-  level: 10
+algo:
+  strategy: pivot #openingbalance/pivot
+  start: "9:15"
+  log_show: 0
+  log_level: 10
+  live: 1      # 0 for paper 1 for live
 NIFTY:
   base: NIFTY
   option_exchange: NFO

@@ -33,7 +33,7 @@ def get_broker():
 def login():
     try:
         # Initialize API with config
-        if O_SETG["trade"].get("live", 0) == 0:
+        if O_SETG["algo"].get("live", 0) == 0:
             from paper import Paper
 
             logging.info("Using paper trading")
