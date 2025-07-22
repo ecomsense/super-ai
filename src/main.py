@@ -1,22 +1,22 @@
 # main.py
 from src.constants import logging, O_SETG
 from src.helper import Helper
-from toolkit.kokoo import is_time_past
+from toolkit.kokoo import is_time_past, blink, kill_tmux
 from traceback import print_exc
 from src.strategies.strategy import Builder  # Import the new builder
 
 
 def main():
     try:
+        logging.info(f"WAITING: till {O_SETG['trade']['start']}")
+        while not is_time_past(O_SETG["trade"]["start"]):
+            blink()
+
         # login to broker api
         Helper.api()
 
         # Initialize the StrategyBuilder with O_SETG
         builder = Builder(O_SETG)
-
-        while not is_time_past(O_SETG["trade"]["start"]):
-            print(f"waiting till {O_SETG['trade']['start']}")
-
         # StrategyBuilder has already populated Helper.tokens_for_all_trading_symbols
         # and retrieved symbols_to_trade during its initialization.
 
@@ -28,7 +28,7 @@ def main():
             {}
         )  # Keep this in main for now as it seems to be state across strategies
 
-        while not is_time_past(O_SETG["trade"]["stop"]):
+        while strategies:
             for strgy in strategies:
                 msg = f"{strgy.trade.symbol} ltp:{strgy.trade.last_price} {strgy._fn}"
                 prefix = strgy._prefix
@@ -52,8 +52,11 @@ def main():
                 else:
                     resp = strgy.run(*run_args)  # Pass the dynamically generated args
 
-                logging.info(f"{msg} returned {resp}")
+                # logging.info(f"{msg} returned {resp}")
+
             strategies = [strgy for strgy in strategies if not strgy._removable]
+        else:
+            kill_tmux()
     except KeyboardInterrupt:
         __import__("sys").exit()
     except Exception as e:

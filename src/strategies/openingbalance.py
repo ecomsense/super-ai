@@ -39,15 +39,18 @@ class Openingbalance:
         self._fn = "wait_for_breakout"
 
     def _is_trailstopped(self, percent):
+        # set max target reached
         if max(percent, self._max_target_reached) == percent:
             self._max_target_reached = percent
+
         trailing_target = self._max_target_reached / 2
 
-        msg = f"currently percent is {percent} < {trailing_target=}"
-        if percent > self._t2 and percent < trailing_target:
+        # if currently above stop% and below trailing target
+        if self._t2 <= percent < trailing_target:
             return True
-        else:
-            logging.debug(msg)
+        
+        msg = f"PROGRESS: {self.trade.symbol} either {percent=} < {self._t2} or its > {trailing_target=}"
+        logging.info(msg)
         return False
 
     @property
@@ -58,7 +61,7 @@ class Openingbalance:
     def reduced_target_sequence(self, sequence):
         if self._reduced_target_sequence == sequence - 1:
             self._reduced_target_sequence = sequence
-            logging.info(f"new target sequence reached {self._reduced_target_sequence}")
+            logging.debug(f"new target sequence reached {self._reduced_target_sequence}")
 
     def _reset_trade(self):
         self.trade.filled_price = None
@@ -66,7 +69,6 @@ class Openingbalance:
         self.trade.order_id = None
 
     def wait_for_breakout(self):
-        """if trading below above is true, we wait for ltp to be equal or greater than stop"""
         try:
             if self.trade.last_price >= self._stop and self._time_mgr.can_trade:
                 self.trade.side = "B"
@@ -78,6 +80,7 @@ class Openingbalance:
                 self._reset_trade()
                 buy_order = self._trade_manager.complete_entry(self.trade)
                 if buy_order.order_id is not None:
+                    logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
                     self._fn = "find_fill_price"
                     self.reduced_target_sequence = 1
                 else:
@@ -93,6 +96,7 @@ class Openingbalance:
         )
         if isinstance(order, dict):
             self._fill_price = float(order["fill_price"])
+
             # place sell order only if buy order is filled
             self.trade.side = "S"
             self.trade.disclosed_quantity = 0
@@ -104,6 +108,7 @@ class Openingbalance:
             sell_order = self._trade_manager.pending_exit(self.trade)
             if sell_order.order_id is not None:
                 self._fn = "try_exiting_trade"
+                logging.info(f"{self.trade.symbol} filled at {self._fill_price}")
             else:
                 logging.error(f"id is not found for sell {sell_order}")
         else:
@@ -114,7 +119,6 @@ class Openingbalance:
     def _set_target(self):
         try:
             rate_to_be_added = txn_cost = 0
-            logging.debug(f"setting target for {self.trade.symbol}")
             resp = Helper._rest.positions()
             if resp and any(resp):
                 # calculate other trade pnl
@@ -145,7 +149,7 @@ class Openingbalance:
                 count = 1 if count == 0 else count / 2
                 count = count + 0.5 if txn_cost % 1 == 0.5 else count
                 txn_cost = count * self._txn
-                logging.debug(f"{txn_cost=} trades{count} * txn_rate:{self._txn}")
+                logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
 
                 if total_profit < 0:
                     rate_to_be_added = abs(total_profit) / self.trade.quantity
@@ -160,7 +164,7 @@ class Openingbalance:
                 self._fill_price + target_buffer + rate_to_be_added + txn_cost
             )
             logging.debug(
-                f"target_price: {target_virtual}= fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}"
+                f"target_price {target_virtual} = fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}"
             )
             target_progress = (
                 (target_virtual - target_buffer - self.trade.last_price)
@@ -172,12 +176,13 @@ class Openingbalance:
             # trailing
             if self._is_trailstopped(target_progress):
                 resp = self._modify_to_exit()
-                logging.debug(f"modify returned {resp}")
+                logging.info(f"TSL HIT: {self.trade.symbol} got {resp}")
                 self._fn = "remove_me"
-                return self._prefix
+                return True
 
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
+            return None
         except Exception as e:
             print_exc()
             logging.error(f"{e} while set target")
@@ -237,7 +242,7 @@ class Openingbalance:
                 if low:
                     self._low = low
                     self._stop = low
-                    logging.debug(f"successfull in setting {low=} ")
+                    logging.debug(f"LOW: setting {low=} for {self.trade.symbol}")
                 else:
                     logging.warning("unable to find low this time")
         except Exception as e:
@@ -246,26 +251,34 @@ class Openingbalance:
 
     def try_exiting_trade(self):
         try:
-            self._set_target()
+            # if trail stopped return prefix
+            is_prefix = self._set_target()
+            if is_prefix:
+                return self._prefix
+
+
+            # from 2nd trade onwards set actual low as stop
+            self._set_new_stop_from_low()
+
             if self._is_stoploss_hit():
-                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+                logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")
                 self._fn = "wait_for_breakout"
             elif self.trade.last_price <= self._stop:
                 resp = self._modify_to_kill()
-                logging.debug(f"kill returned {resp}")
+                logging.info(f"KILLED: {self.trade.symbol} {self.trade.last_price} < stop ... got {resp}")
                 self._fn = "wait_for_breakout"
             elif self.trade.last_price >= self._trade_manager.position.target_price:
                 resp = self._modify_to_exit()
-                logging.debug(f"modify returned {resp}")
+                logging.info(f"TARGET REACHED: {self.trade.symbol} {self.trade.last_price} < target price ... got {resp}")
                 self._fn = "remove_me"
                 return self._prefix
             else:
-                msg = f"{self.trade.symbol} target: {self._trade_manager.position.target_price} < {self.trade.last_price} > sl: {self._stop} "
+                msg = f"progress: {self.trade.symbol} target {self._trade_manager.position.target_price} < {self.trade.last_price} > sl {self._stop} "
                 logging.info(msg)
 
             if self._fn == "wait_for_breakout":
                 self.reduced_target_sequence = 2
-                self._set_new_stop_from_low()
+                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
 
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -277,12 +290,11 @@ class Openingbalance:
             return
 
         if self._fn == "try_exiting_trade":
-            logging.info(f"{self.trade.symbol} going to REMOVE after force modify")
             resp = self._modify_to_exit()
-            logging.debug(f"modify returned {resp}")
+            logging.info(f"REMOVING: {self.trade.symbol} modify got {resp}")
         elif self._fn == "wait_for_breakout":
             logging.info(
-                f"{self.trade.symbol} going to REMOVE without waiting for breakout"
+                f"REMOVING: {self.trade.symbol} switching from waiting for breakout"
             )
         self._fn = "remove_me"
         self._removable = True
@@ -306,8 +318,8 @@ class Openingbalance:
                         and info["_reduced_target_sequence"] == 2  # if pe tgt seq == 2
                         and self.reduced_target_sequence == 2  # if my (ce) tgt seq == 2
                     ):
-                        logging.warning(
-                            f"{self._target} target is going to be altered to {self._t2}"
+                        logging.info(
+                            f"SWITCHING: target {self._target} is reduced to {self._t2}"
                         )
                         self._target = self._t2
                         break
