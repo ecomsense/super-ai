@@ -189,18 +189,17 @@ class Openingbalance:
 
     def _is_stoploss_hit(self):
         try:
-            if O_SETG.get("live", 0) == 0:
-                logging.debug("CHECKING STOP IN PAPER MODE")
-                return Helper.api.can_move_order_to_trade(
-                    self._trade_manager.position.exit.order_id, self.trade.last_price
-                )
-            else:
+            if O_SETG.get("live", 1) == 1:
                 order = self._trade_manager.find_order_if_exists(
                     self._trade_manager.position.exit.order_id, self._orders
                 )
                 if isinstance(order, dict):
                     return True
-
+            else:
+                logging.debug("CHECKING STOP IN PAPER MODE")
+                return Helper.api.can_move_order_to_trade(
+                    self._trade_manager.position.exit.order_id, self.trade.last_price
+                )
         except Exception as e:
             logging.error(f"{e} is stoploss hit {self.trade.symbol}")
             print_exc()
@@ -255,7 +254,6 @@ class Openingbalance:
             is_prefix = self._set_target()
             if is_prefix:
                 return self._prefix
-
 
             # from 2nd trade onwards set actual low as stop
             self._set_new_stop_from_low()

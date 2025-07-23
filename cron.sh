@@ -1,6 +1,6 @@
 #!/bin/env bash
 
-ACTUAL_HOME="$HOME/home/user"
+ACTUAL_HOME="$HOME/home/konkakurnool"
 
 export PATH="$ACTUAL_HOME/.local/bin:$PATH"
 export PYTHONPATH="$ACTUAL_HOME/.local/lib/python3.11/site-packages"

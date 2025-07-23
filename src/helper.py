@@ -85,18 +85,17 @@ def history(api, exchange, token, loc, key):
             data_now = api.historical(exchange, token, fm, to)
             # we have some data but it is not full
             while isinstance(data_now, list) and len(data_now) < abs(loc):
-                secs = 2
-                logging.debug(f"found partial low data, retrying after ..{secs} secs")
-                timer(secs)
-                data_now = api.historical(exchange, token, fm, to)
+                logging.warning(f"TODO: found partial data {data_now}")
+                return None
 
             if isinstance(data_now, list) and len(data_now) >= abs(loc):
                 low = float(data_now[loc][key])
-                logging.debug(f"successfully found low {low}")
                 return low
-            blink()
+
+            timer(1)
             i += 1
             logging.debug("rewinding to the previous day ..")
+        return None
     except Exception as e:
         logging.error(f"{e} in history")
     """

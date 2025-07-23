@@ -1,6 +1,5 @@
 import pendulum
 
-
 class TimeManager:
     def __init__(self, rest_min: int):
         self.last_trade_time = None
