@@ -49,7 +49,7 @@ class Openingbalance:
         if self._t2 <= percent < trailing_target:
             return True
         
-        msg = f"PROGRESS: {self.trade.symbol} either {percent=} < {self._t2} or its > {trailing_target=}"
+        msg = f"#TRAIL: {self.trade.symbol} either {percent=} < {self._t2} or its > {trailing_target=}"
         logging.info(msg)
         return False
 
@@ -108,7 +108,7 @@ class Openingbalance:
             sell_order = self._trade_manager.pending_exit(self.trade)
             if sell_order.order_id is not None:
                 self._fn = "try_exiting_trade"
-                logging.info(f"{self.trade.symbol} filled at {self._fill_price}")
+                logging.info(f"FILLED: {self.trade.symbol} at {self._fill_price}")
             else:
                 logging.error(f"id is not found for sell {sell_order}")
         else:
@@ -189,7 +189,7 @@ class Openingbalance:
 
     def _is_stoploss_hit(self):
         try:
-            if O_SETG["trade"].get("live", 0) == 0:
+            if O_SETG.get("live", 0) == 0:
                 logging.debug("CHECKING STOP IN PAPER MODE")
                 return Helper.api.can_move_order_to_trade(
                     self._trade_manager.position.exit.order_id, self.trade.last_price
@@ -273,7 +273,7 @@ class Openingbalance:
                 self._fn = "remove_me"
                 return self._prefix
             else:
-                msg = f"progress: {self.trade.symbol} target {self._trade_manager.position.target_price} < {self.trade.last_price} > sl {self._stop} "
+                msg = f"PROGRESS: {self.trade.symbol} target {self._trade_manager.position.target_price} < {self.trade.last_price} > sl {self._stop} "
                 logging.info(msg)
 
             if self._fn == "wait_for_breakout":
@@ -319,7 +319,7 @@ class Openingbalance:
                         and self.reduced_target_sequence == 2  # if my (ce) tgt seq == 2
                     ):
                         logging.info(
-                            f"SWITCHING: target {self._target} is reduced to {self._t2}"
+                            f"SWITCHING: {self.trade.symbol} target {self._target} is reduced to {self._t2}"
                         )
                         self._target = self._t2
                         break

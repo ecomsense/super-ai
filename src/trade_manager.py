@@ -68,7 +68,7 @@ class TradeManager:
                 exchange=self.position.exit.exchange,
             )
             exit_order_args.update(kwargs)
-            logging.debug(f"contents of position.ext {exit_order_args}")
+            logging.debug(f"TRADE MANAGER: modifying args {exit_order_args}")
             return self.stock_broker.order_modify(**exit_order_args)
         except Exception as e:
             logging.error(f"Error in complete_exit {e}")
