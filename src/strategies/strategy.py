@@ -5,13 +5,13 @@ from src.symbols import Symbols
 from traceback import print_exc
 from typing import Any, Literal
 from importlib import import_module
-from toolkit.kokoo import is_time_past, blink
+from toolkit.kokoo import is_time_past
 
 
 class Builder:
-    def __init__(self, user_settings: dict[str, Any]):
+    def __init__(self, user_settings: dict[str, Any], strategy_name):
         self.user_settings = user_settings
-        self.strategy_name = user_settings["algo"]["strategy"]
+        self.strategy_name = strategy_name
         self.symbols_to_trade = self.merge_settings_and_symbols()
         self.tokens_for_all_trading_symbols = self.find_fno_tokens()
 
@@ -20,9 +20,9 @@ class Builder:
         Retrieves tokens for all trading symbols.
         """
         try:
-            black_list = ["algo"]
+            blacklist = ["trade"]
             symbols_to_trade = {
-                k: settings for k, settings in O_SETG.items() if k not in black_list
+                k: settings for k, settings in self.user_settings.items() if k not in blacklist
             }
             for k, settings in symbols_to_trade.items():
                 symbol_item = dct_sym[k]
@@ -101,15 +101,10 @@ class Builder:
                 c_or_p=ce_or_pe,
                 dct_symbols=self.tokens_for_all_trading_symbols,
             )
-            trade_start = "9:16"
-            logging.info(f"WAITING: till {trade_start=}")
-            while not is_time_past(trade_start):
-                blink()
-            else:
-                symbol_info: dict[str, Any] = Helper._quote.symbol_info(
-                    user_settings["option_exchange"], result["symbol"]
-                )
-                return symbol_info
+            symbol_info: dict[str, Any] = Helper._quote.symbol_info(
+                user_settings["option_exchange"], result["symbol"]
+            )
+            return symbol_info
         except Exception as e:
             logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
             print_exc()
@@ -147,8 +142,6 @@ class Builder:
                                 symbol_constant=user_settings,
                             )
                         )
-                    else:
-                        common_init_kwargs["pivot_grids"] = None  # Or handle as needed
 
                     strgy = Strategy(**common_init_kwargs)
                     strgy._trade_manager = TradeManager(Helper._api)

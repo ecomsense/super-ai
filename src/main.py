@@ -1,5 +1,5 @@
 # main.py
-from src.constants import logging, O_SETG
+from src.constants import logging, O_SETG, O_TRADESET
 from src.helper import Helper
 from toolkit.kokoo import is_time_past, blink, kill_tmux
 from traceback import print_exc
@@ -8,15 +8,25 @@ from src.strategies.strategy import Builder  # Import the new builder
 
 def main():
     try:
-        logging.info(f"WAITING: till {O_SETG['algo']['start']}")
-        while not is_time_past(O_SETG["algo"]["start"]):
+        logging.info(f"WAITING: till Algo start time {O_SETG['start']}")
+        while not is_time_past(O_SETG["start"]):
+            blink()
+
+        trade_settings = O_TRADESET.pop("trade")
+        print(trade_settings)
+
+        # Initialize the StrategyBuilder with O_SETG
+        logging.info(f"BUILDING: {trade_settings['strategy']}")
+
+        trade_start = trade_settings["start"]
+        logging.info(f"WAITING: till trade start time {trade_start=}")
+        while not is_time_past(trade_start):
             blink()
 
         # login to broker api
         Helper.api()
 
-        # Initialize the StrategyBuilder with O_SETG
-        builder = Builder(O_SETG)
+        builder = Builder(user_settings=O_TRADESET, strategy_name=trade_settings["strategy"])
         # StrategyBuilder has already populated Helper.tokens_for_all_trading_symbols
         # and retrieved symbols_to_trade during its initialization.
 

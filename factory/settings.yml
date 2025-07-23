@@ -1,26 +1,4 @@
-algo:
-  strategy: pivot #openingbalance/pivot
-  start: "9:15"
-  log_show: 0
-  log_level: 10
-  live: 1      # 0 for paper 1 for live
-NIFTY:
-  base: NIFTY
-  option_exchange: NFO
-  moneyness: -1       # 0=atm 1=otm -1=itm
-  expiry: 24JUL25
-  quantity: 75
-  t1: 10 #target if everything goes well        
-  t2: 2  #alternative target for sideways
-  txn: 1             # points for each losing trade
-  rest_min: 2
-BANKNIFTY:
-  base: BANKNIFTY
-  option_exchange: NFO
-  moneyness: -2       # 0=atm 1=otm -1=itm
-  expiry: 31JUL25
-  quantity: 35
-  t1: 10 #target if everything goes well        
-  t2: 2  #alternative target for sideways
-  txn: 1             # points for each losing trade
-  rest_min: 2
+start: "0:15"
+log_show: 0
+log_level: 10
+live: 1      # 0 for paper 1 for live

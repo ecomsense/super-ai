@@ -9,7 +9,7 @@ import pendulum as pdlm
 class Openingbalance:
 
     def __init__(
-        self, prefix: str, symbol_info: dict, user_settings: dict, pivot_grids: list
+        self, prefix: str, symbol_info: dict, user_settings: dict
     ):
         self._id = symbol_info["symbol"]
         self._buy_order = {}
