@@ -1,0 +1,18 @@
+trade:
+  strategy: pivot
+  start: "9:15"
+  live: 1      # 0 for paper 1 for live
+NIFTY:
+  base: NIFTY
+  option_exchange: NFO
+  moneyness: -1       # 0=atm 1=otm -1=itm
+  expiry: 24JUL25
+  quantity: 75
+  rest_min: 2
+BANKNIFTY:
+  base: BANKNIFTY
+  option_exchange: NFO
+  moneyness: -2       # 0=atm 1=otm -1=itm
+  expiry: 31JUL25
+  quantity: 35
+  rest_min: 2
