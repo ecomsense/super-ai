@@ -5,19 +5,10 @@ trade:
 NIFTY:
   base: NIFTY
   option_exchange: NFO
-  moneyness: -1       # 0=atm 1=otm -1=itm
-  expiry: 24JUL25
-  quantity: 75
-  t1: 10 #target if everything goes well        
-  t2: 2  #alternative target for sideways
-  txn: 1             # points for each losing trade
-  rest_min: 2
-BANKNIFTY:
-  base: BANKNIFTY
-  option_exchange: NFO
-  moneyness: -2       # 0=atm 1=otm -1=itm
   expiry: 31JUL25
-  quantity: 35
+  moneyness: -1       # 0=atm 1=otm -1=itm
+  premium: 250
+  quantity: 75
   t1: 10 #target if everything goes well        
   t2: 2  #alternative target for sideways
   txn: 1             # points for each losing trade

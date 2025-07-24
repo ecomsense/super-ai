@@ -124,6 +124,7 @@ class QuoteApi:
             print_exc()
         finally:
             return quote
+        
 
     def _subscribe_till_ltp(self, ws_key):
         try:

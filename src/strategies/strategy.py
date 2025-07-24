@@ -73,7 +73,7 @@ class Builder:
         """
         (Refactored from your original find_tradingsymbol_by_low)
         output:
-            {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'low': 297.7, 'ltp': 274.85}
+            {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
         """
         try:
             sym = Symbols(
@@ -81,19 +81,15 @@ class Builder:
                 base=user_settings["base"],
                 expiry=user_settings["expiry"],
             )
-            """
-            exchange = dct_sym[keyword]["exchange"]
-            token = dct_sym[keyword]["token"]
-            low = history(
-                Helper._api,
-                user_settings["exchange"],
-                user_settings["token"],
-                loc=-2,
-                key="intl",
-            )
-            atm = sym.get_atm(float(low))
-            logging.info(f"atm {atm} from {low}")
-            """
+            # step 1
+            symbols_for_info = list(self.tokens_for_all_trading_symbols.values())
+            for symbol in symbols_for_info:
+                _ = Helper._quote.symbol_info(user_settings["option_exchange"], symbol)
+            quotes = Helper._quote.get_quotes()
+            symbol_with_closest_premium = sym.find_closest_premium(quotes=quotes, premium=user_settings.get("premium", 250), contains=ce_or_pe)
+            symbol_info_by_premium = Helper._quote.symbol_info(user_settings["option_exchange"], symbol_with_closest_premium)
+
+            # step 2
             atm = user_settings["atm"]
             result = sym.find_option_by_distance(
                 atm=atm,
@@ -101,9 +97,12 @@ class Builder:
                 c_or_p=ce_or_pe,
                 dct_symbols=self.tokens_for_all_trading_symbols,
             )
-            symbol_info: dict[str, Any] = Helper._quote.symbol_info(
+            symbol_info_by_distance: dict[str, Any] = Helper._quote.symbol_info(
                 user_settings["option_exchange"], result["symbol"]
             )
+
+            # use any one result
+            symbol_info = symbol_info_by_premium if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"] else symbol_info_by_distance
             return symbol_info
         except Exception as e:
             logging.error(f"{e} while finding the trading symbol in StrategyBuilder")

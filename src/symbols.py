@@ -3,7 +3,7 @@ import re
 from toolkit.fileutils import Fileutils
 from typing import Dict, Optional
 from src.constants import dct_sym
-
+from traceback import print_exc
 from datetime import datetime
 
 
@@ -128,21 +128,25 @@ class Symbols:
     def find_closest_premium(
         self, quotes: Dict[str, float], premium: float, contains: str
     ) -> Optional[str]:
-        contains = self.expiry + contains
-        # Create a dictionary to store symbol to absolute difference mapping
-        symbol_differences: Dict[str, float] = {}
+        try:
+            beg = self._base + self.expiry + contains
+            call_or_put_begins_with = {k: float(v) for k,v in quotes.items() if k.startswith(beg)}
+            # Create a dictionary to store symbol to absolute difference mapping
+            symbol_differences: Dict[str, float] = {}
 
-        for base, ltp in quotes.items():
-            if re.search(re.escape(contains), base):
+            for symbol, ltp in call_or_put_begins_with.items():
                 difference = abs(ltp - premium)
-                symbol_differences[base] = difference
+                symbol_differences[symbol] = difference
 
-        # Find the symbol with the lowest difference
-        closest_symbol = min(
-            symbol_differences, key=symbol_differences.get, default=None
-        )
-
-        return closest_symbol
+            # Find the symbol with the lowest difference
+            closest_symbol = min(
+                symbol_differences, key=symbol_differences.get, default=None
+            )
+            return closest_symbol
+        except Exception as e:
+            print(f"find closest premium {e}")
+            print_exc()
+            
 
     def find_symbol_in_moneyness(self, tradingsymbol, ce_or_pe, price_type):
         def find_strike(ce_or_pe):

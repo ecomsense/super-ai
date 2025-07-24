@@ -18,10 +18,6 @@ def main():
         # Initialize the StrategyBuilder with O_SETG
         logging.info(f"BUILDING: {trade_settings['strategy']}")
 
-        trade_start = trade_settings["start"]
-        logging.info(f"WAITING: till trade start time {trade_start=}")
-        while not is_time_past(trade_start):
-            blink()
 
         # login to broker api
         Helper.api()
@@ -37,6 +33,11 @@ def main():
         sequence_info = (
             {}
         )  # Keep this in main for now as it seems to be state across strategies
+
+        trade_start = trade_settings["start"]
+        logging.info(f"WAITING: till trade start time {trade_start=}")
+        while not is_time_past(trade_start):
+            blink()
 
         while strategies:
             for strgy in strategies:
