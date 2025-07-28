@@ -245,6 +245,8 @@ class RestApi:
             print_exc()
         finally:
             return from_api
+        
+
 
     def close_positions(self):
         for pos in self._api.positions:

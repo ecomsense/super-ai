@@ -19,7 +19,7 @@ class Openingbalance:
         self._target_price = None
         self._removable = False
         self._trade_manager = None
-        self._reduced_target_sequence = 0
+        #self._reduced_target_sequence = 0
         self._t1 = user_settings["t1"]
         self._t2 = user_settings["t2"]
         self._prefix = prefix
@@ -48,8 +48,11 @@ class Openingbalance:
         # if currently above stop% and below trailing target
         if self._t2 <= percent < trailing_target:
             return True
+        elif percent < self._t2 < self._max_target_reached:
+            return True
         
-        msg = f"#TRAIL: {self.trade.symbol} either {percent=} < {self._t2} or its > {trailing_target=}"
+        #msg = f"#TRAIL: {self.trade.symbol} either {percent=} < {self._t2} or its > {trailing_target=}"
+        msg = f"#TRAIL: {self.trade.symbol} {percent=} vs  max target reached:{self._max_target_reached}"
         logging.info(msg)
         return False
 
@@ -82,7 +85,7 @@ class Openingbalance:
                 if buy_order.order_id is not None:
                     logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
                     self._fn = "find_fill_price"
-                    self.reduced_target_sequence = 1
+                    #self.reduced_target_sequence = 1
                 else:
                     logging.warning(
                         f"got {buy_order} without buy order order id {self.trade.symbol}"
@@ -275,7 +278,7 @@ class Openingbalance:
                 logging.info(msg)
 
             if self._fn == "wait_for_breakout":
-                self.reduced_target_sequence = 2
+                #self.reduced_target_sequence = 2
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
 
         except Exception as e:
@@ -297,7 +300,7 @@ class Openingbalance:
         self._fn = "remove_me"
         self._removable = True
 
-    def run(self, orders, ltps, prefixes: list, sequence_info: dict):
+    def run(self, orders, ltps, prefixes: list):
         try:
             self._orders = orders
 
@@ -308,6 +311,7 @@ class Openingbalance:
             if self._prefix in prefixes:
                 self.remove_me()
 
+            """
             if self._target != self._t2:
                 for id, info in sequence_info.items():
                     if (
@@ -321,6 +325,7 @@ class Openingbalance:
                         )
                         self._target = self._t2
                         break
+            """
 
             result = getattr(self, self._fn)()
             return result
