@@ -1,6 +1,7 @@
 trade:
   strategy: openingbalance
-  start: "0:16"
+  start: "9:16"
+  stop: "11:00"
   live: 1      # 0 for paper 1 for live
 NIFTY:
   base: NIFTY
