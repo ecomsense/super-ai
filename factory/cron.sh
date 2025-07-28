@@ -18,4 +18,5 @@ else
   git reset --hard && git pull
   tmux new-session -d -s "$sess"
   tmux send-keys -t "$sess" "python3 -m src.main && tmux kill-session -t $sess" C-m
+  tmux attach -t "$sess"
 fi
