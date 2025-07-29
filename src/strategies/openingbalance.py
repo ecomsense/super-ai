@@ -47,11 +47,11 @@ class Openingbalance:
 
         # if currently above stop% and below trailing target
         if self._t2 <= percent < trailing_target:
-            msg = f"#TSL HIT: {self.trade.symbol} {percent=} < {trailing_target=}"
+            msg = f"#TSL 50 PERC: {self.trade.symbol} {percent=} < {trailing_target=}"
             logging.info(msg)
             return True
         elif percent < self._t2 < self._max_target_reached:
-            msg = f"#TSL HIT: {self.trade.symbol} {percent=} < t2={self._t2}"
+            msg = f"#TSL T2 HIT: {self.trade.symbol} {percent=} < t2={self._t2}"
             logging.info(msg)
             return True
         
