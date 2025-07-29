@@ -15,10 +15,6 @@ def compute(ohlc_prefix):
             float(ohlc_prefix["intc"]),
         )
         pivot = (high + low + close) / 3.0
-        """
-        bc = (high + low) / 2.0
-        tc = (pivot - bc) + pivot
-        """
         R5 = (pivot * 4) + high - (4 * low)
         R4 = (pivot * 3) + high - (3 * low)
         R3 = high + (2 * (pivot - low))
@@ -184,8 +180,6 @@ class Pivot:
         if isinstance(order, dict):
             self._fill_price = float(order["fill_price"])
             # place sell order only if buy order is filled
-            self.trade.side = "S"
-            self.trade.disclosed_quantity = 0
             self.trade.price = self._low - 2
             self.trade.trigger_price = self._low
             self.trade.order_type = "SL-LMT"
@@ -280,14 +274,3 @@ class Pivot:
             logging.error(f"{e} in running {self.trade.symbol}")
             print_exc()
 
-
-"""
-into = history(
-    api=api,
-    exchange=symbol_constant["exchange"],
-    token=symbol_constant["token"],
-    loc=-1,
-    key="into",
-)
-cls.grid[prefix]["into"] = into
-"""
