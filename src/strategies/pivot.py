@@ -43,7 +43,7 @@ class Grid:
 
     @classmethod
     def run(cls, api, prefix, symbol_constant):
-        print("Grid running", symbol_constant)
+        logging.info(f"Grid running: {symbol_constant}")
         try:
             if cls.grid.get(prefix, None) is None:
                 start = pdlm.now().subtract(days=4).timestamp()
@@ -60,10 +60,12 @@ class Grid:
                     if not ret:
                         msg = f'daily price series {symbol_constant["index"]} {ret}'
                         logging.error(msg)
-                    ohlc = loads(ret[0])
-                    print("from grid", ohlc)
-                    cls.grid[prefix] = compute(ohlc)
-            return cls.grid[prefix]
+                        __import__("sys").exit(1)
+                    else:
+                        ohlc = loads(ret[0])
+                        logging.info(f"from grid {ohlc}")
+                        cls.grid[prefix] = compute(ohlc)
+                        return cls.grid[prefix]
         except Exception as e:
             logging.error(f"{e} while computing grid")
             print_exc()
@@ -72,16 +74,16 @@ class Grid:
 
 class Gridlines:
     def __init__(self, prices: list, reverse: bool):
-        print("prices", prices)
+        logging.info(f"prices {prices}")
         levels = sorted(prices, reverse=reverse)
         self.lines = list(zip(levels[:-1], levels[1:]))
-        print("gridlines", self.lines)
+        logging.info(f"gridlines {self.lines}")
 
     def find_current_grid(self, ltp: float):
         for idx, (a, b) in enumerate(self.lines):
             low, high = min(a, b), max(a, b)
             if low <= ltp < high:
-                logging.debug(f"pivot l:{low} ltp:{ltp} h:{high}")
+                logging.info(f"pivot l:{low} ltp:{ltp} h:{high}")
                 return idx
 
 
