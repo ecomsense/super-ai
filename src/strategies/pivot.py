@@ -198,7 +198,7 @@ class Pivot:
                 logging.error(f"id is not found for sell {sell_order}")
         else:
             logging.error(
-                f"order {self._trade_manager.position.entry.order_id} not complete"
+                f"{self.trade.symbol} buy order {self._trade_manager.position.entry.order_id} not complete, to find fill price"
             )
 
     def _is_stoploss_hit(self):
