@@ -15,17 +15,29 @@ def compute(ohlc_prefix):
             float(ohlc_prefix["intc"]),
         )
         pivot = (high + low + close) / 3.0
+        logging.info(f"{pivot=}")
         R5 = (pivot * 4) + high - (4 * low)
+        logging.info(f"{R5=}")
         R4 = (pivot * 3) + high - (3 * low)
+        logging.info(f"{R4=}")
         R3 = high + (2 * (pivot - low))
+        logging.info(f"{R3=}")
         R2 = pivot + (high - low)
+        logging.info(f"{R2=}")
         R1 = (2 * pivot) - low
+        logging.info(f"{R1=}")
         S1 = (2 * pivot) - high
+        logging.info(f"{S1=}")
         S2 = pivot - (high - low)
+        logging.info(f"{S2=}")
         S3 = low - (2 * (high - pivot))
+        logging.info(f"{S3=}")
         S4 = (pivot * 3) - (high * 3) - low
+        logging.info(f"{S4=}")
         S5 = (pivot * 4) - (high * 4) - low
+        logging.info(f"{S5=}")
         r9 = R3 + R2 + R1 + pivot + S1 + S2 + S3
+        logging.info(f"{r9=}")
         lst = [r9, R5, R4, R3, R2, R1, pivot, S1, S2, S3, S4, S5, 0]
         lst = [int(item) for item in lst]
         return lst
@@ -61,7 +73,7 @@ class Grid:
                         ohlc = loads(ret[0])
                         logging.info(f"from grid {ohlc}")
                         cls.grid[prefix] = compute(ohlc)
-                        return cls.grid[prefix]
+            return cls.grid[prefix]
         except Exception as e:
             logging.error(f"{e} while computing grid")
             print_exc()
