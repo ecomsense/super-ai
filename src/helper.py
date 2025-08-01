@@ -249,39 +249,30 @@ class RestApi:
 
 
     def close_positions(self):
-        for pos in self._api.positions:
-            if pos["quantity"] == 0:
-                continue
-            else:
-                quantity = abs(pos["quantity"])
+        try:
+            for pos in self._api.positions:
+                if pos["quantity"] == 0:
+                    continue
+                else:
+                    quantity = abs(pos["quantity"])
 
-            logging.debug(f"trying to close {pos['symbol']}")
-            if pos["quantity"] < 0:
+                logging.debug(f"trying to close {pos['symbol']}")
                 args = dict(
                     symbol=pos["symbol"],
                     quantity=quantity,
                     disclosed_quantity=quantity,
-                    product="M",
+                    product=pos["prd"],
+                    order_type="MKT",
+                    exchange=pos["exchange"],
+                    tag="close",
                     side="B",
-                    order_type="MKT",
-                    exchange="NFO",
-                    tag="close",
                 )
+                args["side"] = "B" if pos["quantity"] < 0 else "S"
                 resp = self._api.order_place(**args)
-                logging.info(f"api responded with {resp}")
-            elif quantity > 0:
-                args = dict(
-                    symbol=pos["symbol"],
-                    quantity=quantity,
-                    disclosed_quantity=quantity,
-                    product="M",
-                    side="S",
-                    order_type="MKT",
-                    exchange="NFO",
-                    tag="close",
-                )
-                resp = self._api.order_place(**args)
-                logging.info(f"api responded with {resp}")
+                logging.info(f"close position {pos['symbol']} responded with {resp}")
+        except Exception as e:
+            logging.error("f{e} RestApi: close positions")
+            print_exc()
 
     def pnl(self, key="urmtom"):
         try:
@@ -380,6 +371,8 @@ if __name__ == "__main__":
         resp = Helper._rest.pnl("rpnl")
         print(resp)
         orders()
+
+        Helper._rest.close_positions()
 
         # test_history(exchange="NFO", symbol="BANKNIFTY27MAR25C50000")
     except Exception as e:
