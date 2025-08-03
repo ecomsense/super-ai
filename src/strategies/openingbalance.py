@@ -19,7 +19,6 @@ class Openingbalance:
         self._target_price = None
         self._removable = False
         self._trade_manager = None
-        #self._reduced_target_sequence = 0
         self._t1 = user_settings["t1"]
         self._t2 = user_settings["t2"]
         self._prefix = prefix
@@ -30,8 +29,8 @@ class Openingbalance:
             quantity=user_settings["quantity"],
         )
         self._token = symbol_info["token"]
-        self._low = None
-        self._stop = symbol_info["ltp"]
+        self._low = symbol_info["low"]
+        self._stop = symbol_info["low"]
         self._target = self._t1
         self._max_target_reached = 0
         self._txn = user_settings["txn"]
@@ -60,6 +59,7 @@ class Openingbalance:
         logging.info(msg)
         return False
 
+    """
     @property
     def reduced_target_sequence(self):
         return self._reduced_target_sequence
@@ -70,6 +70,8 @@ class Openingbalance:
             self._reduced_target_sequence = sequence
             logging.debug(f"new target sequence reached {self._reduced_target_sequence}")
 
+    """
+
     def _reset_trade(self):
         self.trade.filled_price = None
         self.trade.status = None
@@ -77,7 +79,7 @@ class Openingbalance:
 
     def wait_for_breakout(self):
         try:
-            if self.trade.last_price >= self._stop and self._time_mgr.can_trade:
+            if self.trade.last_price > self._stop and self._time_mgr.can_trade:
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
                 self.trade.price = self.trade.last_price + 2
@@ -89,7 +91,6 @@ class Openingbalance:
                 if buy_order.order_id is not None:
                     logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
                     self._fn = "find_fill_price"
-                    #self.reduced_target_sequence = 1
                 else:
                     logging.warning(
                         f"got {buy_order} without buy order order id {self.trade.symbol}"
@@ -128,7 +129,6 @@ class Openingbalance:
             rate_to_be_added = txn_cost = 0
             resp = Helper._rest.positions()
             if resp and any(resp):
-                # calculate other trade pnl
                 total_profit = sum(
                     item["rpnl"] + item["urmtom"]
                     for item in resp
@@ -148,7 +148,7 @@ class Openingbalance:
                 # calculate txn cost
                 count = len(
                     [
-                        order
+                        order["order_id"]
                         for order in self._orders
                         if order["symbol"].startswith(self._prefix)
                     ]
@@ -235,25 +235,6 @@ class Openingbalance:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
 
-    def _set_new_stop_from_low(self):
-        try:
-            if not self._low:
-                low = history(
-                    Helper._api,
-                    self.trade.exchange,
-                    self._token,
-                    loc=-2,
-                    key="intl",
-                )
-                if low:
-                    self._low = low
-                    self._stop = low
-                    logging.debug(f"LOW: setting {low=} for {self.trade.symbol}")
-                else:
-                    logging.warning("unable to find low this time")
-        except Exception as e:
-            logging.error(f"while setting new stop from low")            
-            print_exc()
 
     def try_exiting_trade(self):
         try:
@@ -263,7 +244,7 @@ class Openingbalance:
                 return self._prefix
 
             # from 2nd trade onwards set actual low as stop
-            self._set_new_stop_from_low()
+            # self._set_new_stop_from_low()
 
             if self._is_stoploss_hit():
                 logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")
@@ -282,7 +263,6 @@ class Openingbalance:
                 logging.info(msg)
 
             if self._fn == "wait_for_breakout":
-                #self.reduced_target_sequence = 2
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
 
         except Exception as e:
@@ -314,22 +294,6 @@ class Openingbalance:
 
             if self._prefix in prefixes:
                 self.remove_me()
-
-            """
-            if self._target != self._t2:
-                for id, info in sequence_info.items():
-                    if (
-                        id != self._id  # if ce != pe
-                        and info["_prefix"] == self._prefix  # if nifty == nifty
-                        and info["_reduced_target_sequence"] == 2  # if pe tgt seq == 2
-                        and self.reduced_target_sequence == 2  # if my (ce) tgt seq == 2
-                    ):
-                        logging.info(
-                            f"SWITCHING: {self.trade.symbol} target {self._target} is reduced to {self._t2}"
-                        )
-                        self._target = self._t2
-                        break
-            """
 
             result = getattr(self, self._fn)()
             return result

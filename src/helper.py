@@ -142,20 +142,12 @@ class QuoteApi:
 
     def symbol_info(self, exchange, symbol):
         try:
-            # TODO undo this code
-            # low = False
             if self.subscribed.get(symbol, None) is None:
                 token = self._ws.api.instrument_symbol(exchange, symbol)
                 key = exchange + "|" + str(token)
-                """
-                if not low:
-                    low = history(self._ws.api, exchange, token, loc=-2, key="intl")
-                    logging.debug(f"got {low=} for {symbol=} and {token=}")
-                """
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,
-                    # "low": 0,
                     "token": token,
                     "ltp": self._subscribe_till_ltp(key),
                 }
@@ -246,12 +238,10 @@ class RestApi:
         finally:
             return from_api
         
-
-
     def close_positions(self):
         try:
             for pos in self._api.positions:
-                if pos["quantity"] == 0:
+                if not pos or pos["quantity"] == 0:
                     continue
                 else:
                     quantity = abs(pos["quantity"])

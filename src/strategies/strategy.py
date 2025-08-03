@@ -1,12 +1,11 @@
 from src.constants import logging, O_SETG, dct_sym
-from src.helper import Helper
 from src.trade_manager import TradeManager
 from src.symbols import Symbols
 from traceback import print_exc
 from typing import Any, Literal
 from importlib import import_module
-from toolkit.kokoo import is_time_past
-
+from toolkit.kokoo import is_time_past, timer
+from src.helper import Helper, history
 
 class Builder:
     def __init__(self, user_settings: dict[str, Any], strategy_name):
@@ -124,8 +123,7 @@ class Builder:
             Strategy = getattr(strategy_module, self.strategy_name.capitalize())
             strategies = []
             for prefix, user_settings in self.symbols_to_trade.items():
-                print("user setting", user_settings)
-                lst_of_option_type = ["C", "P"]
+                lst_of_option_type = ["P", "C"]
                 for option_type in lst_of_option_type:
                     # Prepare common arguments for strategy __init__
                     common_init_kwargs = {
@@ -136,7 +134,23 @@ class Builder:
                         "user_settings": user_settings,
                     }
                     # Add strategy-specific arguments for __init__
-                    if self.strategy_name == "pivot":
+                    if self.strategy_name == "openingbalance":
+                        logging.info(f"building strategy: {self.strategy_name}")
+                        low = None
+                        while low is None:
+                            low = history(
+                                Helper.api(),
+                                exchange=common_init_kwargs["user_settings"]["option_exchange"],
+                                token=common_init_kwargs["symbol_info"]["token"],
+                                loc=-2,
+                                key="intl",
+                            )
+                            # timer
+                            timer(0.5)
+                        else:
+                            common_init_kwargs["symbol_info"]["low"] = low
+                    else:
+                        logging.info("building pivot strategy")
                         common_init_kwargs["pivot_grids"] = (
                             import_module("src.strategies.pivot")
                             .Grid()
@@ -147,6 +161,7 @@ class Builder:
                             )
                         )
 
+                    logging.info(common_init_kwargs)
                     strgy = Strategy(**common_init_kwargs)
                     strgy._trade_manager = TradeManager(Helper._api)
                     strategies.append(strgy)
@@ -164,20 +179,13 @@ class Builder:
         trades = Helper._rest.trades()
         quotes = Helper._quote.get_quotes()
 
-        if self.strategy_name == "openingbalance":
-            # For 'openingbalance', sequence_info and strgy_to_be_removed are managed in main loop
-            # and passed directly.
-            # This method can return base args, and main can add the specific ones.
-            return (trades, quotes)
-        elif self.strategy_name == "pivot":
+        if self.strategy_name == "pivot":
             underlying_ltp = Helper._rest.ltp(
                 dct_sym[strategy_instance._prefix]["exchange"],
                 dct_sym[strategy_instance._prefix]["token"],
             )
             return (trades, quotes, underlying_ltp)
-        # Add more elif blocks for other strategies as they are developed
         else:
-            # Default arguments if no specific handling is defined
             return (trades, quotes)
 
 
