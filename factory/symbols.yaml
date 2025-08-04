@@ -31,3 +31,10 @@ NATURALGAS:
   index: "Natural gas current month future"
   exchange: "MCX"
   depth: 15
+
+SENSEX:
+  diff: 100
+  index: "SENSEX" 
+  exchange: "BSE"
+  token:  "1"
+  depth: 10

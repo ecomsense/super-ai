@@ -167,11 +167,6 @@ class Symbols:
             else:
                 return search + str(strike - dct_sym[self._base]["diff"])
 
-    def calc_straddle_value(self, atm: int, quotes: list):
-        ce = self._base + self.expiry + "C" + str(atm)
-        pe = self._base + self.expiry + "P" + str(atm)
-        return quotes[ce] + quotes[pe]
-
     def find_option_type(self, tradingsymbol):
         option_pattern = re.compile(rf"{self._base}{self.expiry}([CP])\d+")
         match = option_pattern.match(tradingsymbol)

@@ -13,7 +13,6 @@ def main():
             blink()
 
         trade_settings = O_TRADESET.pop("trade")
-        print(trade_settings)
 
         # Initialize the StrategyBuilder with O_SETG
         logging.info(f"BUILDING: {trade_settings['strategy']}")
@@ -21,6 +20,8 @@ def main():
 
         # login to broker api
         Helper.api()
+        for _, v in O_TRADESET.items():
+            v["symbol"] = v.get("symbol", v["base"])
 
         builder = Builder(user_settings=O_TRADESET, strategy_name=trade_settings["strategy"])
         # StrategyBuilder has already populated Helper.tokens_for_all_trading_symbols

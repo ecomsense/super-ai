@@ -1,6 +1,6 @@
 from src.constants import logging, O_SETG, dct_sym
 from src.trade_manager import TradeManager
-from src.symbols import Symbols
+from src.symbol import Symbol
 from traceback import print_exc
 from typing import Any, Literal
 from importlib import import_module
@@ -47,12 +47,12 @@ class Builder:
         try:
             tokens_of_all_trading_symbols = {}
             for k, symbol_info in self.symbols_to_trade.items():
-                sym = Symbols(
-                    option_exchange=symbol_info["option_exchange"],
+                sym = Symbol(
+                    exchange=symbol_info["option_exchange"],
                     base=symbol_info["base"],
+                    symbol=symbol_info["symbol"],
                     expiry=symbol_info["expiry"],
                 )
-                sym.get_exchange_token_map_finvasia()
                 exchange = symbol_info["exchange"]
                 token = symbol_info["token"]
                 ltp_for_underlying = Helper._rest.ltp(exchange, token)
@@ -67,7 +67,7 @@ class Builder:
             return {}
 
     def _find_tradingsymbol_by_atm(
-        self, ce_or_pe: Literal["C", "P"], user_settings
+        self, ce_or_pe: Literal["CE", "PE"], user_settings
     ) -> dict[str, Any]:
         """
         (Refactored from your original find_tradingsymbol_by_low)
@@ -75,9 +75,11 @@ class Builder:
             {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
         """
         try:
-            sym = Symbols(
-                option_exchange=user_settings["option_exchange"],
+            print(user_settings)
+            sym = Symbol(
+                exchange=user_settings["option_exchange"],
                 base=user_settings["base"],
+                symbol=user_settings["symbol"],
                 expiry=user_settings["expiry"],
             )
 
@@ -90,7 +92,7 @@ class Builder:
                 dct_symbols=self.tokens_for_all_trading_symbols,
             )
             symbol_info_by_distance: dict[str, Any] = Helper._quote.symbol_info(
-                user_settings["option_exchange"], result["symbol"]
+                user_settings["option_exchange"], result["TradingSymbol"]
             )
 
             # step 1
@@ -123,7 +125,7 @@ class Builder:
             Strategy = getattr(strategy_module, self.strategy_name.capitalize())
             strategies = []
             for prefix, user_settings in self.symbols_to_trade.items():
-                lst_of_option_type = ["P", "C"]
+                lst_of_option_type = ["PE", "CE"]
                 for option_type in lst_of_option_type:
                     # Prepare common arguments for strategy __init__
                     common_init_kwargs = {

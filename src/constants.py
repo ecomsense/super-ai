@@ -1,16 +1,8 @@
-"""
-description:
-    contains all the constants
-    creates yml files and necessary folders
-    for project
-"""
-
 from os import path
 from traceback import print_exc
 from pprint import pprint
 from toolkit.logger import Logger
 from toolkit.fileutils import Fileutils
-import yaml
 
 O_FUTL = Fileutils()
 S_DATA = "data/"
@@ -131,16 +123,15 @@ def get_current_trade_settings():
 
 O_TRADESET = get_current_trade_settings()
 
-def get_symbols():
-    URL = (
-        "https://raw.githubusercontent.com/ecomsense/super-ai/main/factory/symbols.yaml"
-    )
-    response = __import__("requests").get(URL)
-    response.raise_for_status()
-    return yaml.safe_load(response.text)
+
+def get_symbol_fm_factory():
+    fpath = "./factory/symbols.yaml"
+    dct_sym = O_FUTL.read_file(fpath)
+    print(dct_sym)
+    return dct_sym
 
 
-dct_sym = get_symbols()
+dct_sym = get_symbol_fm_factory()
 
 
 def set_logger():

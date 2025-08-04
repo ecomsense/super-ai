@@ -54,11 +54,12 @@ class Grid:
         logging.info(f"Grid running: {symbol_constant}")
         try:
             if cls.grid.get(prefix, None) is None:
-                start = pdlm.now().subtract(days=4).timestamp()
+                start = pdlm.now().subtract(days=5).timestamp()
                 now = pdlm.now().timestamp()
                 if all(k in symbol_constant for k in ["intl", "inth", "intc"]):
                     cls.grid[prefix] = compute(symbol_constant)
                 else:
+                    logging.info(f"Grid.run: {symbol_constant}")
                     ret = api.broker.get_daily_price_series(
                         exchange=symbol_constant["exchange"],
                         tradingsymbol=symbol_constant["index"],

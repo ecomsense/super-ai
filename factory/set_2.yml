@@ -1,19 +1,27 @@
 trade:
   strategy: pivot
-  start: "9:15"
+  start: "9:00"
   stop: "15:15"
   live: 1      # 0 for paper 1 for live
-NIFTY:
-  base: NIFTY
-  option_exchange: NFO
-  moneyness: -1       # 0=atm 1=otm -1=itm
-  expiry: 24JUL25
-  quantity: 75
-  rest_min: 2
 BANKNIFTY:
   base: BANKNIFTY
   option_exchange: NFO
   moneyness: -2       # 0=atm 1=otm -1=itm
-  expiry: 31JUL25
+  premium: 400
+  expiry: 28-AUG-2025
   quantity: 35
   rest_min: 2
+  into: 55881 
+  inth: 56296 
+  intl: 55843
+SENSEX:
+  base: SENSEX
+  symbol: BSXOPT
+  option_exchange: BFO
+  moneyness: -1       # 0=atm 1=otm -1=itm
+  expiry: 05-AUG-2025
+  quantity: 20
+  rest_min: 2
+  inth: 81317 
+  intl: 80415 
+  intc: 80599
