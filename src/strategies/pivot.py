@@ -170,8 +170,8 @@ class Pivot:
             if getattr(self, self.is_breakout):
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
-                self.trade.price = self.trade.last_price + 5
-                self.trade.trigger_price = None
+                self.trade.price = self.trade.last_price + 2
+                self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry_pivot"
                 self._reset_trade()
@@ -193,6 +193,8 @@ class Pivot:
         if isinstance(order, dict):
             self._fill_price = float(order["fill_price"])
             # place sell order only if buy order is filled
+            self.trade.side = "S"
+            self.trade.disclosed_quantity = 0
             self.trade.price = self._low - 2
             self.trade.trigger_price = self._low
             self.trade.order_type = "SL-LMT"
@@ -204,7 +206,7 @@ class Pivot:
             else:
                 logging.error(f"id is not found for sell {sell_order}")
         else:
-            logging.error(
+            logging.warning(
                 f"{self.trade.symbol} buy order {self._trade_manager.position.entry.order_id} not complete, to find fill price"
             )
 

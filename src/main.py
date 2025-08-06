@@ -69,6 +69,7 @@ def main():
 
             strategies = [strgy for strgy in strategies if not strgy._removable]
         else: 
+            logging.info(f"main: exit initialized because we are past trade stop time {trade_settings['stop']}")
             orders = Helper._rest.orders()
             for item in orders:
                 if (item["status"] == "OPEN") or (
