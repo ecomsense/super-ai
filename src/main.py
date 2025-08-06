@@ -81,6 +81,7 @@ def main():
 
             Helper._rest.close_positions()
     
+        logging.info(f"main: killing tmux because we started after stop time {trade_settings['stop']}")
         kill_tmux()
     except KeyboardInterrupt:
         __import__("sys").exit()
