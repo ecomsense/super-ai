@@ -91,23 +91,30 @@ class Builder:
                 c_or_p=ce_or_pe,
                 dct_symbols=self.tokens_for_all_trading_symbols,
             )
+            logging.info(f"find option by distance returned {result}")
             symbol_info_by_distance: dict[str, Any] = Helper._quote.symbol_info(
                 user_settings["option_exchange"], result["TradingSymbol"]
             )
+            logging.info(f"{symbol_info_by_distance=}")
 
             # step 1
             if user_settings.get("premium", 0) > 0:
                 symbols_for_info = list(self.tokens_for_all_trading_symbols.values())
+                logging.info(f"symbols for which premiums is going to checked: {symbols_for_info}")
                 for symbol in symbols_for_info:
-                    _ = Helper._quote.symbol_info(user_settings["option_exchange"], symbol)
+                    resp_not_going_to_be_used = Helper._quote.symbol_info(user_settings["option_exchange"], symbol)
+                    print(resp_not_going_to_be_used)
                 quotes = Helper._quote.get_quotes()
+                logging.info(f"premium {user_settings['premium']} to be check agains quotes {quotes} for closeness ")
                 symbol_with_closest_premium = sym.find_closest_premium(quotes=quotes, premium=user_settings["premium"], contains=ce_or_pe)
+                logging.info(f"found {symbol_with_closest_premium=}")
                 symbol_info_by_premium = Helper._quote.symbol_info(user_settings["option_exchange"], symbol_with_closest_premium)
+                logging.info(f"getting {symbol_info_by_premium=}")
 
                 # use any one result
                 symbol_info = symbol_info_by_premium if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"] else symbol_info_by_distance
+                logging.info(f"Strategy: found symbol info to trade: {symbol_info}")
                 return symbol_info
-            
             else:
                 return symbol_info_by_distance
         except Exception as e:

@@ -170,8 +170,8 @@ class Pivot:
             if getattr(self, self.is_breakout):
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
-                self.trade.price = self.trade.last_price + 2
-                self.trade.trigger_price = 0.0
+                self.trade.price = self.trade.last_price + 5
+                self.trade.trigger_price = None
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry_pivot"
                 self._reset_trade()

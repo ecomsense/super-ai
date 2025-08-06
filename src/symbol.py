@@ -1,7 +1,7 @@
 import pandas as pd
 from toolkit.fileutils import Fileutils
 from typing import Dict, Optional
-from src.constants import dct_sym
+from src.constants import dct_sym, logging
 from traceback import print_exc
 
 def get_exchange_token_map_finvasia(csvfile, exchange):
@@ -37,36 +37,44 @@ class Symbol:
         get_exchange_token_map_finvasia(self.csvfile, exchange)
 
     def get_atm(self, ltp) -> int:
-        current_strike = ltp - (ltp % dct_sym[self._base]["diff"])
-        next_higher_strike = current_strike + dct_sym[self._base]["diff"]
-        if ltp - current_strike < next_higher_strike - ltp:
-            return int(current_strike)
-        return int(next_higher_strike)
+        try:
+            current_strike = ltp - (ltp % dct_sym[self._base]["diff"])
+            next_higher_strike = current_strike + dct_sym[self._base]["diff"]
+            if ltp - current_strike < next_higher_strike - ltp:
+                return int(current_strike)
+            return int(next_higher_strike)
+        except Exception as e:
+            logging.error(f"{e} Symbol: in getting atm")
+            print_exc()
 
     def get_tokens(self, strike):
-        df = pd.read_csv(self.csvfile)
+        try:
+            df = pd.read_csv(self.csvfile)
 
-        lst = [strike]
-        for v in range(1, dct_sym[self._base]["depth"]):
-            lst.append(strike + v * dct_sym[self._base]["diff"])
-            lst.append(strike - v * dct_sym[self._base]["diff"])
+            lst = [strike]
+            for v in range(1, dct_sym[self._base]["depth"]):
+                lst.append(strike + v * dct_sym[self._base]["diff"])
+                lst.append(strike - v * dct_sym[self._base]["diff"])
 
-        filtered_df = df[(df["StrikePrice"].isin(lst)) & (df["Symbol"] == self._symbol)]
+            filtered_df = df[(df["StrikePrice"].isin(lst)) & (df["Symbol"] == self._symbol) & (df["Expiry"]==self._expiry)]
 
-        if "Exchange" not in filtered_df.columns:
-            raise KeyError("CSV file is missing 'Exchange' column")
+            if "Exchange" not in filtered_df.columns:
+                raise KeyError("CSV file is missing 'Exchange' column")
 
-        tokens_found = (
-            filtered_df.assign(
-                tknexc=lambda x: x["Exchange"] + "|" + x["Token"].astype(str)
-            )[
-                ["tknexc", "TradingSymbol"]
-            ]
-            .set_index("tknexc")
-        )
+            tokens_found = (
+                filtered_df.assign(
+                    tknexc=lambda x: x["Exchange"] + "|" + x["Token"].astype(str)
+                )[
+                    ["tknexc", "TradingSymbol"]
+                ]
+                .set_index("tknexc")
+            )
 
-        dct = tokens_found.to_dict()
-        return dct["TradingSymbol"]
+            dct = tokens_found.to_dict()
+            return dct["TradingSymbol"]
+        except Exception as e:
+            logging.error(f" {e} in Symbol while getting token")
+            print_exc()
 
     def find_option_type(self, tradingsymbol: str) -> str | None:
         """
@@ -91,13 +99,14 @@ class Symbol:
             lst_of_tradingsymbols = df["TradingSymbol"].to_list()
 
             # filter quotes with generated list
-            call_or_put_begins_with = {k:v for k, v in quotes if k in lst_of_tradingsymbols}
+            call_or_put_begins_with = {k:v for k, v in quotes.items() if k in lst_of_tradingsymbols}
 
             # Create a dictionary to store symbol to absolute difference mapping
             symbol_differences: Dict[str, float] = {}
 
             for symbol, ltp in call_or_put_begins_with.items():
-                difference = abs(ltp - premium)
+                logging.info(f"Symbol:{symbol} difference {ltp} - {premium}")
+                difference = abs(float(ltp) - premium)
                 symbol_differences[symbol] = difference
 
             # Find the symbol with the lowest difference
@@ -106,25 +115,25 @@ class Symbol:
             )
             return closest_symbol
         except Exception as e:
-            print(f"find closest premium {e}")
+            logging.error(f"{e} Symbol: find closest premium")
             print_exc()
             
-
 
     def find_option_by_distance(
         self, atm: int, distance: int, c_or_p: str, dct_symbols: dict
     ):
         try:
             find_strike = atm + (distance * dct_sym[self._base]["diff"]) if c_or_p == "CE" else  atm - (distance * dct_sym[self._base]["diff"])
-            print(f"found strike price {find_strike}")
+            logging.info(f"Symbol: found strike price {find_strike}")
             df = pd.read_csv(self.csvfile)
-            print(f"sym:{self._symbol} {c_or_p=} {find_strike=}")
-            row = df[(df["Symbol"] == self._symbol) & (df["OptionType"] == c_or_p) & (df["StrikePrice"] == find_strike)]
+            logging.info(f"Symbol:{self._symbol} {c_or_p=} {find_strike=}")
+            row = df[(df["Symbol"] == self._symbol) & (df["OptionType"] == c_or_p) & (df["StrikePrice"] == find_strike) & (df["Expiry"] == self._expiry)]
             if not row.empty:
                 return row.iloc[0]
             raise Exception("Option not found")
         except Exception as e:
-            print(f"{e} while find_option_by_distance")
+            logging.error(f"{e} Symbol: while find_option_by_distance")
+            print_exc()
 
 
 if __name__ == "__main__":

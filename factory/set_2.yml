@@ -19,7 +19,7 @@ SENSEX:
   symbol: BSXOPT
   option_exchange: BFO
   moneyness: -1       # 0=atm 1=otm -1=itm
-  expiry: 05-AUG-2025
+  expiry: 12-AUG-2025
   quantity: 20
   rest_min: 2
   inth: 81317 
