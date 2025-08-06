@@ -1,9 +1,10 @@
 <?php
 # add basedir in ispconfig panel and then add the full path here
-$filepath = '/opt/shared/files/data.txt';
+
+$filepath = '/var/www/clients/client5/web8/home/harinath.l/no_venv/super-ai/data/log.txt';
 
 if (file_exists($filepath)) {
-    $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $lines = file($filepath,  FILE_SKIP_EMPTY_LINES);
     $last_lines = array_slice($lines, -20);
     $reversed_lines = array_reverse($last_lines);
 
