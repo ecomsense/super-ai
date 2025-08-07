@@ -92,8 +92,9 @@ class Gridlines:
         for idx, (a, b) in enumerate(self.lines):
             low, high = min(a, b), max(a, b)
             if low <= ltp < high:
-                logging.info(f"pivot l:{low} ltp:{ltp} h:{high}")
+                logging.info(f"underlying ltp: {ltp} is between {low=} and {high=}")
                 return idx
+        logging.warning("TODO: we did not know where the grid we were in now")
 
 
 class Pivot:
@@ -141,12 +142,13 @@ class Pivot:
             self.is_breakout = "_option_breakout"
             return True
 
-        self.curr_idx = idx
         msg = (
-            f"{self.trade.symbol} waiting ... curr pivot: {idx} > prev pivot:{self.curr_idx} "
+            f"underlying curr pivot:{idx} == prev pivot:{self.curr_idx} "
             f"and can_trade: {self._time_mgr.can_trade}"
         )
         logging.debug(msg)
+
+        self.curr_idx = idx
         return False
 
     @property
@@ -154,7 +156,7 @@ class Pivot:
         if self.trade.last_price >= self._low and self._time_mgr.can_trade:
             return True
         msg = (
-            f"{self.trade.symbol} waiting ... ltp: {self.trade.last_price} > low: {self._low} "
+            f"{self.trade.symbol} ltp:{self.trade.last_price} < option price:{self._low} "
             f"and can trade: {self._time_mgr.can_trade}"
         )
         logging.debug(msg)
@@ -168,6 +170,7 @@ class Pivot:
     def wait_for_breakout(self):
         try:
             if getattr(self, self.is_breakout):
+                logging.info(f"ENTRY {self.is_breakout} : attempting with {self.trade.symbol}")
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
                 self.trade.price = self.trade.last_price + 2
@@ -253,20 +256,23 @@ class Pivot:
 
     def try_exiting_trade(self):
         try:
-            if self.lines.find_current_grid(self.underlying_ltp) > self.curr_idx:
+            current_underlying_grid = self.lines.find_current_grid(self.underlying_ltp) 
+            if current_underlying_grid > self.curr_idx:
                 logging.info("TARGET reached")
                 self._modify_to_exit()
                 self.is_breakout = "_index_breakout"
                 self._fn = "wait_for_breakout"
             elif self._is_stoploss_hit():
-                logging.info(f"{self.trade.symbol} stop loss: {self._fill_price} hit")
+                logging.info(f"STOP HIT: {self.trade.symbol} with buy fill price {self._fill_price} hit stop {self._low}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
             elif self.trade.last_price <= self._low:
                 resp = self._modify_to_kill()
-                logging.info(f"stop hit: kill returned {resp}")
+                logging.info(f"KILLING STOP: returned {resp}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
+            else:
+                logging.info(f"TARGET PROGRESS: {self.trade.symbol} {current_underlying_grid=} did not exceed previous {self.curr_idx}")
 
         except Exception as e:
             logging.error(f"{e} while exit order")
