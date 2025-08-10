@@ -1,6 +1,7 @@
 from src.constants import logging, O_SETG
 from src.helper import Helper
 from src.time_manager import TimeManager
+from src.trade_manager import TradeManager
 from src.trade import Trade
 import pendulum as pdlm
 from traceback import print_exc
@@ -118,6 +119,7 @@ class Pivot:
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
         self.is_breakout = "_index_breakout"
         self._fn = "wait_for_breakout"
+        self._trade_manager = TradeManager(Helper.api())
 
     @property
     def curr_idx(self):

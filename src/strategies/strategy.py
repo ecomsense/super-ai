@@ -1,5 +1,4 @@
 from src.constants import logging, O_SETG, dct_sym
-from src.trade_manager import TradeManager
 from src.symbol import Symbol
 from traceback import print_exc
 from typing import Any, Literal
@@ -172,7 +171,6 @@ class Builder:
 
                     logging.info(common_init_kwargs)
                     strgy = Strategy(**common_init_kwargs)
-                    strgy._trade_manager = TradeManager(Helper._api)
                     strategies.append(strgy)
             return strategies
         except Exception as e:
