@@ -316,6 +316,7 @@ class OneTrade:
         elif tradingsymbol not in cls.once[prefix]:
             cls.once[prefix].append(tradingsymbol)
             return True
+        logging.debug(f"One Trade with {prefix} is already taken for {tradingsymbol}")
         return False
 
 class StateMachine: 
@@ -325,11 +326,13 @@ class StateMachine:
     def is_in_trade(cls, prefix: str)->bool:
         if cls.once.get(prefix, "KEY_DOES_NOT_EXIST") == "KEY_DOES_NOT_EXIST":
             cls.once[prefix] = False
+        logging.debug(f"Getting trade state of {prefix}: {cls.once[prefix]}")
         return cls.once[prefix]
         
     @classmethod
-    def set_trade(cls, prefix: str, status:bool)-> bool:
+    def set_trade(cls, prefix: str, status:bool):
         cls.once[prefix] = status
+        logging.debug(f"Setting trade state of {prefix} to {cls.once[prefix]}")
     
 if __name__ == "__main__":
     no_values = OneTrade.is_none("NIFTY", "CE")
