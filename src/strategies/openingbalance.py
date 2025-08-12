@@ -3,6 +3,7 @@ from src.helper import Helper, history
 from src.trade_manager import TradeManager
 from src.time_manager import TimeManager
 from src.trade import Trade
+from src.one_trade import OneTrade
 from traceback import print_exc
 import pendulum as pdlm
 
@@ -80,7 +81,7 @@ class Openingbalance:
     def wait_for_breakout(self):
         try:
             if self.trade.last_price > self._stop and self._time_mgr.can_trade:
-                if OneTrade.is_none(self._prefix, self.trade.symbol) or not StateMachine.is_in_trade(prefix=self._prefix):
+                if not OneTrade.is_traded_once(self.trade.symbol) or not OneTrade.is_prefix_in_trade(prefix=self._prefix):
                     self.trade.side = "B"
                     self.trade.disclosed_quantity = None
                     self.trade.price = self.trade.last_price + 2
@@ -91,7 +92,7 @@ class Openingbalance:
                     buy_order = self._trade_manager.complete_entry(self.trade)
                     if buy_order.order_id is not None:
                         logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
-                        StateMachine.set_trade(self._prefix, True)
+                        OneTrade.add(self._prefix, self.trade.symbol)
                         self._fn = "find_fill_price"
                     else:
                         logging.warning(
@@ -251,16 +252,17 @@ class Openingbalance:
             if self._is_stoploss_hit():
                 logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")
                 self._fn = "wait_for_breakout"
-                StateMachine.set_trade(self._prefix, False)
+                OneTrade.remove(self._prefix, self.trade.symbol)
             elif self.trade.last_price <= self._stop:
                 resp = self._modify_to_kill()
                 logging.info(f"KILLED: {self.trade.symbol} {self.trade.last_price} < stop ... got {resp}")
                 self._fn = "wait_for_breakout"
-                StateMachine.set_trade(self._prefix, False)
+                OneTrade.remove(self._prefix, self.trade.symbol)
             elif self.trade.last_price >= self._trade_manager.position.target_price:
                 resp = self._modify_to_exit()
                 logging.info(f"TARGET REACHED: {self.trade.symbol} {self.trade.last_price} < target price ... got {resp}")
                 self._fn = "remove_me"
+                OneTrade.remove(self._prefix, self.trade.symbol)
                 return self._prefix
             else:
                 msg = f"PROGRESS: {self.trade.symbol} target {self._trade_manager.position.target_price} < {self.trade.last_price} > sl {self._stop} "
@@ -274,6 +276,7 @@ class Openingbalance:
             print_exc()
 
     def remove_me(self):
+        
         if self._fn == "find_fill_price":
             self.find_fill_price()
             return
@@ -305,43 +308,4 @@ class Openingbalance:
             logging.error(f"{e} in running {self.trade.symbol}")
             print_exc()
 
-class OneTrade:
-    once = {}
-
-    @classmethod
-    def is_none(cls, prefix:str, tradingsymbol:str)->bool:
-        if cls.once.get(prefix, "KEY_DOES_NOT_EXIST") == "KEY_DOES_NOT_EXIST":
-            cls.once[prefix] = [tradingsymbol]
-            return True
-        elif tradingsymbol not in cls.once[prefix]:
-            cls.once[prefix].append(tradingsymbol)
-            return True
-        logging.debug(f"One Trade with {prefix} is already taken for {tradingsymbol}")
-        return False
-
-class StateMachine: 
-    once = {}
-
-    @classmethod
-    def is_in_trade(cls, prefix: str)->bool:
-        if cls.once.get(prefix, "KEY_DOES_NOT_EXIST") == "KEY_DOES_NOT_EXIST":
-            cls.once[prefix] = False
-        logging.debug(f"Getting trade state of {prefix}: {cls.once[prefix]}")
-        return cls.once[prefix]
-        
-    @classmethod
-    def set_trade(cls, prefix: str, status:bool):
-        cls.once[prefix] = status
-        logging.debug(f"Setting trade state of {prefix} to {cls.once[prefix]}")
     
-if __name__ == "__main__":
-    no_values = OneTrade.is_none("NIFTY", "CE")
-    call_added = OneTrade.is_none("NIFTY", "CE")
-    put_added = OneTrade.is_none("NIFTY", "PE" )
-    call_again = OneTrade.is_none("NIFTY", "CE")
-    print(f"{no_values=} \n {call_added=} \n {put_added=} \n {call_again=} \n {OneTrade.once}")
-
-    first = StateMachine.is_in_trade("NIFTY")
-    StateMachine.set_trade("NIFTY", True)
-    istrue = StateMachine.is_in_trade("NIFTY")
-    print(first, istrue)
