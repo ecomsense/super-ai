@@ -113,9 +113,8 @@ class Pivot:
             exchange=user_settings["option_exchange"],
             quantity=user_settings["quantity"],
         )
-        base_expiry = user_settings["base"] + user_settings["expiry"]
-        option_type = symbol_info["symbol"][len(base_expiry) :][0]
-        reverse = True if option_type == "P" else False
+        option_type = symbol_info["option_type"]
+        reverse = True if option_type == "PE" else False
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
         self.is_breakout = "_index_breakout"
         self._fn = "wait_for_breakout"

@@ -95,6 +95,7 @@ class Builder:
                 user_settings["option_exchange"], result["TradingSymbol"]
             )
             logging.info(f"{symbol_info_by_distance=}")
+            symbol_info_by_distance["option_type"] = ce_or_pe
 
             # step 1
             if user_settings.get("premium", 0) > 0:
@@ -109,6 +110,7 @@ class Builder:
                 logging.info(f"found {symbol_with_closest_premium=}")
                 symbol_info_by_premium = Helper._quote.symbol_info(user_settings["option_exchange"], symbol_with_closest_premium)
                 logging.info(f"getting {symbol_info_by_premium=}")
+                symbol_info_by_premium["option_type"] = ce_or_pe
 
                 # use any one result
                 symbol_info = symbol_info_by_premium if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"] else symbol_info_by_distance
