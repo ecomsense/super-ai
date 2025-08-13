@@ -7,7 +7,7 @@ from toolkit.kokoo import is_time_past, timer
 from src.helper import Helper, history
 
 class Builder:
-    def __init__(self, user_settings: dict[str, Any], strategy_name):
+    def __init__(self, user_settings: dict[str, Any], strategy_name: str):
         self.user_settings = user_settings
         self.strategy_name = strategy_name
         self.symbols_to_trade = self.merge_settings_and_symbols()
@@ -74,7 +74,6 @@ class Builder:
             {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
         """
         try:
-            print(user_settings)
             sym = Symbol(
                 exchange=user_settings["option_exchange"],
                 base=user_settings["base"],
@@ -82,7 +81,6 @@ class Builder:
                 expiry=user_settings["expiry"],
             )
 
-            # step 2
             atm = user_settings["atm"]
             result = sym.find_option_by_distance(
                 atm=atm,
