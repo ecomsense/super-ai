@@ -3,7 +3,6 @@ from src.helper import Helper, history
 from src.trade_manager import TradeManager
 from src.time_manager import TimeManager
 from src.trade import Trade
-from src.one_trade import OneTrade
 from traceback import print_exc
 import pendulum as pdlm
 
@@ -81,23 +80,21 @@ class Openingbalance:
     def wait_for_breakout(self):
         try:
             if self.trade.last_price > self._stop and self._time_mgr.can_trade:
-                if not OneTrade.is_traded_once(self.trade.symbol) or not OneTrade.is_prefix_in_trade(prefix=self._prefix):
-                    self.trade.side = "B"
-                    self.trade.disclosed_quantity = None
-                    self.trade.price = self.trade.last_price + 2
-                    self.trade.trigger_price = 0.0
-                    self.trade.order_type = "LMT"
-                    self.trade.tag = "entry_ob"
-                    self._reset_trade()
-                    buy_order = self._trade_manager.complete_entry(self.trade)
-                    if buy_order.order_id is not None:
-                        logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
-                        OneTrade.add(self._prefix, self.trade.symbol)
-                        self._fn = "find_fill_price"
-                    else:
-                        logging.warning(
-                            f"got {buy_order} without buy order order id {self.trade.symbol}"
-                        )
+                self.trade.side = "B"
+                self.trade.disclosed_quantity = None
+                self.trade.price = self.trade.last_price + 2
+                self.trade.trigger_price = 0.0
+                self.trade.order_type = "LMT"
+                self.trade.tag = "entry_ob"
+                self._reset_trade()
+                buy_order = self._trade_manager.complete_entry(self.trade)
+                if buy_order.order_id is not None:
+                    logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
+                    self._fn = "find_fill_price"
+                else:
+                    logging.warning(
+                        f"got {buy_order} without buy order order id {self.trade.symbol}"
+                    )
         except Exception as e:
             print(f"{e} while waiting for breakout")
 
@@ -252,17 +249,14 @@ class Openingbalance:
             if self._is_stoploss_hit():
                 logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")
                 self._fn = "wait_for_breakout"
-                OneTrade.remove(self._prefix, self.trade.symbol)
             elif self.trade.last_price <= self._stop:
                 resp = self._modify_to_kill()
                 logging.info(f"KILLED: {self.trade.symbol} {self.trade.last_price} < stop ... got {resp}")
                 self._fn = "wait_for_breakout"
-                OneTrade.remove(self._prefix, self.trade.symbol)
             elif self.trade.last_price >= self._trade_manager.position.target_price:
                 resp = self._modify_to_exit()
                 logging.info(f"TARGET REACHED: {self.trade.symbol} {self.trade.last_price} < target price ... got {resp}")
                 self._fn = "remove_me"
-                OneTrade.remove(self._prefix, self.trade.symbol)
                 return self._prefix
             else:
                 msg = f"PROGRESS: {self.trade.symbol} target {self._trade_manager.position.target_price} < {self.trade.last_price} > sl {self._stop} "
