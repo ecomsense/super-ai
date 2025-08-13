@@ -214,7 +214,7 @@ class Pivot:
         try:
             if self._time_mgr.can_trade:
                 current_low = self.low
-                if self.trade.last_price > current_low
+                if self.trade.last_price > current_low:
                     self._stop = current_low
                     logging.info(f"ENTRY: attempting with {self.trade.symbol}")
                     self.trade.side = "B"
