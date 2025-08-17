@@ -41,6 +41,7 @@ def compute(ohlc_prefix):
         logging.info(f"{r9=}")
         lst = [r9, R5, R4, R3, R2, R1, pivot, S1, S2, S3, S4, S5, 0]
         lst = [int(item) for item in lst]
+        logging.info(f"computed pivots {lst}")
         return lst
     except Exception as e:
         logging.error(f"{e} while computing grid")
@@ -68,26 +69,22 @@ class Grid:
         logging.info(f"Grid running: {symbol_constant}")
         try:
             if cls.grid.get(prefix, None) is None:
-                start = pdlm.now().subtract(days=5).timestamp()
-                now = pdlm.now().timestamp()
                 if all(k in symbol_constant for k in ["intl", "inth", "intc"]):
-                    cls.grid[prefix] = compute(symbol_constant)
+                    logging.info(f"found HLC to compute grids")
                 else:
-                    logging.info(f"Grid.run: {symbol_constant}")
+                    start = pdlm.now().subtract(days=5).timestamp()
+                    now = pdlm.now().timestamp()
                     ret = api.broker.get_daily_price_series( # type: ignore
                         exchange=symbol_constant["exchange"],
                         tradingsymbol=symbol_constant["index"],
                         startdate=start,
                         enddate=now,
                     )
-                    if not ret:
-                        msg = f'daily price series {symbol_constant["index"]} {ret}'
-                        logging.error(msg)
-                        __import__("sys").exit(1)
-                    else:
-                        ohlc = loads(ret[0])
-                        logging.info(f"from grid {ohlc}")
-                        cls.grid[prefix] = compute(ohlc)
+                    assert ret is not None, "could not get daily price series"
+                    ohlc = loads(ret[0])
+                    logging.info(f"from grid {ohlc}")
+
+                cls.grid[prefix] = compute(symbol_constant)
             return cls.grid[prefix]
         except Exception as e:
             logging.error(f"{e} while computing grid")
@@ -171,7 +168,7 @@ class Pivot:
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
         self._fn = "is_index_breakout"
         self._trade_manager = TradeManager(Helper.api())
-    
+        self._index = symbol_info["index"]
     
     @property
     def curr_idx(self):
@@ -337,6 +334,11 @@ class Pivot:
             self.underlying_ltp = (
                 underlying_ltp if underlying_ltp else self.underlying_ltp
             )
+
+            if ltps.get(self._index, None) is None:
+                logging.warning("unable to find index ltp from websocket")
+            else:
+                logging.info("found index ltp from websocket as {}".format(ltps[self._index]))
 
             return getattr(self, self._fn)()
         except Exception as e:

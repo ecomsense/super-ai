@@ -1,5 +1,6 @@
 from src.constants import logging
 import time
+from stock_brokers.finvasia.NorenApi import FeedType
 
 
 class Wserver:
@@ -20,8 +21,11 @@ class Wserver:
 
     def open_callback(self):
         self.socket_opened = True
-        self.api.broker.subscribe(self.tokens, feed_type="d")
+        self.api.broker.subscribe(self.tokens, feed_type=FeedType.SNAPQUOTE)
         # api.subscribe(['NSE|22', 'BSE|522032'])
+    
+    def unsubscribe(self, tokens):
+        self.api.broker.unsubscribe(tokens, feed_type=FeedType.SNAPQUOTE)
 
     # application callbacks
     def event_handler_order_update(self, message):
@@ -35,11 +39,22 @@ class Wserver:
 
 
 if __name__ == "__main__":
-    from helper import Helper
+    from src.helper import Helper
 
     token = ["NSE|22", "NSE|34"]
-    wserver = Wserver(Helper.api, token)
-    while True:
-        print(wserver.ltp)
-        time.sleep(1)
-        # wserver.tokens = ["NSE:25"]
+    wserver = Wserver(Helper.api(), token)
+    try:
+        ltp = {}
+        while not ltp:
+            ltp = wserver.ltp
+            print("before subscribing", ltp)
+            ltp = {}
+            wserver.ltp = ltp
+            wserver.unsubscribe(["NSE|22"])
+            time.sleep(1)
+        else:
+            print("after unsubscribing", wserver.ltp)
+    except KeyboardInterrupt as k:
+        print("user")
+    except Exception as e:
+        print(e)

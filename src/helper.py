@@ -73,29 +73,29 @@ def is_not_rate_limited(func):
 
 def history(api, exchange, token, loc, key):
     try:
-        i = 0
-        for i in range(5):
-            fm = (
-                pdlm.now()
-                .subtract(days=i)
-                .replace(hour=0, minute=0, second=0, microsecond=0)
-                .timestamp()
-            )
-            to = pdlm.now().subtract(days=0).timestamp()
-            data_now = api.historical(exchange, token, fm, to)
-            # we have some data but it is not full
-            while isinstance(data_now, list) and len(data_now) < abs(loc):
-                logging.warning(f"TODO: found partial data {data_now}")
-                return None
+        fm = (
+            pdlm.now()
+            .subtract(days=0)
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+            .timestamp()
+        )
+        to = pdlm.now().subtract(days=0).timestamp()
+        data_now = api.historical(exchange, token, fm, to)
 
-            if isinstance(data_now, list) and len(data_now) >= abs(loc):
-                low = float(data_now[loc][key])
-                return low
+        if not isinstance(data_now, list):
+            return None
 
-            timer(1)
-            i += 1
-            logging.debug("rewinding to the previous day ..")
+        # we have some data but it is not full
+        if len(data_now) < abs(loc):
+            logging.warning(f"TODO: found partial data {data_now}")
+            return None
+
+        if len(data_now) >= abs(loc):
+            low = float(data_now[loc][key])
+            return low
+        
         return None
+
     except Exception as e:
         logging.error(f"{e} in history")
     """
@@ -134,16 +134,17 @@ class QuoteApi:
                 self._ws.api.broker.subscribe([ws_key], feed_type="d")
                 quotes = self._ws.ltp
                 ltp = quotes.get(ws_key, None)
-                timer(0.25)
         except Exception as e:
             logging.error(f"{e} while get ltp")
             print_exc()
             self._subscribe_till_ltp(ws_key)
 
-    def symbol_info(self, exchange, symbol):
+    def symbol_info(self, exchange, symbol, token=None):
         try:
             if self.subscribed.get(symbol, None) is None:
-                token = self._ws.api.instrument_symbol(exchange, symbol)
+                if token is None:
+                    logging.info(f"Helper: getting token for {exchange} {symbol}")
+                    token = self._ws.api.instrument_symbol(exchange, symbol)
                 key = exchange + "|" + str(token)
                 self.subscribed[symbol] = {
                     "symbol": symbol,

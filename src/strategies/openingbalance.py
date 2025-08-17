@@ -27,8 +27,8 @@ class Openingbalance:
             quantity=user_settings["quantity"],
         )
         self._token = symbol_info["token"]
-        self._low = symbol_info["low"]
-        self._stop = symbol_info["low"]
+        self._low = symbol_info["ltp"]
+        self._stop = symbol_info["ltp"]
         self._target = self._t1
         self._max_target_reached = 0
         self._txn = user_settings["txn"]
@@ -95,6 +95,9 @@ class Openingbalance:
                     logging.warning(
                         f"got {buy_order} without buy order order id {self.trade.symbol}"
                     )
+            # from 2nd trade onwards set actual low as stop
+            else:
+                self._set_new_stop_from_low()
         except Exception as e:
             print(f"{e} while waiting for breakout")
 
@@ -235,6 +238,18 @@ class Openingbalance:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
 
+    def _set_new_stop_from_low(self):
+        if not hasattr(self, "_low"):
+            low = history(
+                Helper.api(),
+                exchange=self.trade.exchange,
+                token=self._token,
+                loc=-2,
+                key="intl",
+            )
+            if low:
+                self._low = low
+                self._stop = low
 
     def try_exiting_trade(self):
         try:
@@ -243,8 +258,6 @@ class Openingbalance:
             if is_prefix:
                 return self._prefix
 
-            # from 2nd trade onwards set actual low as stop
-            # self._set_new_stop_from_low()
 
             if self._is_stoploss_hit():
                 logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")
