@@ -131,13 +131,13 @@ class QuoteApi:
             quotes = self._ws.ltp
             ltp = quotes.get(ws_key, None)
             while ltp is None:
-                self._ws.api.broker.subscribe([ws_key], feed_type="d")
+                self._ws.subscribe([ws_key])
                 quotes = self._ws.ltp
                 ltp = quotes.get(ws_key, None)
+                print(f"trying to get quote for {ws_key} {ltp}")
         except Exception as e:
             logging.error(f"{e} while get ltp")
             print_exc()
-            self._subscribe_till_ltp(ws_key)
 
     def symbol_info(self, exchange, symbol, token=None):
         try:

@@ -70,7 +70,7 @@ class Grid:
         try:
             if cls.grid.get(prefix, None) is None:
                 if all(k in symbol_constant for k in ["intl", "inth", "intc"]):
-                    logging.info(f"found HLC to compute grids")
+                    logging.info(f"HLC: found in {symbol_constant} from settings")
                 else:
                     start = pdlm.now().subtract(days=5).timestamp()
                     now = pdlm.now().timestamp()
@@ -81,9 +81,8 @@ class Grid:
                         enddate=now,
                     )
                     assert ret is not None, "could not get daily price series"
-                    ohlc = loads(ret[0])
-                    logging.info(f"from grid {ohlc}")
-
+                    symbol_constant = loads(ret[0])
+                    logging.info(f"HLC: found in {symbol_constant} from API")
                 cls.grid[prefix] = compute(symbol_constant)
             return cls.grid[prefix]
         except Exception as e:
@@ -168,7 +167,7 @@ class Pivot:
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
         self._fn = "is_index_breakout"
         self._trade_manager = TradeManager(Helper.api())
-        self._index = symbol_info["index"]
+        self._index = user_settings["index"]
     
     @property
     def curr_idx(self):
@@ -190,17 +189,21 @@ class Pivot:
         return self._low
 
     def is_index_breakout(self):
-        idx = self.lines.find_current_grid(self.underlying_ltp)
-        #todo introduce delay
-        if idx > self.curr_idx:
-            # set the idx of the grid from which trade happened
+        try:
+            idx = self.lines.find_current_grid(self.underlying_ltp)
+            #todo introduce delay
+            if idx > self.curr_idx:
+                # set the idx of the grid from which trade happened
+                self.curr_idx = idx
+                self.fn = "wait_for_breakout"
+                return True
+            msg = f"underlying curr pivot:{idx} == prev pivot:{self.curr_idx}"
+            logging.debug(msg)
             self.curr_idx = idx
-            self.fn = "wait_for_breakout"
-            return True
-        msg = f"underlying curr pivot:{idx} == prev pivot:{self.curr_idx}"
-        logging.debug(msg)
-        self.curr_idx = idx
-        return False
+            return False
+        except Exception as e:
+            logging.error(f"{e} while checking index breakout")
+            print_exc()
 
     def _reset_trade(self):
         self.trade.filled_price = None
@@ -323,14 +326,14 @@ class Pivot:
             logging.error(f"{e} while exit order")
             print_exc()
 
-    def run(self, orders, ltps, underlying_ltp):
+    def run(self, orders, ltps):
         try:
             self._orders = orders
 
             ltp = ltps.get(self.trade.symbol, None)
             if ltp is not None:
                 self.trade.last_price = float(ltp)
-
+            """
             self.underlying_ltp = (
                 underlying_ltp if underlying_ltp else self.underlying_ltp
             )
@@ -339,7 +342,8 @@ class Pivot:
                 logging.warning("unable to find index ltp from websocket")
             else:
                 logging.info("found index ltp from websocket as {}".format(ltps[self._index]))
-
+            """
+            self.underlying_ltp = ltps[self._index]
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self.trade.symbol}")

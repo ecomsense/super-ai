@@ -34,7 +34,6 @@ class Builder:
                 k: settings for k, settings in self.user_settings.items() if k not in blacklist
             }
             for k, settings in symbols_to_trade.items():
-
                 # find a matching symbol based on the user settings trade key
                 # example settings["NIFTY"]
                 assert isinstance(dct_sym, dict), "dct_sym is not a dict"
@@ -134,33 +133,33 @@ class Builder:
             )
             logging.info(f"{symbol_info_by_distance=}")
             symbol_info_by_distance["option_type"] = ce_or_pe
-
-            underlying = Helper._quote.symbol_info(
+            _ = Helper._quote.symbol_info(
                 user_settings["exchange"], user_settings["index"], user_settings["token"]
             )
 
-            # step 1
+            # find the tradingsymbol which is closest to the premium
             if user_settings.get("premium", 0) > 0:
-                #symbols_for_info = list(self.tokens_for_all_trading_symbols.values())
                 logging.info("premiums is going to checked")
+
+                # subscribe to symbols
                 for key, symbol in self.tokens_for_all_trading_symbols.items():
                     token = key.split("|")[1]
                     _ = Helper._quote.symbol_info(user_settings["option_exchange"], symbol, token)
 
                 quotes = Helper._quote.get_quotes()
-
                 logging.info(f"premium {user_settings['premium']} to be check agains quotes for closeness ]")
                 symbol_with_closest_premium = sym.find_closest_premium(quotes=quotes, premium=user_settings["premium"], contains=ce_or_pe)
+
                 logging.info(f"found {symbol_with_closest_premium=}")
                 symbol_info_by_premium = Helper._quote.symbol_info(user_settings["option_exchange"], symbol_with_closest_premium)
                 logging.info(f"getting {symbol_info_by_premium=}")
+                assert not isinstance(symbol_info_by_premium, dict), "symbol_info_by_premium is empty"
                 symbol_info_by_premium["option_type"] = ce_or_pe
 
                 # use any one result
                 symbol_info = symbol_info_by_premium if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"] else symbol_info_by_distance
                 return symbol_info
-            else:
-                return symbol_info_by_distance
+            return symbol_info_by_distance
         except Exception as e:
             logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
             print_exc()
@@ -187,11 +186,10 @@ class Builder:
                         ),
                         "user_settings": user_settings,
                     }
-                    # Add strategy-specific arguments for __init__
-                    if self.strategy_name == "openingbalance":
-                        logging.info("building opening balance")
-                    else:
-                        logging.info("building pivot strategy")
+                    logging.info(f"common init: {common_init_kwargs}")
+                    # create strategy object
+                    logging.info(f"building {self.strategy_name} for {option_type}")
+                    if self.strategy_name == "pivot":
                         common_init_kwargs["pivot_grids"] = (
                             import_module("src.strategies.pivot")
                             .Grid()
@@ -201,10 +199,9 @@ class Builder:
                                 symbol_constant=user_settings,
                             )
                         )
-
-                    logging.info(f"common init: {common_init_kwargs}")
                     strgy = Strategy(**common_init_kwargs)
                     strategies.append(strgy)
+            
             #unsubscribe_tokens_not_in_strategies(strategies=strategies)
             return strategies
         except Exception as e:
@@ -219,7 +216,7 @@ class Builder:
         """
         trades = Helper._rest.trades()
         quotes = Helper._quote.get_quotes()
-
+        """
         if self.strategy_name == "pivot":
             underlying_ltp = Helper._rest.ltp(
                 dct_sym[strategy_instance._prefix]["exchange"],
@@ -228,7 +225,8 @@ class Builder:
             return (trades, quotes, underlying_ltp)
         else:
             return (trades, quotes)
-
+        """
+        return (trades, quotes)
 
 if __name__ == "__main__":
     from src.constants import O_TRADESET

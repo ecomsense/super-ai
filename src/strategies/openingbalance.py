@@ -5,6 +5,7 @@ from src.time_manager import TimeManager
 from src.trade import Trade
 from traceback import print_exc
 import pendulum as pdlm
+from toolkit.kokoo import is_time_past
 
 class Openingbalance:
     def __init__(
@@ -41,7 +42,6 @@ class Openingbalance:
         # set max target reached
         if max(percent, self._max_target_reached) == percent:
             self._max_target_reached = percent
-
         trailing_target = self._max_target_reached / 2
 
         # if currently above stop% and below trailing target
@@ -239,7 +239,7 @@ class Openingbalance:
             print_exc()
 
     def _set_new_stop_from_low(self):
-        if not hasattr(self, "_low"):
+        if not hasattr(self, "_low") and is_time_past("9:17"):
             low = history(
                 Helper.api(),
                 exchange=self.trade.exchange,
@@ -257,7 +257,6 @@ class Openingbalance:
             is_prefix = self._set_target()
             if is_prefix:
                 return self._prefix
-
 
             if self._is_stoploss_hit():
                 logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")

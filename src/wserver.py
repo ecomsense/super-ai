@@ -37,6 +37,8 @@ class Wserver:
         if val:
             self.ltp[message["e"] + "|" + message["tk"]] = val
 
+    def subscribe(self, tokens):
+        self.api.broker.subscribe(tokens, feed_type=FeedType.SNAPQUOTE)
 
 if __name__ == "__main__":
     from src.helper import Helper
