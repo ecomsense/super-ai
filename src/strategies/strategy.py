@@ -153,7 +153,7 @@ class Builder:
                 logging.info(f"found {symbol_with_closest_premium=}")
                 symbol_info_by_premium = Helper._quote.symbol_info(user_settings["option_exchange"], symbol_with_closest_premium)
                 logging.info(f"getting {symbol_info_by_premium=}")
-                assert not isinstance(symbol_info_by_premium, dict), "symbol_info_by_premium is empty"
+                assert isinstance(symbol_info_by_premium, dict), "symbol_info_by_premium is empty"
                 symbol_info_by_premium["option_type"] = ce_or_pe
 
                 # use any one result

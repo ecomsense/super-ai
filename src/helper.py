@@ -135,6 +135,7 @@ class QuoteApi:
                 quotes = self._ws.ltp
                 ltp = quotes.get(ws_key, None)
                 print(f"trying to get quote for {ws_key} {ltp}")
+                blink()
         except Exception as e:
             logging.error(f"{e} while get ltp")
             print_exc()
