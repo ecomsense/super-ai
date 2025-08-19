@@ -343,7 +343,7 @@ class Pivot:
             else:
                 logging.info("found index ltp from websocket as {}".format(ltps[self._index]))
             """
-            self.underlying_ltp = ltps[self._index]
+            self.underlying_ltp = float(ltps[self._index])
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self.trade.symbol}")
