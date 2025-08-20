@@ -33,13 +33,11 @@ def compute(ohlc_prefix):
         logging.info(f"{S2=}")
         S3 = low - (2 * (high - pivot))
         logging.info(f"{S3=}")
-        S4 = (pivot * 3) - (high * 3) - low
+        S4 = (pivot * 3) - (high * 3 - low)
         logging.info(f"{S4=}")
-        S5 = (pivot * 4) - (high * 4) - low
+        S5 = (pivot * 4) - (high * 4- low)
         logging.info(f"{S5=}")
-        r9 = R3 + R2 + R1 + pivot + S1 + S2 + S3
-        logging.info(f"{r9=}")
-        lst = [r9, R5, R4, R3, R2, R1, pivot, S1, S2, S3, S4, S5, 0]
+        lst = [R5, R4, R3, R2, R1, pivot, S1, S2, S3, S4, S5]
         lst = [int(item) for item in lst]
         logging.info(f"computed pivots {lst}")
         return lst
@@ -103,7 +101,6 @@ class Gridlines:
         for idx, (a, b) in enumerate(self.lines):
             lowest, highest = min(a, b), max(a, b)
             if lowest <= ltp < highest:
-                logging.info(f"underlying ltp: {ltp} is between {lowest=} and {highest=}")
                 return idx
         return idx
 
@@ -165,21 +162,20 @@ class Pivot:
         option_type = symbol_info["option_type"]
         reverse = True if option_type == "PE" else False
         self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
-        self._fn = "is_index_breakout"
         self._trade_manager = TradeManager(Helper.api())
         self._index = user_settings["index"]
+        self.underlying_ltp = user_settings["underlying_ltp"]
+        self.curr_idx = self.lines.find_current_grid(self.underlying_ltp)
+        self._fn = "is_index_breakout"
     
     @property
-    def curr_idx(self):
-        try:
-            return self._curr_idx
-        except AttributeError:
-            self._curr_idx = self.lines.find_current_grid(self.underlying_ltp)
-            return self._curr_idx
+    def curr_idx(self)-> int:
+        return self._curr_idx
 
     @curr_idx.setter
     def curr_idx(self, idx):
         self._curr_idx = idx
+        logging.info(f"{self._id}: current idx is set at {self._curr_idx}")
 
     @property
     def low(self):
@@ -191,16 +187,11 @@ class Pivot:
     def is_index_breakout(self):
         try:
             idx = self.lines.find_current_grid(self.underlying_ltp)
-            #todo introduce delay
+            logging.info(f"{self._id}: {idx=} > {self.curr_idx}")
             if idx > self.curr_idx:
-                # set the idx of the grid from which trade happened
                 self.curr_idx = idx
-                self.fn = "wait_for_breakout"
-                return True
-            msg = f"underlying curr pivot:{idx} == prev pivot:{self.curr_idx}"
-            logging.debug(msg)
-            self.curr_idx = idx
-            return False
+                self._fn = "wait_for_breakout"
+
         except Exception as e:
             logging.error(f"{e} while checking index breakout")
             print_exc()
@@ -231,8 +222,6 @@ class Pivot:
                         logging.warning(
                             f"got {buy_order} without buy order order id {self.trade.symbol}"
                         )
-                else:
-                    self._time_mgr.last_trade_time(pdlm.now("Asia/Kolkata"))
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
@@ -333,17 +322,12 @@ class Pivot:
             ltp = ltps.get(self.trade.symbol, None)
             if ltp is not None:
                 self.trade.last_price = float(ltp)
-            """
-            self.underlying_ltp = (
-                underlying_ltp if underlying_ltp else self.underlying_ltp
-            )
 
-            if ltps.get(self._index, None) is None:
-                logging.warning("unable to find index ltp from websocket")
-            else:
-                logging.info("found index ltp from websocket as {}".format(ltps[self._index]))
-            """
-            self.underlying_ltp = float(ltps[self._index])
+            
+            underlying = ltps[self._index]
+            if underlying is not None:
+                self.underlying_ltp = float(underlying)
+
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self.trade.symbol}")

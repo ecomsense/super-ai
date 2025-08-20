@@ -92,6 +92,7 @@ class Builder:
 
                 # set atm for later use
                 self.symbols_to_trade[k]["atm"] = atm
+                self.symbols_to_trade[k]["underlying_ltp"] = ltp_for_underlying
                 logging.info(f"atm {atm} for underlying {k} from {ltp_for_underlying}")
 
                 # get tokens for the option
