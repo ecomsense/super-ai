@@ -6,6 +6,7 @@ from src.trade import Trade
 from traceback import print_exc
 import pendulum as pdlm
 from toolkit.kokoo import is_time_past
+from src.one_trade import OneTrade
 
 class Openingbalance:
     def __init__(
@@ -68,7 +69,7 @@ class Openingbalance:
             # from 2nd trade onwards set actual low as stop
             if not hasattr(self, "_low") and is_time_past("9:17"):
                 self._set_new_stop_from_low()
-            if self.trade.last_price > self._stop and self._time_mgr.can_trade: # type: ignore
+            if self.trade.last_price > self._stop and self._time_mgr.can_trade and (not OneTrade.is_traded_once(self._id) or not OneTrade.is_prefix_in_trade(self._prefix)):
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
                 self.trade.price = self.trade.last_price + 2 # type: ignore
@@ -78,6 +79,7 @@ class Openingbalance:
                 self._reset_trade()
                 buy_order = self._trade_manager.complete_entry(self.trade)
                 if buy_order.order_id is not None:
+                    OneTrade.add(self._prefix, self._id)
                     logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
                     self._fn = "find_fill_price"
                 else:
@@ -260,6 +262,7 @@ class Openingbalance:
                 logging.info(msg)
 
             if self._fn == "wait_for_breakout":
+                OneTrade.remove(self._prefix, self._id)
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
 
         except Exception as e:
