@@ -98,11 +98,6 @@ def history(api, exchange, token, loc, key):
 
     except Exception as e:
         logging.error(f"{e} in history")
-    """
-    finally:
-        data_now = [{"intl": 22550}, {"intl": 22550}]
-        return data_now
-    """
 
 
 class QuoteApi:
@@ -335,12 +330,6 @@ if __name__ == "__main__":
             else:
                 print("no response from orders")
 
-        def test_history(exchange, symbol):
-            token = Helper._api.broker.instrument_symbol(exchange, symbol)
-            print("token", token)
-            resp = history(Helper._api, exchange, token)
-            pprint(resp)
-            print(resp[-2]["intl"], resp[-2]["time"])
 
         def modify():
             args = {

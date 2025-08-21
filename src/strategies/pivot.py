@@ -62,7 +62,7 @@ class Grid:
             symbol_constant: A dictionary containing information about the symbol.
 
         Returns:
-            A list of 13 integers representing the grid levels.
+            A list of 11 integers representing the grid levels.
         """
         logging.info(f"Grid running: {symbol_constant}")
         try:
@@ -205,12 +205,12 @@ class Pivot:
         try:
             if self._time_mgr.can_trade:
                 current_low = self.low
-                if self.trade.last_price > current_low:
+                if self.trade.last_price > current_low: # type: ignore
                     self._stop = current_low
                     logging.info(f"ENTRY: attempting with {self.trade.symbol}")
                     self.trade.side = "B"
                     self.trade.disclosed_quantity = None
-                    self.trade.price = self.trade.last_price + 2
+                    self.trade.price = self.trade.last_price + 2 # type: ignore
                     self.trade.trigger_price = 0.0
                     self.trade.order_type = "LMT"
                     self.trade.tag = "entry_pivot"
@@ -303,7 +303,7 @@ class Pivot:
                 logging.info(f"STOP HIT: {self.trade.symbol} with buy fill price {self._fill_price} hit stop {self._stop}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
-            elif self.trade.last_price <= self._stop:
+            elif self.trade.last_price <= self._stop: # type: ignore
                 resp = self._modify_to_kill()
                 logging.info(f"KILLING STOP: returned {resp}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
@@ -323,8 +323,7 @@ class Pivot:
             if ltp is not None:
                 self.trade.last_price = float(ltp)
 
-            
-            underlying = ltps[self._index]
+            underlying = ltps.get(self._index, None)
             if underlying is not None:
                 self.underlying_ltp = float(underlying)
 

@@ -28,7 +28,6 @@ class Openingbalance:
             quantity=user_settings["quantity"],
         )
         self._token = symbol_info["token"]
-        self._low = symbol_info["ltp"]
         self._stop = symbol_info["ltp"]
         self._target = self._t1
         self._max_target_reached = 0
@@ -59,19 +58,6 @@ class Openingbalance:
         logging.info(msg)
         return False
 
-    """
-    @property
-    def reduced_target_sequence(self):
-        return self._reduced_target_sequence
-
-    @reduced_target_sequence.setter
-    def reduced_target_sequence(self, sequence):
-        if self._reduced_target_sequence == sequence - 1:
-            self._reduced_target_sequence = sequence
-            logging.debug(f"new target sequence reached {self._reduced_target_sequence}")
-
-    """
-
     def _reset_trade(self):
         self.trade.filled_price = None
         self.trade.status = None
@@ -79,10 +65,13 @@ class Openingbalance:
 
     def wait_for_breakout(self):
         try:
-            if self.trade.last_price > self._stop and self._time_mgr.can_trade:
+            # from 2nd trade onwards set actual low as stop
+            if not hasattr(self, "_low") and is_time_past("9:17"):
+                self._set_new_stop_from_low()
+            if self.trade.last_price > self._stop and self._time_mgr.can_trade: # type: ignore
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
-                self.trade.price = self.trade.last_price + 2
+                self.trade.price = self.trade.last_price + 2 # type: ignore
                 self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry_ob"
@@ -95,9 +84,6 @@ class Openingbalance:
                     logging.warning(
                         f"got {buy_order} without buy order order id {self.trade.symbol}"
                     )
-            # from 2nd trade onwards set actual low as stop
-            else:
-                self._set_new_stop_from_low()
         except Exception as e:
             print(f"{e} while waiting for breakout")
 
@@ -162,7 +148,7 @@ class Openingbalance:
                 logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
 
                 if total_profit < 0:
-                    rate_to_be_added = abs(total_profit) / self.trade.quantity
+                    rate_to_be_added = abs(total_profit) / self.trade.quantity # type: ignore
                     logging.debug(
                         f"{rate_to_be_added=} because of negative {total_profit=}"
                     )
@@ -207,7 +193,7 @@ class Openingbalance:
                     return True
             else:
                 logging.debug("CHECKING STOP IN PAPER MODE")
-                return Helper.api.can_move_order_to_trade(
+                return Helper.api().can_move_order_to_trade(
                     self._trade_manager.position.exit.order_id, self.trade.last_price
                 )
         except Exception as e:
@@ -239,17 +225,16 @@ class Openingbalance:
             print_exc()
 
     def _set_new_stop_from_low(self):
-        if not hasattr(self, "_low") and is_time_past("9:17"):
-            low = history(
-                Helper.api(),
-                exchange=self.trade.exchange,
-                token=self._token,
-                loc=-2,
-                key="intl",
-            )
-            if low:
-                self._low = low
-                self._stop = low
+        low = history(
+            Helper.api(),
+            exchange=self.trade.exchange,
+            token=self._token,
+            loc=-2,
+            key="intl",
+        )
+        if low:
+            self._low = low
+            self._stop = low
 
     def try_exiting_trade(self):
         try:
@@ -261,11 +246,11 @@ class Openingbalance:
             if self._is_stoploss_hit():
                 logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")
                 self._fn = "wait_for_breakout"
-            elif self.trade.last_price <= self._stop:
+            elif self.trade.last_price <= self._stop: # type: ignore
                 resp = self._modify_to_kill()
                 logging.info(f"KILLED: {self.trade.symbol} {self.trade.last_price} < stop ... got {resp}")
                 self._fn = "wait_for_breakout"
-            elif self.trade.last_price >= self._trade_manager.position.target_price:
+            elif self.trade.last_price >= self._trade_manager.position.target_price: # type: ignore
                 resp = self._modify_to_exit()
                 logging.info(f"TARGET REACHED: {self.trade.symbol} {self.trade.last_price} < target price ... got {resp}")
                 self._fn = "remove_me"

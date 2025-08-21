@@ -49,7 +49,7 @@ def main():
                 else:
                     resp = strgy.run(*run_args)  # Pass the dynamically generated args
 
-                logging.info(f"main: {strgy._fn}")
+                #logging.info(f"main: {strgy._fn}")
 
             strategies = [strgy for strgy in strategies if not strgy._removable]
         else: 
