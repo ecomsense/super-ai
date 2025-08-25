@@ -1,4 +1,4 @@
-from src.constants import logging, O_SETG
+from src.constants import logging, S_SETG, yml_to_obj
 from src.helper import Helper, history
 from src.trade_manager import TradeManager
 from src.time_manager import TimeManager
@@ -187,6 +187,7 @@ class Openingbalance:
 
     def _is_stoploss_hit(self):
         try:
+            O_SETG = yml_to_obj(S_SETG)
             if O_SETG.get("live", 1) == 1:
                 order = self._trade_manager.find_order_if_exists(
                     self._trade_manager.position.exit.order_id, self._orders

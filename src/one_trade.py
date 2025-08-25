@@ -2,7 +2,7 @@
 
 from src.constants import logging
 from threading import Lock
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 class OneTrade:
     """

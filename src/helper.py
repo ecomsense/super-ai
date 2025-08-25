@@ -1,4 +1,4 @@
-from src.constants import O_CNFG, logging, O_SETG, S_DATA
+from src.constants import logging, S_SETG, S_DATA, yml_to_obj
 from src.wserver import Wserver
 import pendulum as pdlm
 from toolkit.kokoo import blink, timer
@@ -11,9 +11,9 @@ def df_to_csv(df, csv_file, is_index=False):
     df.to_csv(S_DATA + csv_file, index=is_index)
 
 
-def get_broker():
+def get_broker(cnfg):
     try:
-        broker_name = O_CNFG.get("broker", None)
+        broker_name = cnfg.get("broker", None)
         if not broker_name:
             raise ValueError("broker not specified in credential file")
 
@@ -32,6 +32,8 @@ def get_broker():
 
 def login():
     try:
+        O_CNFG = yml_to_obj()
+        O_SETG = yml_to_obj(S_SETG)
         # Initialize API with config
         if O_SETG.get("live", 0) == 0:
             from paper import Paper
@@ -40,7 +42,7 @@ def login():
             api = Paper(**O_CNFG)
         else:
             logging.info("Live trading mode")
-            BrokerClass = get_broker()
+            BrokerClass = get_broker(O_CNFG)
             #O_CNFG.pop("broker", None)
             api = BrokerClass(**O_CNFG)
   

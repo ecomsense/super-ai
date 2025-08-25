@@ -3,13 +3,14 @@ import string
 from functools import wraps
 from traceback import print_exc
 import pendulum as plum
-from src.constants import O_FUTL, S_DATA
+from src.constants import S_DATA
+from toolkit.fileutils import Fileutils
 
 
 def dict_from_yml(key_to_search, value_to_match):
     try:
         dct = {}
-        sym_from_yml = O_FUTL.get_lst_fm_yml(S_DATA + "symbols.yml")
+        sym_from_yml = Fileutils().get_lst_fm_yml(S_DATA + "symbols.yml")
         for _, dct in sym_from_yml.items():
             if isinstance(dct, dict) and dct[key_to_search] == value_to_match:
                 return dct

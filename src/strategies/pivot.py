@@ -1,4 +1,4 @@
-from src.constants import logging, O_SETG
+from src.constants import logging, S_SETG, yml_to_obj
 from src.helper import Helper, history
 from src.time_manager import TimeManager
 from src.trade_manager import TradeManager
@@ -108,7 +108,7 @@ class Gridlines:
 
 condition = {
     "PE": lambda grid, idx: grid < idx,
-    "CE": lambda grid, idx: grid < idx
+    "CE": lambda grid, idx: grid > idx
 }
 class Pivot:
 
@@ -210,7 +210,7 @@ class Pivot:
     def is_index_breakout(self):
         try:
             idx = self.lines.find_current_grid(self.underlying_ltp)
-            logging.info(f"{self._id}: {idx=} > {self.curr_idx}")
+            logging.info(f"{self._id}: {idx=}  {self.curr_idx} {self.underlying_ltp}")
             if self._condition(idx, self.curr_idx):
                 self.curr_idx = idx
                 # set stop
@@ -264,7 +264,7 @@ class Pivot:
 
     def _is_stoploss_hit(self):
         try:
-            if O_SETG.get("live", 1) == 1:
+            if S_SETG.get("live", 1) == 1:
                 order = self._trade_manager.find_order_if_exists(
                     self._trade_manager.position.exit.order_id, self._orders
                 )

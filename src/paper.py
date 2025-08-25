@@ -1,6 +1,7 @@
-from src.constants import O_CNFG, S_DATA, O_FUTL, logging
+from src.constants import O_CNFG, S_DATA, logging
 from src.utils import generate_unique_id
 from src.helper import get_broker
+from toolkit.fileutils import Fileutils
 import pandas as pd
 import pendulum as plum
 from traceback import print_exc
@@ -51,8 +52,8 @@ class Paper(get_broker()):
 
     def __init__(self, user_id, password, pin, vendor_code, app_key, imei, broker=""):
         super().__init__(user_id, password, pin, vendor_code, app_key, imei, broker)
-        if O_FUTL.is_file_not_2day(ORDER_CSV):
-            O_FUTL.nuke_file(ORDER_CSV)
+        if Fileutils().is_file_not_2day(ORDER_CSV):
+            Fileutils().nuke_file(ORDER_CSV)
 
     @property
     def orders(self):

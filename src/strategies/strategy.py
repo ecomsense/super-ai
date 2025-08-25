@@ -1,4 +1,4 @@
-from src.constants import logging, O_SETG, dct_sym
+from src.constants import logging, get_symbol_fm_factory
 from src.symbol import OptionSymbol, OptionData
 from traceback import print_exc
 from typing import Any, Literal
@@ -29,6 +29,7 @@ class Builder:
         Retrieves tokens for all trading symbols.
         """
         try:
+            dct_sym = get_symbol_fm_factory()
             blacklist = ["trade"]
             symbols_to_trade = {
                 k: settings for k, settings in self.user_settings.items() if k not in blacklist
@@ -217,16 +218,6 @@ class Builder:
         """
         trades = Helper._rest.trades()
         quotes = Helper._quote.get_quotes()
-        """
-        if self.strategy_name == "pivot":
-            underlying_ltp = Helper._rest.ltp(
-                dct_sym[strategy_instance._prefix]["exchange"],
-                dct_sym[strategy_instance._prefix]["token"],
-            )
-            return (trades, quotes, underlying_ltp)
-        else:
-            return (trades, quotes)
-        """
         return (trades, quotes)
 
 if __name__ == "__main__":
