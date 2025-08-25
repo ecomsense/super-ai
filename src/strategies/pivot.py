@@ -6,7 +6,9 @@ from src.trade import Trade
 import pendulum as pdlm
 from traceback import print_exc
 from json import loads
-from typing import Dict, List, Any
+from typing import Dict, Any
+from toolkit.kokoo import timer
+from src.one_trade import OneTrade
 
 def compute(ohlc_prefix):
     try:
@@ -104,8 +106,21 @@ class Gridlines:
                 return idx
         return idx
 
-
+condition = {
+    "PE": lambda grid, idx: grid < idx,
+    "CE": lambda grid, idx: grid < idx
+}
 class Pivot:
+
+    @property
+    def curr_idx(self)-> int:
+        return self._curr_idx
+
+    @curr_idx.setter
+    def curr_idx(self, idx):
+        self._curr_idx = idx
+        logging.info(f"{self._id}: current idx is set at {self._curr_idx}")
+
     def __init__(
         self, prefix: str, symbol_info: dict, user_settings: dict, pivot_grids
     ):
@@ -145,12 +160,10 @@ class Pivot:
             trade manager for the strategy
 
         """
-
         self._removable = False
         self._prefix = prefix
         self._id = symbol_info["symbol"]
-        self._low = 999999999
-        self._stop = 999999999 
+        self._low = 1000
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self.trade = Trade(
             symbol=symbol_info["symbol"],
@@ -159,73 +172,71 @@ class Pivot:
             quantity=user_settings["quantity"],
         )
         self._token = symbol_info["token"]
-        option_type = symbol_info["option_type"]
-        reverse = True if option_type == "PE" else False
-        self.lines = Gridlines(prices=pivot_grids, reverse=reverse)
+        self.option_type = symbol_info["option_type"]
+        self._condition = condition[self.option_type]
+        self.lines = Gridlines(prices=pivot_grids, reverse=False)
         self._trade_manager = TradeManager(Helper.api())
         self._index = user_settings["index"]
         self.underlying_ltp = user_settings["underlying_ltp"]
         self.curr_idx = self.lines.find_current_grid(self.underlying_ltp)
+        self._low_cache = {}
         self._fn = "is_index_breakout"
-    
-    @property
-    def curr_idx(self)-> int:
-        return self._curr_idx
-
-    @curr_idx.setter
-    def curr_idx(self, idx):
-        self._curr_idx = idx
-        logging.info(f"{self._id}: current idx is set at {self._curr_idx}")
-
-    @property
-    def low(self):
-        intl = history(api=Helper.api(), exchange=self.trade.exchange, token=self._token, loc=0, key="intl")
-        if intl:
-            self._low = intl
-        return self._low
-
-    def is_index_breakout(self):
-        try:
-            idx = self.lines.find_current_grid(self.underlying_ltp)
-            logging.info(f"{self._id}: {idx=} > {self.curr_idx}")
-            if idx > self.curr_idx:
-                self.curr_idx = idx
-                self._fn = "wait_for_breakout"
-
-        except Exception as e:
-            logging.error(f"{e} while checking index breakout")
-            print_exc()
 
     def _reset_trade(self):
         self.trade.filled_price = None
         self.trade.status = None
         self.trade.order_id = None
 
-    def wait_for_breakout(self):
-        try:
-            if self._time_mgr.can_trade:
-                current_low = self.low
-                if self.trade.last_price > current_low: # type: ignore
-                    self._stop = current_low
-                    logging.info(f"ENTRY: attempting with {self.trade.symbol}")
-                    self.trade.side = "B"
-                    self.trade.disclosed_quantity = None
-                    self.trade.price = self.trade.last_price + 2 # type: ignore
-                    self.trade.trigger_price = 0.0
-                    self.trade.order_type = "LMT"
-                    self.trade.tag = "entry_pivot"
-                    self._reset_trade()
-                    buy_order = self._trade_manager.complete_entry(self.trade)
-                    if buy_order.order_id is not None:
-                        self._fn = "find_fill_price"
-                    else:
-                        logging.warning(
-                            f"got {buy_order} without buy order order id {self.trade.symbol}"
-                        )
+    def _entry(self):
+        logging.info(f"ENTRY: attempting with {self.trade.symbol}")
+        self.trade.side = "B"
+        self.trade.disclosed_quantity = None
+        self.trade.price = self.trade.last_price + 2 # type: ignore
+        self.trade.trigger_price = 0.0
+        self.trade.order_type = "LMT"
+        self.trade.tag = "entry_pivot"
+        self._reset_trade()
 
+        self._last_buy_at = pdlm.now("Asia/Kolkata")
+        buy_order = self._trade_manager.complete_entry(self.trade)
+        if buy_order.order_id is not None:
+            self._fn = "find_fill_price"
+            return True
+        else:
+            logging.warning(
+                f"got {buy_order} without buy order order id {self.trade.symbol}"
+            )
+            return False
+    def is_index_breakout(self):
+        try:
+            idx = self.lines.find_current_grid(self.underlying_ltp)
+            logging.info(f"{self._id}: {idx=} > {self.curr_idx}")
+            if self._condition(idx, self.curr_idx):
+                self.curr_idx = idx
+                # set stop
+                self._stop = self.trade.last_price
+                if self._entry():
+                    OneTrade.add(self._prefix, self._id)
         except Exception as e:
-            logging.error(f"{e} while waiting for breakout")
+            logging.error(f"{e} while checking index breakout")
             print_exc()
+
+    @property
+    def low(self):
+        intl = history(api=Helper.api(), exchange=self.trade.exchange, token=self._token, loc=self._last_buy_at, key="intl")
+        if intl:
+          self._low = intl
+        return intl 
+    def _set_stop_for_next_trade(self):
+        if not self._low_cache.get(self._last_buy_at, None):
+            # check if candle is complete and we did not have the values already
+            intl = self.low
+            if intl:
+                self._low = intl
+                self._low_cache[self._last_buy_at] = self._low
+            
+        logging.debug(f"setting stop: minimum of {self._low} {self._stop}") 
+        self._stop = min(self._low, self._stop)    
 
     def find_fill_price(self):
         order = self._trade_manager.find_order_if_exists(
@@ -294,20 +305,23 @@ class Pivot:
 
     def try_exiting_trade(self):
         try:
-            current_underlying_grid = self.lines.find_current_grid(self.underlying_ltp) 
-            if current_underlying_grid > self.curr_idx:
+            self._set_stop_for_next_trade()
+            if self._condition(self.lines.find_current_grid(self.underlying_ltp), self.curr_idx):
                 logging.info("TARGET reached")
                 self._modify_to_exit()
                 self._fn = "wait_for_breakout"
+                OneTrade.remove(self._prefix, self._id)
             elif self._is_stoploss_hit():
                 logging.info(f"STOP HIT: {self.trade.symbol} with buy fill price {self._fill_price} hit stop {self._stop}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
+                OneTrade.remove(self._prefix, self._id)
             elif self.trade.last_price <= self._stop: # type: ignore
                 resp = self._modify_to_kill()
                 logging.info(f"KILLING STOP: returned {resp}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 self._fn = "wait_for_breakout"
+                OneTrade.remove(self._prefix, self._id)
             else:
                 logging.info(f"TARGET PROGRESS: {self.trade.symbol} ltp {self.trade.last_price} > {self._stop}")
 
@@ -315,6 +329,17 @@ class Pivot:
             logging.error(f"{e} while exit order")
             print_exc()
 
+    def wait_for_breakout(self):
+        try:
+            if self._time_mgr.can_trade and not OneTrade.is_prefix_in_trade(self._prefix):
+                if self.trade.last_price > self._stop: # type: ignore
+                    is_entered = self._entry()
+                    if is_entered:
+                        OneTrade.add(self._prefix, self._id)
+
+        except Exception as e:
+            logging.error(f"{e} while waiting for breakout")
+            print_exc()
     def run(self, orders, ltps):
         try:
             self._orders = orders

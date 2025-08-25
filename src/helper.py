@@ -85,15 +85,24 @@ def history(api, exchange, token, loc, key):
         if not isinstance(data_now, list):
             return None
 
-        # we have some data but it is not full
-        if len(data_now) < abs(loc):
-            logging.warning(f"TODO: found partial data {data_now}")
-            return None
+        if isinstance(loc, int):
+            # we have some data but it is not full
+            if len(data_now) < abs(loc):
+                logging.warning(f"TODO: found partial data {data_now}")
+                return None
 
-        if len(data_now) >= abs(loc):
-            low = float(data_now[loc][key])
-            return low
-        
+            if len(data_now) >= abs(loc):
+                low = float(data_now[loc][key])
+                return low
+
+        else:
+            # "time": "18-08-2025 09:30:00"
+            for d in reversed(data_now):
+                logging.debug(f"checking history {d}")
+                t = pdlm.from_format(d["time"], "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
+                if t > loc:
+                    result = d["intl"]
+                    return result
         return None
 
     except Exception as e:
@@ -355,7 +364,8 @@ if __name__ == "__main__":
 
         Helper._rest.close_positions()
 
-        # test_history(exchange="NFO", symbol="BANKNIFTY27MAR25C50000")
+        resp = history(Helper.api(), "NSE", "26000", pdlm.now(), "intl")
+        print("resp",resp)
     except Exception as e:
         print(e)
         print_exc()

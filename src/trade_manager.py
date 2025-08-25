@@ -14,28 +14,27 @@ class Position:
     is_position: bool = True
 
 
-def order_place(stock_broker, trade):
-    try:
-        kwargs = asdict(trade)
-        kwargs = {k: v for k, v in kwargs.items() if v is not None}
-        trade.order_id = stock_broker.order_place(**kwargs)
-        return trade
-    except Exception as e:
-        print(f"{e} in order place")
-
-
 class TradeManager:
+
+    def order_place(self, trade: Trade):
+        try:
+            kwargs = asdict(trade)
+            kwargs = {k: v for k, v in kwargs.items() if v is not None}
+            trade.order_id = self.stock_broker.order_place(**kwargs)
+            return trade
+        except Exception as e:
+            raise  # Re-raise the exception instead of printing the error message
 
     def __init__(self, stock_broker):
         self.stock_broker = stock_broker
         self.position = Position()
 
     def complete_entry(self, trade: Trade):
-        self.position.entry = order_place(self.stock_broker, trade)
+        self.position.entry = self.order_place(trade)
         return self.position.entry
 
     def pending_exit(self, trade: Trade):
-        self.position.exit = order_place(self.stock_broker, trade)
+        self.position.exit = self.order_place(trade)
         return self.position.exit
 
     def set_target_price(self, target_price):

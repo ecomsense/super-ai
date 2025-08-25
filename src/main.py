@@ -1,6 +1,6 @@
 # main.py
 from src.constants import logging, O_SETG, O_TRADESET
-from src.helper import Helper, RestApi
+from src.helper import Helper
 from toolkit.kokoo import is_time_past, blink, kill_tmux
 from traceback import print_exc
 from src.strategies.strategy import Builder  # Import the new builder

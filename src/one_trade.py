@@ -1,3 +1,5 @@
+#src/one_trade.py
+
 from src.constants import logging
 from threading import Lock
 from typing import List, Dict, Any
@@ -93,30 +95,3 @@ class OneTrade:
         Returns the entire class-level state for debugging or inspection.
         """
         return cls._state
-
-if __name__ == "__main__":
-    # Example usage
-    
-    # Add an initial CE trade for NIFTY
-    print("--- Adding first trades ---")
-    OneTrade.add("NIFTY", "24JUN25CE26000")
-    OneTrade.add("SENSEX", "24JUN25PE75000")
-    
-    print("\n--- Checking states after adding ---")
-    # Both symbols should be in the traded_once history
-    print(f"Has NIFTY CE been traded before? {OneTrade.is_traded_once('24JUN25CE26000')}")
-    print(f"Is NIFTY currently in trade? {OneTrade.is_prefix_in_trade('NIFTY')}")
-    print(f"Is SENSEX currently in trade? {OneTrade.is_prefix_in_trade('SENSEX')}")
-    print(f"Is BANKNIFTY currently in trade? {OneTrade.is_prefix_in_trade('BANKNIFTY')}")
-    
-    print("\n--- Adding a second trade to NIFTY ---")
-    OneTrade.add("NIFTY", "24JUN25PE25000")
-    print(f"Current NIFTY trades: {OneTrade.get_state().get('NIFTY')}")
-    
-    print("\n--- Removing a trade ---")
-    # Simulate a stop-loss on the PE position
-    OneTrade.remove("NIFTY", "24JUN25PE25000")
-    print(f"State after removing NIFTY PE: {OneTrade.get_state().get('NIFTY')}")
-    
-    print("\n--- Final state after all operations ---")
-    print(f"Final state: {OneTrade.get_state()}")
