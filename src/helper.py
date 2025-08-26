@@ -103,7 +103,7 @@ def history(api, exchange, token, loc, key):
                 logging.debug(f"checking history {d}")
                 t = pdlm.from_format(d["time"], "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
                 if t > loc:
-                    result = d["intl"]
+                    result = float(d[key])
                     return result
         return None
 

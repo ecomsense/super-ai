@@ -177,7 +177,7 @@ class Pivot:
         self.lines = Gridlines(prices=pivot_grids, reverse=False)
         self._trade_manager = TradeManager(Helper.api())
         self._index = user_settings["index"]
-        self.underlying_ltp = user_settings["underlying_ltp"]
+        self.underlying_ltp = float(user_settings["underlying_ltp"])
         self.curr_idx = self.lines.find_current_grid(self.underlying_ltp)
         self._low_cache = {}
         self._fn = "is_index_breakout"
@@ -264,7 +264,8 @@ class Pivot:
 
     def _is_stoploss_hit(self):
         try:
-            if S_SETG.get("live", 1) == 1:
+            O_SETG = yml_to_obj(S_SETG)
+            if O_SETG.get("live", 1) == 1:
                 order = self._trade_manager.find_order_if_exists(
                     self._trade_manager.position.exit.order_id, self._orders
                 )
