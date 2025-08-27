@@ -77,7 +77,7 @@ def history(api, exchange, token, loc, key):
     try:
         fm = (
             pdlm.now()
-            .subtract(days=0)
+            .subtract(days=2)
             .replace(hour=0, minute=0, second=0, microsecond=0)
             .timestamp()
         )
@@ -99,12 +99,19 @@ def history(api, exchange, token, loc, key):
 
         else:
             # "time": "18-08-2025 09:30:00"
-            for d in reversed(data_now):
-                logging.debug(f"checking history {d}")
+            new_data = []
+            for d in data_now:
                 t = pdlm.from_format(d["time"], "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
                 if t > loc:
-                    result = float(d[key])
-                    return result
+                    logging.debug(f"checking history {d}")
+                    new_data.append(float(d[key]))
+                else:
+                    logging.debug(f"skipping {d}")
+                    break
+
+            if any(new_data):
+                return min(new_data)
+            
         return None
 
     except Exception as e:
@@ -366,8 +373,8 @@ if __name__ == "__main__":
 
         Helper._rest.close_positions()
 
-        resp = history(Helper.api(), "NSE", "26000", pdlm.now(), "intl")
-        print("resp",resp)
+        resp = history(Helper.api(), "NSE", "26000", pdlm.now().subtract(days=2), "intl")
+        print("history",resp)
     except Exception as e:
         print(e)
         print_exc()

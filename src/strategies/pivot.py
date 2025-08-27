@@ -6,7 +6,7 @@ from src.trade import Trade
 import pendulum as pdlm
 from traceback import print_exc
 from json import loads
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from toolkit.kokoo import timer
 from src.one_trade import OneTrade
 
@@ -106,21 +106,28 @@ class Gridlines:
                 return idx
         return idx
 
+
+
+
 condition = {
     "PE": lambda grid, idx: grid < idx,
     "CE": lambda grid, idx: grid > idx
 }
 class Pivot:
 
-    @property
-    def curr_idx(self)-> int:
-        return self._curr_idx
+    _idx = {}
+    def set_idx(self, idx: int, option_type=None):
+        if option_type is None:
+            option_type = self.option_type
+        string = f"{self._prefix}_{option_type}"
+        self._idx[string] = idx
 
-    @curr_idx.setter
-    def curr_idx(self, idx):
-        self._curr_idx = idx
-        logging.info(f"{self._id}: current idx is set at {self._curr_idx}")
-
+    def get_idx(self):
+        try:
+            string = f"{self._prefix}_{self.option_type}"
+            return self._idx[string]
+        except KeyError:
+            return None
     def __init__(
         self, prefix: str, symbol_info: dict, user_settings: dict, pivot_grids
     ):
@@ -160,6 +167,7 @@ class Pivot:
             trade manager for the strategy
 
         """
+        self._low_cache = {}
         self._removable = False
         self._prefix = prefix
         self._id = symbol_info["symbol"]
@@ -178,8 +186,8 @@ class Pivot:
         self._trade_manager = TradeManager(Helper.api())
         self._index = user_settings["index"]
         self.underlying_ltp = float(user_settings["underlying_ltp"])
-        self.curr_idx = self.lines.find_current_grid(self.underlying_ltp)
-        self._low_cache = {}
+        self.set_idx(self.lines.find_current_grid(self.underlying_ltp))
+        self._other_option = "CE" if self.option_type == "PE" else "PE"
         self._fn = "is_index_breakout"
 
     def _reset_trade(self):
@@ -206,15 +214,22 @@ class Pivot:
             logging.warning(
                 f"got {buy_order} without buy order order id {self.trade.symbol}"
             )
-            return False
+        return False
     def is_index_breakout(self):
         try:
+            # evaluate the condition
             idx = self.lines.find_current_grid(self.underlying_ltp)
-            logging.info(f"{self._id}: {idx=}  {self.curr_idx} {self.underlying_ltp}")
-            if self._condition(idx, self.curr_idx):
-                self.curr_idx = idx
+            prev_idx = self.get_idx()
+            logging.info(f"{self._id}: curr:{idx}  prev:{prev_idx} ltp:{self.underlying_ltp}")
+            if self._condition(idx, prev_idx):
+                # set the current index of the pivot grid
+                self.set_idx(idx)
+                # if we have not trading before change index of the other option as well
+                if not OneTrade.is_prefix_in_trade(self._prefix):
+                    self.set_idx(idx, self._other_option)
                 # set stop
                 self._stop = self.trade.last_price
+                # if entry is successful add to one trade state manager
                 if self._entry():
                     OneTrade.add(self._prefix, self._id)
         except Exception as e:
@@ -228,13 +243,8 @@ class Pivot:
           self._low = intl
         return intl 
     def _set_stop_for_next_trade(self):
-        if not self._low_cache.get(self._last_buy_at, None):
-            # check if candle is complete and we did not have the values already
-            intl = self.low
-            if intl:
-                self._low = intl
-                self._low_cache[self._last_buy_at] = self._low
-            
+        _ = self.low
+        # check if candle is complete and we did not have the values already
         logging.debug(f"setting stop: minimum of {self._low} {self._stop}") 
         self._stop = min(self._low, self._stop)    
 
@@ -306,8 +316,7 @@ class Pivot:
 
     def try_exiting_trade(self):
         try:
-            self._set_stop_for_next_trade()
-            if self._condition(self.lines.find_current_grid(self.underlying_ltp), self.curr_idx):
+            if self._condition(self.lines.find_current_grid(self.underlying_ltp), self.get_idx()):
                 logging.info("TARGET reached")
                 self._modify_to_exit()
                 self._fn = "wait_for_breakout"
@@ -315,12 +324,14 @@ class Pivot:
             elif self._is_stoploss_hit():
                 logging.info(f"STOP HIT: {self.trade.symbol} with buy fill price {self._fill_price} hit stop {self._stop}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+                self._set_stop_for_next_trade()
                 self._fn = "wait_for_breakout"
                 OneTrade.remove(self._prefix, self._id)
             elif self.trade.last_price <= self._stop: # type: ignore
                 resp = self._modify_to_kill()
                 logging.info(f"KILLING STOP: returned {resp}")
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+                self._set_stop_for_next_trade()
                 self._fn = "wait_for_breakout"
                 OneTrade.remove(self._prefix, self._id)
             else:
