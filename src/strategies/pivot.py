@@ -167,7 +167,6 @@ class Pivot:
             trade manager for the strategy
 
         """
-        self._low_cache = {}
         self._removable = False
         self._prefix = prefix
         self._id = symbol_info["symbol"]

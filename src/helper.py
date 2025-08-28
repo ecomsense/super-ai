@@ -77,7 +77,7 @@ def history(api, exchange, token, loc, key):
     try:
         fm = (
             pdlm.now()
-            .subtract(days=2)
+            .subtract(days=0)
             .replace(hour=0, minute=0, second=0, microsecond=0)
             .timestamp()
         )
