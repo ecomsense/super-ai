@@ -101,12 +101,13 @@ def history(api, exchange, token, loc, key):
             # "time": "18-08-2025 09:30:00"
             new_data = []
             for d in data_now:
-                t = pdlm.from_format(d["time"], "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
-                if t > loc:
-                    logging.debug(f"checking history {d}")
+                str_time = d["time"]
+                t = pdlm.from_format(str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
+                if t >= loc:
+                    logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
                     new_data.append(float(d[key]))
                 else:
-                    logging.debug(f"skipping {d}")
+                    logging.debug(f"skipping remaining candles after {str_time}")
                     break
 
             if any(new_data):
@@ -373,7 +374,7 @@ if __name__ == "__main__":
 
         Helper._rest.close_positions()
 
-        resp = history(Helper.api(), "NSE", "26000", pdlm.now().subtract(days=2), "intl")
+        resp = history(Helper.api(), "NSE", "26009", -2, "intl")
         print("history",resp)
     except Exception as e:
         print(e)

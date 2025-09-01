@@ -107,15 +107,14 @@ class Gridlines:
         return idx
 
 
-
-
 condition = {
-    "PE": lambda grid, idx: grid < idx,
-    "CE": lambda grid, idx: grid > idx
+    "PE": lambda curr, prev: curr < prev,
+    "CE": lambda curr, prev: curr > prev
 }
 class Pivot:
 
     _idx = {}
+    _no_of_trades = {}
     def set_idx(self, idx: int, option_type=None):
         if option_type is None:
             option_type = self.option_type
@@ -128,6 +127,28 @@ class Pivot:
             return self._idx[string]
         except KeyError:
             return None
+        
+    @property    
+    def add_trade_after_swap(self):
+        string = f"{self._prefix}_{self.option_type}"
+        if self._no_of_trades.get(string, 0) == 0:
+            self._no_of_trades[string] = 1
+        else: 
+            self._no_of_trades[string] += 1
+        self._reset_other_option
+    
+    @property
+    def is_max_trade_count_reached(self):
+        string = f"{self._prefix}_{self.option_type}"
+        total_trades = self._no_of_trades.get(string, 0)
+        return total_trades < self._max_low_trades
+    
+    @property
+    def _reset_other_option(self):
+        string = f"{self._prefix}_{self._other_option}"
+        #delete the key string
+        self._no_of_trades.pop(string, None)    
+
     def __init__(
         self, prefix: str, symbol_info: dict, user_settings: dict, pivot_grids
     ):
@@ -170,7 +191,7 @@ class Pivot:
         self._removable = False
         self._prefix = prefix
         self._id = symbol_info["symbol"]
-        self._low = 1000
+        self._low = 2000
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self.trade = Trade(
             symbol=symbol_info["symbol"],
@@ -187,6 +208,7 @@ class Pivot:
         self.underlying_ltp = float(user_settings["underlying_ltp"])
         self.set_idx(self.lines.find_current_grid(self.underlying_ltp))
         self._other_option = "CE" if self.option_type == "PE" else "PE"
+        self._max_low_trades = 5
         self._fn = "is_index_breakout"
 
     def _reset_trade(self):
@@ -242,9 +264,14 @@ class Pivot:
           self._low = intl
         return intl 
     def _set_stop_for_next_trade(self):
-        _ = self.low
+        if not self.is_max_trade_count_reached:
+            logging.info(f"no of trades  less than max trades {self._max_low_trades}. updating low ..")
+            _ = self.low
         # check if candle is complete and we did not have the values already
-        logging.debug(f"setting stop: minimum of {self._low} {self._stop}") 
+        if self._stop == self._low:
+            logging.info(f"stop {self._stop} did not change") 
+            return
+        logging.info(f"setting stop: minimum of {self._low} {self._stop}") 
         self._stop = min(self._low, self._stop)    
 
     def find_fill_price(self):
@@ -315,8 +342,10 @@ class Pivot:
 
     def try_exiting_trade(self):
         try:
-            if self._condition(self.lines.find_current_grid(self.underlying_ltp), self.get_idx()):
-                logging.info("TARGET reached")
+            # evaluate the condition
+            curr, prev = self.lines.find_current_grid(self.underlying_ltp), self.get_idx()
+            if self._condition(curr, prev):
+                logging.info(f"TARGET: {self.trade.symbol} curr:{curr} BROKE prev:{prev}")
                 self._modify_to_exit()
                 self._fn = "wait_for_breakout"
                 OneTrade.remove(self._prefix, self._id)
@@ -334,7 +363,7 @@ class Pivot:
                 self._fn = "wait_for_breakout"
                 OneTrade.remove(self._prefix, self._id)
             else:
-                logging.info(f"TARGET PROGRESS: {self.trade.symbol} ltp {self.trade.last_price} > {self._stop}")
+                logging.info(f"PROGRESS: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
 
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -346,6 +375,7 @@ class Pivot:
                 if self.trade.last_price > self._stop: # type: ignore
                     is_entered = self._entry()
                     if is_entered:
+                        self.add_trade_after_swap
                         OneTrade.add(self._prefix, self._id)
 
         except Exception as e:
