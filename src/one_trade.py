@@ -95,3 +95,8 @@ class OneTrade:
         Returns the entire class-level state for debugging or inspection.
         """
         return cls._state
+    
+
+"""
+    _state = {"NIFTY": {"CE": 1, "PE": 1}
+"""
