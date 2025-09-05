@@ -201,6 +201,7 @@ class Builder:
                                 symbol_constant=user_settings,
                             )
                         )
+                    print(common_init_kwargs)
                     strgy = Strategy(**common_init_kwargs)
                     strategies.append(strgy)
             
@@ -209,7 +210,7 @@ class Builder:
         except Exception as e:
             logging.error(f"{e} while creating the strategies in StrategyBuilder")
             print_exc()
-            return []
+            __import__("sys").exit(1)
 
     def get_run_arguments(self, strategy_instance) -> tuple:
         """

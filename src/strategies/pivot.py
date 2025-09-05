@@ -152,6 +152,7 @@ class Pivot:
         # Note: You can either keep these as class variables or pass them as parameters.
         # As discussed, using class variables is a design choice with pros and cons.
         idx = self.lines.find_current_grid(self.underlying_ltp)
+        StateManager.initialize_prefix(prefix=self._prefix)
         StateManager.set_idx(prefix=self._prefix, option_type=self.option_type, idx=idx)
         logging.info(f"INITIAL IDX: {self._id} is set at {idx}")
 
