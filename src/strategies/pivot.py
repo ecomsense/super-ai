@@ -216,6 +216,7 @@ class Pivot:
         if intl:
           self._low = intl
         return intl 
+
     def _set_stop_for_next_trade(self):
         if not StateManager.is_max_trade_reached(self._prefix, self.option_type):
             _ = self.low()
