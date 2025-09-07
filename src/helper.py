@@ -370,15 +370,17 @@ if __name__ == "__main__":
             resp = Helper._api.margins
             print(resp)
 
-        trades()
+        #trades()
         resp = Helper._rest.pnl("rpnl")
         print(resp)
         orders()
-
+        
+        """
         Helper._rest.close_positions()
 
         resp = history(Helper.api(), "NSE", "26009", -2, "intl")
         print("history",resp)
+        """
     except Exception as e:
         print(e)
         print_exc()
