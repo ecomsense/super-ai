@@ -212,10 +212,14 @@ class Pivot:
             print_exc()
 
     def low(self):
-        intl = history(api=Helper.api(), exchange=self.trade.exchange, token=self._token, loc=self._last_buy_at, key="intl")
-        if intl:
-          self._low = intl
-        return intl 
+        try:
+            intl = history(api=Helper.api(), exchange=self.trade.exchange, token=self._token, loc=self._last_buy_at, key="intl")
+            if intl:
+                self._low = intl
+            return intl 
+        except Exception as e:
+            logging.error(f"Pivot: while getting error {e}")
+            print_exc()
 
     def _set_stop_for_next_trade(self):
         if not StateManager.is_max_trade_reached(self._prefix, self.option_type):

@@ -99,9 +99,10 @@ def history(api, exchange, token, loc, key):
 
         else:
             # "time": "18-08-2025 09:30:00"
+            logging.debug(f"History: based on time {loc}")
             new_data = []
             for d in data_now:
-                logging.debug(f"History: based on time {loc}")
+                logging.debug(f"CANDLE: item {d} in data")
                 str_time = d["time"]
                 t = pdlm.from_format(str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
                 if t >= loc:
@@ -118,6 +119,7 @@ def history(api, exchange, token, loc, key):
 
     except Exception as e:
         logging.error(f"{e} in history")
+        print_exc()
 
 
 class QuoteApi:
