@@ -82,10 +82,12 @@ def history(api, exchange, token, loc, key):
             .timestamp()
         )
         to = pdlm.now().subtract(days=0).timestamp()
-        data_now = api.historical(exchange, token, fm, to)
 
+        data_now = api.historical(exchange, token, fm, to)
         if not isinstance(data_now, list):
             return None
+        
+        logging.debug(f"Fetched {len(data_now)} historical items")
 
         if isinstance(loc, int):
             # we have some data but it is not full
@@ -103,14 +105,15 @@ def history(api, exchange, token, loc, key):
             new_data = []
             for d in data_now:
                 logging.debug(f"CANDLE: item {d} in data")
-                str_time = d["time"]
-                t = pdlm.from_format(str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
-                if t >= loc:
-                    logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
-                    new_data.append(float(d[key]))
-                else:
-                    logging.debug(f"skipping remaining candles after {str_time}")
-                    break
+                if isinstance(d, dict) and d.get("time", None):
+                    str_time = d["time"]
+                    t = pdlm.from_format(str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
+                    if t >= loc:
+                        logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
+                        new_data.append(float(d[key]))
+                    else:
+                        logging.debug(f"skipping remaining candles after {str_time}")
+                        break
 
             if any(new_data):
                 return min(new_data)
@@ -118,7 +121,7 @@ def history(api, exchange, token, loc, key):
         return None
 
     except Exception as e:
-        logging.error(f"{e} in history")
+        logging.error(f" {str(e)} in history")
         print_exc()
 
 
@@ -378,7 +381,8 @@ if __name__ == "__main__":
         """
         Helper._rest.close_positions()
 
-        resp = history(Helper.api(), "NSE", "26009", -2, "intl")
+        idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
+        resp = history(api=Helper.api(), exchange="NSE", token="26009",loc=idx, key="intl")
         print("history",resp)
         """
     except Exception as e:
