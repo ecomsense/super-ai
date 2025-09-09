@@ -1,6 +1,8 @@
-from src.constants import O_CNFG, S_DATA, logging
-from src.utils import generate_unique_id
-from src.helper import get_broker
+from src.constants import S_DATA, logging
+
+from src.sdk.helper import get_broker
+from src.sdk.utils import generate_unique_id
+
 from toolkit.fileutils import Fileutils
 import pandas as pd
 import pendulum as plum
@@ -9,7 +11,7 @@ from traceback import print_exc
 ORDER_CSV = S_DATA + "orders.csv"
 
 
-class Paper(get_broker()):
+class Paper(get_broker(None, {})):
     cols = [
         "order_id",
         "broker_timestamp",

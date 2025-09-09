@@ -1,17 +1,21 @@
 from src.constants import logging, S_SETG, yml_to_obj
-from src.helper import Helper, history
-from src.trade_manager import TradeManager
-from src.time_manager import TimeManager
-from src.trade import Trade
+from src.config.interface import Trade
+
+from src.sdk.helper import Helper, history
+
+from src.providers.trade_manager import TradeManager
+from src.providers.time_manager import TimeManager
+
 from traceback import print_exc
 import pendulum as pdlm
 from toolkit.kokoo import is_time_past
-from src.one_trade import OneTrade
+
+# TODO to be deprecated
+from src.providers.one_trade import OneTrade
+
 
 class Openingbalance:
-    def __init__(
-        self, prefix: str, symbol_info: dict, user_settings: dict
-    ):
+    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict):
         self._id = symbol_info["symbol"]
         self._buy_order = {}
         self._fill_price = 0
@@ -37,7 +41,6 @@ class Openingbalance:
         self._fn = "wait_for_breakout"
         self._trade_manager = TradeManager(Helper.api())
 
-
     def _is_trailstopped(self, percent):
         # set max target reached
         if max(percent, self._max_target_reached) == percent:
@@ -53,8 +56,8 @@ class Openingbalance:
             msg = f"#TSL T2 HIT: {self.trade.symbol} {percent=} < t2={self._t2}"
             logging.info(msg)
             return True
-        
-        #msg = f"#TRAIL: {self.trade.symbol} either {percent=} < {self._t2} or its > {trailing_target=}"
+
+        # msg = f"#TRAIL: {self.trade.symbol} either {percent=} < {self._t2} or its > {trailing_target=}"
         msg = f"#TRAIL: {self.trade.symbol} {percent=} vs  max target reached:{self._max_target_reached}"
         logging.info(msg)
         return False
@@ -69,10 +72,17 @@ class Openingbalance:
             # from 2nd trade onwards set actual low as stop
             if not hasattr(self, "_low") and is_time_past("9:17"):
                 self._set_new_stop_from_low()
-            if self.trade.last_price > self._stop and self._time_mgr.can_trade and (not OneTrade.is_traded_once(self._id) or not OneTrade.is_prefix_in_trade(self._prefix)):
+            if (
+                self.trade.last_price > self._stop
+                and self._time_mgr.can_trade
+                and (
+                    not OneTrade.is_traded_once(self._id)
+                    or not OneTrade.is_prefix_in_trade(self._prefix)
+                )
+            ):
                 self.trade.side = "B"
                 self.trade.disclosed_quantity = None
-                self.trade.price = self.trade.last_price + 2 # type: ignore
+                self.trade.price = self.trade.last_price + 2  # type: ignore
                 self.trade.trigger_price = 0.0
                 self.trade.order_type = "LMT"
                 self.trade.tag = "entry_ob"
@@ -80,7 +90,9 @@ class Openingbalance:
                 buy_order = self._trade_manager.complete_entry(self.trade)
                 if buy_order.order_id is not None:
                     OneTrade.add(self._prefix, self._id)
-                    logging.info(f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}")
+                    logging.info(
+                        f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}"
+                    )
                     self._fn = "find_fill_price"
                 else:
                     logging.warning(
@@ -150,7 +162,7 @@ class Openingbalance:
                 logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
 
                 if total_profit < 0:
-                    rate_to_be_added = abs(total_profit) / self.trade.quantity # type: ignore
+                    rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
                     logging.debug(
                         f"{rate_to_be_added=} because of negative {total_profit=}"
                     )
@@ -247,15 +259,21 @@ class Openingbalance:
                 return self._prefix
 
             if self._is_stoploss_hit():
-                logging.info(f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}")
+                logging.info(
+                    f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}"
+                )
                 self._fn = "wait_for_breakout"
-            elif self.trade.last_price <= self._stop: # type: ignore
+            elif self.trade.last_price <= self._stop:  # type: ignore
                 resp = self._modify_to_kill()
-                logging.info(f"KILLED: {self.trade.symbol} {self.trade.last_price} < stop ... got {resp}")
+                logging.info(
+                    f"KILLED: {self.trade.symbol} {self.trade.last_price} < stop ... got {resp}"
+                )
                 self._fn = "wait_for_breakout"
-            elif self.trade.last_price >= self._trade_manager.position.target_price: # type: ignore
+            elif self.trade.last_price >= self._trade_manager.position.target_price:  # type: ignore
                 resp = self._modify_to_exit()
-                logging.info(f"TARGET REACHED: {self.trade.symbol} {self.trade.last_price} < target price ... got {resp}")
+                logging.info(
+                    f"TARGET REACHED: {self.trade.symbol} {self.trade.last_price} < target price ... got {resp}"
+                )
                 self._fn = "remove_me"
                 return self._prefix
             else:
@@ -271,7 +289,7 @@ class Openingbalance:
             print_exc()
 
     def remove_me(self):
-        
+
         if self._fn == "find_fill_price":
             self.find_fill_price()
             return
@@ -302,5 +320,3 @@ class Openingbalance:
         except Exception as e:
             logging.error(f"{e} in running {self.trade.symbol}")
             print_exc()
-
-    

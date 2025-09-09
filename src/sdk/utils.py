@@ -1,9 +1,9 @@
+from src.constants import S_DATA
 import random
 import string
 from functools import wraps
 from traceback import print_exc
 import pendulum as plum
-from src.constants import S_DATA
 from toolkit.fileutils import Fileutils
 
 

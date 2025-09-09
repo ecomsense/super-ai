@@ -23,7 +23,7 @@ class Wserver:
         self.socket_opened = True
         self.api.broker.subscribe(self.tokens, feed_type=FeedType.SNAPQUOTE)
         # api.subscribe(['NSE|22', 'BSE|522032'])
-    
+
     def unsubscribe(self, tokens):
         self.api.broker.unsubscribe(tokens, feed_type=FeedType.SNAPQUOTE)
 
@@ -39,6 +39,7 @@ class Wserver:
 
     def subscribe(self, tokens):
         self.api.broker.subscribe(tokens, feed_type=FeedType.SNAPQUOTE)
+
 
 if __name__ == "__main__":
     from src.helper import Helper

@@ -4,14 +4,16 @@ from src.constants import logging
 from threading import Lock
 from typing import Dict, Any
 
+
 class StateManager:
     """
-        _state = {"NIFTY": {"is_in_trade": True, "CE": {"idx": 0, "count": 1 }, "PE": {"idx": 1, "count": 1} }, 
+    _state = {"NIFTY": {"is_in_trade": True, "CE": {"idx": 0, "count": 1 }, "PE": {"idx": 1, "count": 1} },
     """
+
     _state: Dict[str, Any] = {}
     _lock = Lock()
     _max_trades = 5
-    
+
     @classmethod
     def initialize_prefix(cls, prefix: str):
         with cls._lock:
@@ -23,7 +25,8 @@ class StateManager:
                     "PE": {"count": 0, "idx": -1},
                 }
                 logging.info(f"Initialized state for prefix '{prefix}'.")
-    @classmethod 
+
+    @classmethod
     def traded_once(cls, prefix: str):
         with cls._lock:
             cls._state[prefix]["is_traded_once"] = True
@@ -38,23 +41,23 @@ class StateManager:
         with cls._lock:
             cls._state[prefix]["is_in_trade"] = True
             cls._state[prefix][option_type]["count"] += 1
-            
+
     @classmethod
     def end_trade(cls, prefix: str, other_option_type: str):
         with cls._lock:
             cls._state[prefix]["is_in_trade"] = False
             cls._state[prefix][other_option_type]["count"] = 0
-    
+
     @classmethod
     def is_in_trade(cls, prefix: str) -> bool:
         with cls._lock:
             return cls._state[prefix]["is_in_trade"]
 
-    @classmethod        
+    @classmethod
     def is_max_trade_reached(cls, prefix: str, option_type: str) -> bool:
         with cls._lock:
             return cls._state[prefix][option_type]["count"] >= cls._max_trades
-        
+
     @classmethod
     def set_idx(cls, prefix: str, option_type: str, idx: int):
         """Sets the indices for both CE and PE options for a given prefix."""
@@ -66,4 +69,3 @@ class StateManager:
         """Returns the current index for a given option type."""
         with cls._lock:
             return cls._state[prefix][option_type]["idx"]
-

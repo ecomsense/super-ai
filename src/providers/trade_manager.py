@@ -1,17 +1,6 @@
-from src.trade import Trade
 from src.constants import logging
-from dataclasses import dataclass, asdict, field
-from typing import Optional
-
-
-@dataclass(slots=True)
-class Position:
-    symbol: Optional[str] = None
-    entry: Trade = field(default_factory=Trade)
-    exit: Trade = field(default_factory=Trade)
-    stop_price: Optional[float] = None
-    target_price: Optional[float] = None
-    is_position: bool = True
+from dataclasses import asdict
+from src.config.interface import Position, Trade
 
 
 class TradeManager:
@@ -23,6 +12,7 @@ class TradeManager:
             trade.order_id = self.stock_broker.order_place(**kwargs)
             return trade
         except Exception as e:
+            logging.error(f"TradeManager: Order Place {e}")
             raise  # Re-raise the exception instead of printing the error message
 
     def __init__(self, stock_broker):

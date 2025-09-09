@@ -1,7 +1,8 @@
 from src.constants import logging, S_SETG, S_DATA, yml_to_obj
-from src.wserver import Wserver
+from src.sdk.wserver import Wserver
+
 import pendulum as pdlm
-from toolkit.kokoo import blink, timer
+from toolkit.kokoo import blink
 import pandas as pd
 from importlib import import_module
 from traceback import print_exc
@@ -43,9 +44,8 @@ def login():
         else:
             logging.info("Live trading mode")
             BrokerClass = get_broker(O_CNFG)
-            #O_CNFG.pop("broker", None)
+            # O_CNFG.pop("broker", None)
             api = BrokerClass(**O_CNFG)
-  
 
         if api.authenticate():
             print("authentication successfull")
@@ -55,7 +55,7 @@ def login():
             for attr in dir(api):
                 if not callable(getattr(api, attr)) and not attr.startswith("__"):
                     print(f"{attr} = {getattr(api, attr)}")
-            
+
     except Exception as e:
         print(f"login exception {e}")
         __import__("sys").exit(1)
@@ -86,7 +86,7 @@ def history(api, exchange, token, loc, key):
         data_now = api.historical(exchange, token, fm, to)
         if not isinstance(data_now, list):
             return None
-        
+
         logging.debug(f"Fetched {len(data_now)} historical items")
 
         if isinstance(loc, int):
@@ -107,7 +107,9 @@ def history(api, exchange, token, loc, key):
                 logging.debug(f"CANDLE: item {d} in data")
                 if isinstance(d, dict) and d.get("time", None):
                     str_time = d["time"]
-                    t = pdlm.from_format(str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata")
+                    t = pdlm.from_format(
+                        str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata"
+                    )
                     if t >= loc:
                         logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
                         new_data.append(float(d[key]))
@@ -117,7 +119,7 @@ def history(api, exchange, token, loc, key):
 
             if any(new_data):
                 return min(new_data)
-            
+
         return None
 
     except Exception as e:
@@ -144,7 +146,6 @@ class QuoteApi:
             print_exc()
         finally:
             return quote
-        
 
     def _subscribe_till_ltp(self, ws_key):
         try:
@@ -259,7 +260,7 @@ class RestApi:
             print_exc()
         finally:
             return from_api
-        
+
     def close_positions(self):
         try:
             for pos in self._api.positions:
@@ -355,7 +356,6 @@ if __name__ == "__main__":
             else:
                 print("no response from orders")
 
-
         def modify():
             args = {
                 "symbol": "NIFTY28NOV24C23400",
@@ -373,11 +373,11 @@ if __name__ == "__main__":
             resp = Helper._api.margins
             print(resp)
 
-        #trades()
+        # trades()
         resp = Helper._rest.pnl("rpnl")
         print(resp)
         orders()
-        
+
         """
         Helper._rest.close_positions()
 
