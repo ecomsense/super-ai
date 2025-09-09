@@ -75,7 +75,9 @@ def is_not_rate_limited(func):
 
 def history(api, exchange, token, loc, key):
     try:
-        logging.info(f"exch:{exchange} t:{token} t:{loc} k:{key}")
+        logging.info(
+            f"exch:{exchange} token_type:{type(token)} t:{token} loc:{loc} k:{key}"
+        )
         fm = (
             pdlm.now()
             .subtract(days=0)
@@ -168,8 +170,8 @@ class QuoteApi:
             if self.subscribed.get(symbol, None) is None:
                 if token is None:
                     logging.info(f"Helper: getting token for {exchange} {symbol}")
-                    token = self._ws.api.instrument_symbol(exchange, symbol)
-                key = exchange + "|" + str(token)
+                    token = str(self._ws.api.instrument_symbol(exchange, symbol))
+                key = exchange + "|" + token
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,
@@ -382,11 +384,15 @@ if __name__ == "__main__":
 
         """
         Helper._rest.close_positions()
-
-        idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
-        resp = history(api=Helper.api(), exchange="NSE", token="26009",loc=idx, key="intl")
-        print("history",resp)
         """
+        while True:
+            idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
+            resp = history(
+                api=Helper.api(), exchange="NFO", token="44604", loc=idx, key="intl"
+            )
+            print("history", resp)
+    except KeyboardInterrupt:
+        print("ctrl c pressed")
     except Exception as e:
         print(e)
         print_exc()
