@@ -1,42 +1,22 @@
-from src.constants import logging, get_symbol_fm_factory
-
+from src.constants import logging
 from src.sdk.symbol import OptionSymbol, OptionData
 from src.sdk.helper import Helper
 
 from traceback import print_exc
-from typing import Any, Literal
-from importlib import import_module
-
-
-def unsubscribe_tokens_not_in_strategies(strategies: list[Any]):
-    try:
-        subscribed_tokens = [
-            f"{strategy.trade.exchange}|{strategy._token}" for strategy in strategies
-        ]
-        quotes = Helper._quote.get_quotes()
-        tokens_to_unsubscribe = [
-            token for token in quotes.keys() if token not in subscribed_tokens
-        ]
-        print(tokens_to_unsubscribe)
-        Helper._quote._ws.unsubscribe(tokens_to_unsubscribe)
-    except Exception as e:
-        logging.error(f"{e} while unsubscribing tokens not in strategies")
-        print_exc()
+from typing import Any
 
 
 class Builder:
-    def __init__(self, user_settings: dict[str, Any], strategy_name: str):
+    def __init__(self, user_settings: dict[str, Any], dct_sym):
         self.user_settings = user_settings
-        self.strategy_name = strategy_name
-        self.symbols_to_trade = self.merge_settings_and_symbols()
+        self.symbols_to_trade = self.merge_settings_and_symbols(dct_sym)
         self.tokens_for_all_trading_symbols = self.find_fno_tokens()
 
-    def merge_settings_and_symbols(self) -> dict[str, Any]:
+    def merge_settings_and_symbols(self, dct_sym) -> dict[str, Any]:
         """
         Retrieves tokens for all trading symbols.
         """
         try:
-            dct_sym = get_symbol_fm_factory()
             blacklist = ["trade"]
             symbols_to_trade = {
                 k: settings
@@ -114,150 +94,3 @@ class Builder:
             logging.error(f"{e} while finding instrument to trade in StrategyBuilder")
             print_exc()
             return {}
-
-    def _find_tradingsymbol_by_atm(
-        self, ce_or_pe: Literal["CE", "PE"], user_settings
-    ) -> dict[str, Any]:
-        """
-        (Refactored from your original find_tradingsymbol_by_low)
-        output:
-            {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
-        """
-        try:
-            data = OptionData(
-                exchange=user_settings["option_exchange"],
-                base=user_settings["base"],
-                symbol=user_settings["symbol"],
-                diff=user_settings["diff"],
-                depth=user_settings["depth"],
-                expiry=user_settings["expiry"],
-            )
-            sym = OptionSymbol(data)
-
-            atm = user_settings["atm"]
-            result = sym.find_option_by_distance(
-                atm=atm,
-                distance=user_settings["moneyness"],
-                c_or_p=ce_or_pe,
-            )
-            logging.info(f"find option by distance returned {result}")
-            symbol_info_by_distance: dict[str, Any] = Helper._quote.symbol_info(
-                user_settings["option_exchange"],
-                result["TradingSymbol"],
-                result["Token"],
-            )
-            logging.info(f"{symbol_info_by_distance=}")
-            symbol_info_by_distance["option_type"] = ce_or_pe
-            _ = Helper._quote.symbol_info(
-                user_settings["exchange"],
-                user_settings["index"],
-                user_settings["token"],
-            )
-
-            # find the tradingsymbol which is closest to the premium
-            if user_settings.get("premium", 0) > 0:
-                logging.info("premiums is going to checked")
-
-                # subscribe to symbols
-                for key, symbol in self.tokens_for_all_trading_symbols.items():
-                    token = key.split("|")[1]
-                    _ = Helper._quote.symbol_info(
-                        user_settings["option_exchange"], symbol, token
-                    )
-
-                quotes = Helper._quote.get_quotes()
-                logging.info(
-                    f"premium {user_settings['premium']} to be check agains quotes for closeness ]"
-                )
-                symbol_with_closest_premium = sym.find_closest_premium(
-                    quotes=quotes, premium=user_settings["premium"], contains=ce_or_pe
-                )
-
-                logging.info(f"found {symbol_with_closest_premium=}")
-                symbol_info_by_premium = Helper._quote.symbol_info(
-                    user_settings["option_exchange"], symbol_with_closest_premium
-                )
-                logging.info(f"getting {symbol_info_by_premium=}")
-                assert isinstance(
-                    symbol_info_by_premium, dict
-                ), "symbol_info_by_premium is empty"
-                symbol_info_by_premium["option_type"] = ce_or_pe
-
-                # use any one result
-                symbol_info = (
-                    symbol_info_by_premium
-                    if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"]
-                    else symbol_info_by_distance
-                )
-                return symbol_info
-            return symbol_info_by_distance
-        except Exception as e:
-            logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
-            print_exc()
-            return {}
-
-    def create_strategies(self) -> list:
-        """
-        Creates a list of strategies based on the provided symbols_to_trade.
-        """
-        try:
-            module_path = f"src.strategies.{self.strategy_name}"
-            strategy_module = import_module(module_path)
-            Strategy = getattr(strategy_module, self.strategy_name.capitalize())
-            logging.info(f"creating strategy: {self.strategy_name}")
-            strategies = []
-            for prefix, user_settings in self.symbols_to_trade.items():
-                lst_of_option_type = ["PE", "CE"]
-                for option_type in lst_of_option_type:
-                    # Prepare common arguments for strategy __init__
-                    common_init_kwargs = {
-                        "prefix": prefix,
-                        "symbol_info": self._find_tradingsymbol_by_atm(
-                            option_type, user_settings
-                        ),
-                        "user_settings": user_settings,
-                    }
-                    logging.info(f"common init: {common_init_kwargs}")
-                    # create strategy object
-                    logging.info(f"building {self.strategy_name} for {option_type}")
-                    if self.strategy_name == "pivot":
-                        common_init_kwargs["pivot_grids"] = (
-                            import_module("src.strategies.pivot")
-                            .Grid()
-                            .run(
-                                api=Helper.api(),
-                                prefix=prefix,
-                                symbol_constant=user_settings,
-                            )
-                        )
-                    print(common_init_kwargs)
-                    strgy = Strategy(**common_init_kwargs)
-                    strategies.append(strgy)
-
-            # unsubscribe_tokens_not_in_strategies(strategies=strategies)
-            return strategies
-        except Exception as e:
-            logging.error(f"{e} while creating the strategies in StrategyBuilder")
-            print_exc()
-            __import__("sys").exit(1)
-
-    def get_run_arguments(self, strategy_instance) -> tuple:
-        """
-        Dynamically determine and return arguments for strategy.run()
-        based on the strategy name.
-        """
-        trades = Helper._rest.trades()
-        quotes = Helper._quote.get_quotes()
-        return (trades, quotes)
-
-
-if __name__ == "__main__":
-    from src.constants import O_TRADESET
-    from pprint import pprint
-
-    Helper.api()
-    bldr = Builder(user_settings=O_TRADESET, strategy_name="openingbalance")
-    sgys = bldr.create_strategies()
-    for sgy in sgys:
-        resp = bldr.get_run_arguments(sgy)
-        pprint(resp)

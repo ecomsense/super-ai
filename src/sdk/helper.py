@@ -171,7 +171,7 @@ class QuoteApi:
                 if token is None:
                     logging.info(f"Helper: getting token for {exchange} {symbol}")
                     token = str(self._ws.api.instrument_symbol(exchange, symbol))
-                key = exchange + "|" + token
+                key = exchange + "|" + str(token)
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,
