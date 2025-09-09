@@ -233,12 +233,16 @@ class Pivot:
             print_exc()
 
     def _set_stop_for_next_trade(self):
-        if not StateManager.is_max_trade_reached(self._prefix, self.option_type):
-            _ = self.low()
-            logging.info(f"UPDATED LOW: {self._low}")
-            if self._stop > self._low:
-                logging.info(f"UPDATING NEW STOP: instead of old STOP {self._stop}")
-                self._stop = self._low
+        try:
+            if not StateManager.is_max_trade_reached(self._prefix, self.option_type):
+                _ = self.low()
+                logging.info(f"UPDATED LOW: {self._low}")
+                if self._stop > self._low:
+                    logging.info(f"UPDATING NEW STOP: instead of old STOP {self._stop}")
+                    self._stop = self._low
+        except Exception as e:
+            logging.error(f"set stop for next trade: {e}")
+            print_exc()
 
     def find_fill_price(self):
         order = self._trade_manager.find_order_if_exists(

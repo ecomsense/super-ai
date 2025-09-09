@@ -84,6 +84,8 @@ def history(api, exchange, token, loc, key):
         to = pdlm.now().subtract(days=0).timestamp()
 
         data_now = api.historical(exchange, token, fm, to)
+        print(data_now)
+
         if not isinstance(data_now, list):
             return None
 
