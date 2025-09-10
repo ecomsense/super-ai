@@ -75,6 +75,7 @@ def is_not_rate_limited(func):
 
 def history(api, exchange, token, loc, key):
     try:
+        token = str(token)
         logging.info(
             f"exch:{exchange} token_type:{type(token)} t:{token} loc:{loc} k:{key}"
         )
