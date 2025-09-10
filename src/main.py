@@ -3,9 +3,9 @@ from src.constants import logging, S_SETG, TradeSet, yml_to_obj, get_symbol_fm_f
 
 from src.sdk.helper import Helper
 from src.core.build import Builder
-from src.core.engine import Engine
+from src.core.strategy import StrategyMaker, Engine
 
-from toolkit.kokoo import is_time_past, blink, kill_tmux
+from toolkit.kokoo import is_time_past, blink
 from traceback import print_exc
 
 
@@ -21,9 +21,11 @@ def build_symbol_and_settings():
     Helper.api()
 
     O_TRADESET = TradeSet().read()
-
     if O_TRADESET and any(O_TRADESET):
-        trade_settings = O_TRADESET.pop("trade")
+        trade_settings = O_TRADESET.pop("trade", None)
+        if not trade_settings:
+            logging.info(f"you have exhausted all strategies to run in {O_TRADESET}")
+            __import__("sys").exit(1)
 
         dct_sym = get_symbol_fm_factory()
 
@@ -41,9 +43,6 @@ def build_symbol_and_settings():
         return trade_settings, tokens, tradingsymbols
 
 
-def get_engine(): ...
-
-
 def main():
     try:
         trade_settings, tokens, tradingsymbols = build_symbol_and_settings()
@@ -57,54 +56,18 @@ def main():
             blink()
 
         # make strategy object for each symbol selected
-        engine = Engine(
-            strategy_name=trade_settings["strategy"],
+        strgy = StrategyMaker(
             tokens_for_all_trading_symbols=tokens,
             symbols_to_trade=tradingsymbols,
         )
-        strgy_to_be_removed = []
-        strategies: list = engine.create_strategies()
-        while strategies and (not is_time_past(trade_settings["stop"])):
-            for strgy in strategies:
-                # Get the run arguments dynamically from the builder
-                run_args = engine.get_run_arguments()
+        strategy_name = trade_settings["strategy"]
+        strategies: list = strgy.create(strategy_name=strategy_name)
 
-                # Add strategy-specific run arguments that depend on loop state
-                if engine.strategy_name == "openingbalance":
-                    resp = strgy.run(
-                        *run_args,
-                        strgy_to_be_removed,
-                    )
-                    if resp == strgy._prefix:
-                        strgy_to_be_removed.append(resp)
-                else:
-                    resp = strgy.run(*run_args)  # Pass the dynamically generated args
-
-                # logging.info(f"main: {strgy._fn}")
-
-            strategies = [strgy for strgy in strategies if not strgy._removable]
-        else:
-            logging.info(
-                f"main: exit initialized because we are past trade stop time {trade_settings['stop']}"
-            )
-            orders = Helper._rest.orders()
-            for item in orders:
-                if (item["status"] == "OPEN") or (item["status"] == "TRIGGER_PENDING"):
-                    order_id = item.get("order_id", None)
-                    logging.info(f"cancelling open order {order_id}")
-                    Helper.api().order_cancel(order_id)
-
-            Helper._rest.close_positions()
-
-        logging.info(
-            f"main: killing tmux because we started after stop time {trade_settings['stop']}"
-        )
-        kill_tmux()
-    except KeyboardInterrupt:
-        __import__("sys").exit()
+        engine = Engine(strategies=strategies, trade_stop=trade_settings["stop"])
+        engine.run(strategy_name)
     except Exception as e:
+        logging.error(f"main: {e}")
         print_exc()
-        logging.error(f"{e} while init")
 
 
 if __name__ == "__main__":
