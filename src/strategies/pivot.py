@@ -111,7 +111,10 @@ class Gridlines:
         return idx
 
 
-condition = {"PE": lambda curr, prev: curr < prev, "CE": lambda curr, prev: curr > prev}
+condition = {
+    "PE": lambda curr, prev: curr - prev < -1,
+    "CE": lambda curr, prev: curr - prev > 1,
+}
 
 
 class Pivot:
