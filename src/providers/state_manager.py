@@ -54,11 +54,6 @@ class StateManager:
             return cls._state[prefix]["is_in_trade"]
 
     @classmethod
-    def is_max_trade_reached(cls, prefix: str, option_type: str) -> bool:
-        with cls._lock:
-            return cls._state[prefix][option_type]["count"] >= cls._max_trades
-
-    @classmethod
     def get_trade_count(cls, prefix: str, option_type: str) -> int:
         with cls._lock:
             return cls._state[prefix][option_type]["count"]

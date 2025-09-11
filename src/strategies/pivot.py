@@ -112,8 +112,8 @@ class Gridlines:
 
 
 condition = {
-    "PE": lambda curr, prev: curr - prev < -1,
-    "CE": lambda curr, prev: curr - prev > 1,
+    "PE": lambda curr, prev: curr < prev,
+    "CE": lambda curr, prev: curr > prev,
 }
 
 
@@ -152,7 +152,7 @@ class Pivot:
 
         # 4. State Variables
         self._low_cache = {}
-        self._fn = "wait_for_breakout"
+        self._fn = "is_index_breakout"
 
         # 5. Class-level state management (if you choose to keep it)
         # Note: You can either keep these as class variables or pass them as parameters.
@@ -185,52 +185,42 @@ class Pivot:
         )
         return False
 
-    """
     def is_index_breakout(self):
         try:
             # evaluate the condition
             curr_idx = self.lines.find_current_grid(self.underlying_ltp)
             prev_idx = StateManager.get_idx(self._prefix, self.option_type)
 
-            if self._condition(curr_idx, prev_idx) and not StateManager.is_in_trade(
-                self._prefix
-            ):
+            if self._condition(curr_idx, prev_idx):
                 logging.info(
                     f"INDEX BREAKOUT: {self._id} curr:{curr_idx}  prev:{prev_idx} ltp:{self.underlying_ltp}"
                 )
+                # update index for this option because breakout happened
+                StateManager.set_idx(self._prefix, self.option_type, curr_idx)
+                logging.info(f"INDEX SET: {self._id} curr:{curr_idx}")
 
-                if self._entry():
-                    # update index for this option because breakout happened
-                    StateManager.set_idx(self._prefix, self.option_type, curr_idx)
-                    logging.info(f"INDEX SET: {self._id} curr:{curr_idx}")
-
+                # set indices for other option only if not traded before
+                if not StateManager.is_traded_once(self._prefix):
                     # update index for other option if not traded before
-                    if not StateManager.is_traded_once(self._prefix):
-                        logging.info(f"FIRST TRADE: for {self._prefix}")
-                        StateManager.traded_once(self._prefix)
-                        logging.info(
-                            f"INDEX SET: for {self._other_option} curr:{curr_idx}"
-                        )
-                        StateManager.set_idx(self._prefix, self._other_option, curr_idx)
+                    StateManager.set_idx(self._prefix, self._other_option, curr_idx)
+                    logging.info(f"INDEX SET: for {self._other_option} curr:{curr_idx}")
 
-                    # toggle in trade and start counting
-                    StateManager.start_trade(self._prefix, self.option_type)
+                # hack to prevent index from updating again and again
+                StateManager.traded_once(self._prefix)
 
-                    # set stop and attempt to enter trade
-                    self._stop = self.trade.last_price
+                # wait for breakout
+                self._fn = "wait_for_breakout"
+                self.wait_for_breakout()
+            else:
+                self._low = self._stop = self.trade.last_price
+
         except Exception as e:
             logging.error(f"{e} while checking index breakout")
             print_exc()
-    """
 
     def wait_for_breakout(self):
         try:
             if self._time_mgr.can_trade and not StateManager.is_in_trade(self._prefix):
-                logging.info(
-                    f"WAITING: {self._id} can trade and {self._prefix} is not in trade"
-                )
-                self._set_stop_for_next_trade()
-
                 if self.trade.last_price > self._stop:  # type: ignore
                     is_entered = self._entry()
                     if is_entered:
@@ -240,6 +230,9 @@ class Pivot:
                         ):
                             self._last_buy_at = pdlm.now("Asia/Kolkata")
                         StateManager.start_trade(self._prefix, self.option_type)
+            print(
+                f"WAITING: {self._id}: ltp{self.trade.last_price} < stop:{self._stop}"
+            )
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()
@@ -266,10 +259,9 @@ class Pivot:
             if count < MAX_TRADE_COUNT:
                 if count > 0:
                     _ = self.low()
-                    logging.info(f"UPDATED LOW: {self._low}")
                     if self._stop > self._low:
                         logging.info(
-                            f"NEW STOP: {self._low} instead of old STOP {self._stop}"
+                            f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
                         )
                         self._stop = self._low
         except Exception as e:
