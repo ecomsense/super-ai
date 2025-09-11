@@ -149,7 +149,7 @@ class Pivot:
 
         # 4. State Variables
         self._low_cache = {}
-        self._fn = "is_index_breakout"
+        self._fn = "wait_for_breakout"
 
         # 5. Class-level state management (if you choose to keep it)
         # Note: You can either keep these as class variables or pass them as parameters.
