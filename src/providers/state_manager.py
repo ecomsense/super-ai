@@ -59,6 +59,11 @@ class StateManager:
             return cls._state[prefix][option_type]["count"] >= cls._max_trades
 
     @classmethod
+    def get_trade_count(cls, prefix: str, option_type: str) -> int:
+        with cls._lock:
+            return cls._state[prefix][option_type]["count"]
+
+    @classmethod
     def set_idx(cls, prefix: str, option_type: str, idx: int):
         """Sets the indices for both CE and PE options for a given prefix."""
         with cls._lock:

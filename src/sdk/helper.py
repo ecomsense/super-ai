@@ -76,9 +76,6 @@ def is_not_rate_limited(func):
 def history(api, exchange, token, loc, key):
     try:
         token = str(token)
-        logging.info(
-            f"exch:{exchange} token_type:{type(token)} t:{token} loc:{loc} k:{key}"
-        )
         fm = (
             pdlm.now()
             .subtract(days=0)
@@ -92,8 +89,6 @@ def history(api, exchange, token, loc, key):
         if not isinstance(data_now, list):
             return None
 
-        logging.debug(f"Fetched {len(data_now)} historical items")
-
         if isinstance(loc, int):
             # we have some data but it is not full
             if len(data_now) < abs(loc):
@@ -106,7 +101,6 @@ def history(api, exchange, token, loc, key):
 
         else:
             # "time": "18-08-2025 09:30:00"
-            logging.debug(f"History: based on time {loc}")
             new_data = []
             for d in data_now:
                 logging.debug(f"CANDLE: item {d} in data")
@@ -119,7 +113,7 @@ def history(api, exchange, token, loc, key):
                         logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
                         new_data.append(float(d[key]))
                     else:
-                        logging.debug(f"skipping remaining candles after {str_time}")
+                        logging.debug(f"skipping after {str_time} candles")
                         break
 
             if any(new_data):
