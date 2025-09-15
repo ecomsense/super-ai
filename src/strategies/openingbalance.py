@@ -7,6 +7,8 @@ from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
 from src.providers.state_manager import StateManager
 
+from toolkit.kokoo import blink
+
 from traceback import print_exc
 import pendulum as pdlm
 
@@ -103,6 +105,7 @@ class Openingbalance:
                 loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
                 key="intl",
             )
+            blink()
             if intl:
                 self._low = intl
             return intl
@@ -133,10 +136,10 @@ class Openingbalance:
                     is_entered = self._entry
                     if is_entered:
                         StateManager.start_trade(self._prefix, self.option_type)
-                else:
-                    print(
-                        f"WAITING: {self.trade.symbol}: ltp{self.trade.last_price} < stop:{self._stop}"
-                    )
+                        return
+            print(
+                f"WAITING: {self.trade.symbol}: ltp{self.trade.last_price} < stop:{self._stop}"
+            )
 
         except Exception as e:
             print(f"{e} while waiting for breakout")
