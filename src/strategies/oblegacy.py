@@ -11,21 +11,21 @@ from traceback import print_exc
 import pendulum as pdlm
 
 # TODO to be deprecated
-MAX_TRADE_COUNT = 5
 
 
-class Openingbalance:
+class Oblegacy:
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict):
         # initialize
+        self._removable = False
         self._fill_price = 0
         self._max_target_reached = 0
         self._orders = []
+        self._fn = "wait_for_breakout"
 
         # from parameters
         self._prefix = prefix
         self._token = symbol_info["token"]
         self._stop = symbol_info["ltp"]
-        self.option_type = symbol_info["option_type"]
         self._t2 = user_settings["t2"]
         self._txn = user_settings["txn"]
         self._target = user_settings["t1"]
@@ -39,13 +39,6 @@ class Openingbalance:
         )
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
         self._trade_manager = TradeManager(Helper.api())
-
-        # state variables
-        self._removable = False
-        self._fn = "wait_for_breakout"
-
-        # class level state management
-        StateManager.initialize_prefix(prefix=self._prefix)
 
     def _is_trailstopped(self, percent):
         # set max target reached
@@ -72,72 +65,35 @@ class Openingbalance:
         self.trade.status = None
         self.trade.order_id = None
 
-    def _entry(self):
-        self.trade.side = "B"
-        self.trade.disclosed_quantity = None
-        self.trade.price = self.trade.last_price + 2  # type: ignore
-        self.trade.trigger_price = 0.0
-        self.trade.order_type = "LMT"
-        self.trade.tag = "entry_ob"
-        self._reset_trade()
-
-        buy_order = self._trade_manager.complete_entry(self.trade)
-        if buy_order.order_id is not None:
-            # OneTrade.add(self._prefix, self.trade.symbol)
-            logging.info(
-                f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}"
-            )
-            self._fn = "find_fill_price"
-            return True
-        logging.warning(
-            f"got {buy_order} without buy order order id {self.trade.symbol}"
-        )
-        return False
-
-    def low(self):
-        try:
-            intl = history(
-                api=Helper.api(),
-                exchange=self.trade.exchange,
-                token=self._token,
-                loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
-                key="intl",
-            )
-            if intl:
-                self._low = intl
-            return intl
-        except Exception as e:
-            logging.error(f"Pivot: while getting error {e}")
-            print_exc()
-
-    def _set_stop_for_next_trade(self):
-        try:
-            count = StateManager.get_trade_count(self._prefix, self.option_type)
-            if count < MAX_TRADE_COUNT:
-                if count > 0:
-                    _ = self.low()
-                    if self._stop > self._low:
-                        logging.info(
-                            f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
-                        )
-                        self._stop = self._low
-        except Exception as e:
-            logging.error(f"set stop for next trade: {e}")
-            print_exc()
-
     def wait_for_breakout(self):
         try:
-            if self._time_mgr.can_trade:
-                self._set_stop_for_next_trade()
-                if self.trade.last_price > self._stop:
-                    is_entered = self._entry
-                    if is_entered:
-                        StateManager.start_trade(self._prefix, self.option_type)
-                else:
-                    print(
-                        f"WAITING: {self.trade.symbol}: ltp{self.trade.last_price} < stop:{self._stop}"
+            self._set_new_stop_from_low()
+            if self.trade.last_price > self._stop and self._time_mgr.can_trade:
+                """
+                    and (
+                        not OneTrade.is_traded_once(self.trade.symbol)
+                        or not OneTrade.is_prefix_in_trade(self._prefix)
                     )
-
+                ):
+                """
+                self.trade.side = "B"
+                self.trade.disclosed_quantity = None
+                self.trade.price = self.trade.last_price + 2  # type: ignore
+                self.trade.trigger_price = 0.0
+                self.trade.order_type = "LMT"
+                self.trade.tag = "entry_ob"
+                self._reset_trade()
+                buy_order = self._trade_manager.complete_entry(self.trade)
+                if buy_order.order_id is not None:
+                    # OneTrade.add(self._prefix, self.trade.symbol)
+                    logging.info(
+                        f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}"
+                    )
+                    self._fn = "find_fill_price"
+                else:
+                    logging.warning(
+                        f"got {buy_order} without buy order order id {self.trade.symbol}"
+                    )
         except Exception as e:
             print(f"{e} while waiting for breakout")
 
@@ -155,6 +111,7 @@ class Openingbalance:
             self.trade.trigger_price = self._stop
             self.trade.order_type = "SL-LMT"
             self.trade.tag = "sl_ob"
+
             self._reset_trade()
             sell_order = self._trade_manager.pending_exit(self.trade)
             if sell_order.order_id is not None:
@@ -278,6 +235,18 @@ class Openingbalance:
         except Exception as e:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
+
+    def _set_new_stop_from_low(self):
+        low = history(
+            Helper.api(),
+            exchange=self.trade.exchange,
+            token=self._token,
+            loc=-2,
+            key="intl",
+        )
+        if low:
+            self._low = low
+            self._stop = low
 
     def try_exiting_trade(self):
         try:

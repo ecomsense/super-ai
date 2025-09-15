@@ -7,12 +7,8 @@ from typing import Any
 
 
 class Builder:
-    def __init__(self, user_settings: dict[str, Any], dct_sym):
-        self.user_settings = user_settings
-        self.symbols_to_trade = self.merge_settings_and_symbols(dct_sym)
-        self.tokens_for_all_trading_symbols = self.find_fno_tokens()
 
-    def merge_settings_and_symbols(self, dct_sym) -> dict[str, Any]:
+    def merge_settings_and_symbols(self, user_settings, dct_sym) -> dict[str, Any]:
         """
         Retrieves tokens for all trading symbols.
         """
@@ -20,7 +16,7 @@ class Builder:
             blacklist = ["trade"]
             symbols_to_trade = {
                 k: settings
-                for k, settings in self.user_settings.items()
+                for k, settings in user_settings.items()
                 if k not in blacklist
             }
             for k, settings in symbols_to_trade.items():
@@ -57,14 +53,14 @@ class Builder:
             logging.error(f"{e} while getting symbols to trade in StrategyBuilder")
             return {}
 
-    def find_fno_tokens(self) -> dict[str, Any]:
+    def find_fno_tokens(self, symbols_to_trade) -> dict[str, Any]:
         """
         get instrument tokens from broker for each symbol to trade and merge them together
         (Refactored from your original find_instrument_tokens_to_trade)
         """
         try:
             tokens_of_all_trading_symbols = {}
-            for k, symbol_info in self.symbols_to_trade.items():
+            for k, symbol_info in symbols_to_trade.items():
                 data = OptionData(
                     exchange=symbol_info["option_exchange"],
                     base=symbol_info["base"],
@@ -83,8 +79,8 @@ class Builder:
                 atm = sym.get_atm(ltp_for_underlying)
 
                 # set atm for later use
-                self.symbols_to_trade[k]["atm"] = atm
-                self.symbols_to_trade[k]["underlying_ltp"] = ltp_for_underlying
+                symbols_to_trade[k]["atm"] = atm
+                symbols_to_trade[k]["underlying_ltp"] = ltp_for_underlying
                 logging.info(f"atm {atm} for underlying {k} from {ltp_for_underlying}")
 
                 # get tokens for the option
