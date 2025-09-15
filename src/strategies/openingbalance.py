@@ -96,14 +96,14 @@ class Openingbalance:
         )
         return False
 
-    def low(self):
+    def low(self, key: str):
         try:
             intl = history(
                 api=Helper.api(),
                 exchange=self.trade.exchange,
                 token=self._token,
                 loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
-                key="intl",
+                key=key,
             )
             blink()
             if intl:
@@ -116,14 +116,17 @@ class Openingbalance:
     def _set_stop_for_next_trade(self):
         try:
             count = StateManager.get_trade_count(self._prefix, self.option_type)
-            if count < MAX_TRADE_COUNT:
-                if count > 0:
-                    _ = self.low()
-                    if self._stop > self._low:
-                        logging.info(
-                            f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
-                        )
-                        self._stop = self._low
+            if count <= MAX_TRADE_COUNT:
+                if count == 0:
+                    _ = self.low(key="intl")
+                else:
+                    _ = self.low(key="intc")
+
+                if self._stop > self._low:
+                    logging.info(
+                        f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
+                    )
+                    self._stop = self._low
         except Exception as e:
             logging.error(f"set stop for next trade: {e}")
             print_exc()
