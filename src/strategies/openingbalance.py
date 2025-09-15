@@ -133,7 +133,7 @@ class Openingbalance:
             if self._time_mgr.can_trade:
                 self._set_stop_for_next_trade()
                 if self.trade.last_price > self._stop:
-                    is_entered = self._entry
+                    is_entered = self._entry()
                     if is_entered:
                         StateManager.start_trade(self._prefix, self.option_type)
                         return
