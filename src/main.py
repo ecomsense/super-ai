@@ -36,12 +36,13 @@ def main():
         # login to broker api
         Helper.api()
         builder = Builder()
-        tokens = builder.merge_settings_and_symbols(
+        symbol_to_trade = builder.merge_settings_and_symbols(
             user_settings=O_TRADESET, dct_sym=dct_sym
         )
-        tradingsymbols = builder.find_fno_tokens(symbols_to_trade=tokens)
-        logging.info(f"tokens for trading: {tokens}")
-        logging.info(f"tradingsymbol: {tradingsymbols}")
+        logging.info(f"symbol_to_trade: {symbol_to_trade}")
+
+        missing_token = builder.find_fno_tokens(symbols_to_trade=symbol_to_trade)
+        logging.info(f"missing token: {missing_token}")
 
         trade_start = trade_settings["start"]
         logging.info(f"WAITING: till trade start time {trade_start=}")
@@ -52,8 +53,8 @@ def main():
         strategy_name = trade_settings["strategy"]
         logging.info(f"BUILDING: {strategy_name}")
         strategies = StrategyMaker(
-            tokens_for_all_trading_symbols=tokens,
-            symbols_to_trade=tradingsymbols,
+            tokens_for_all_trading_symbols=missing_token,
+            symbols_to_trade=symbol_to_trade,
         ).create(strategy_name)
 
         engine = Engine(strategies=strategies, trade_stop=trade_settings["stop"])
