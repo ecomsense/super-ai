@@ -85,6 +85,9 @@ class Pivot:
 
                 logging.info(f"INDEX SET: {self._id} curr:{curr_idx}")
 
+                StateManager.set_idx(
+                    prefix=self._prefix, option_type=self.option_type, idx=curr_idx
+                )
                 # wait for breakout
                 self._fn = "wait_for_breakout"
                 self.wait_for_breakout()
