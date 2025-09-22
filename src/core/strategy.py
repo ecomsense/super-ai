@@ -142,14 +142,39 @@ class StrategyMaker:
                     logging.info(f"common init: {common_init_kwargs}")
                     # create strategy object
                     logging.info(f"building {strategy_name} for {option_type}")
-                    if strategy_name == "pivot":
+                    if strategy_name == "pivotindex":
+                        if all(k in user_settings for k in ["intl", "inth", "intc"]):
+                            logging.info(f"HLC: found in {user_settings} from settings")
+                            common_init_kwargs["pivot_grids"] = (
+                                import_module("src.providers.grid")
+                                .Grid()
+                                .set(
+                                    prefix=prefix,
+                                    symbol_constant=user_settings,
+                                )
+                            )
+                        else:
+                            common_init_kwargs["pivot_grids"] = (
+                                import_module("src.providers.grid")
+                                .Grid()
+                                .get(
+                                    rst=Helper._rest,
+                                    exchange=user_settings["exchange"],
+                                    tradingsymbol=user_settings["index"],
+                                    token=user_settings["token"],
+                                )
+                            )
+                    elif strategy_name == "pivot":
                         common_init_kwargs["pivot_grids"] = (
-                            import_module("src.strategies.pivot")
+                            import_module("src.providers.grid")
                             .Grid()
-                            .run(
-                                api=Helper.api(),
-                                prefix=prefix,
-                                symbol_constant=user_settings,
+                            .get(
+                                rst=Helper._rest,
+                                exchange=user_settings["option_exchange"],
+                                tradingsymbol=common_init_kwargs["symbol_info"][
+                                    "symbol"
+                                ],
+                                token=common_init_kwargs["symbol_info"]["token"],
                             )
                         )
                     print(common_init_kwargs)
@@ -208,7 +233,7 @@ class Engine:
                     ):
                         order_id = item.get("order_id", None)
                         logging.info(f"cancelling open order {order_id}")
-                        Helper.api().order_cancel(order_id)
+                        Helper._rest.order_cancel(order_id)
 
                 Helper._rest.close_positions()
 

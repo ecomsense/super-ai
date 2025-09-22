@@ -7,9 +7,82 @@ import pandas as pd
 from importlib import import_module
 from traceback import print_exc
 
+from json import dumps, loads
+from pprint import pprint
+
 
 def df_to_csv(df, csv_file, is_index=False):
     df.to_csv(S_DATA + csv_file, index=is_index)
+
+
+def compress_candles(
+    data_now, tz="Asia/Kolkata", return_last_only=True, exclude_today=True
+):
+    """
+    Compress intraday data (list of dicts) into daily OHLC (+ optional volume and oi).
+    Requires a 'time' column. If it's missing, function will fail.
+    """
+    if not data_now:
+        return None
+
+    df = pd.DataFrame(data_now)
+
+    # --- require time column ---
+    if "time" not in df.columns:
+        raise ValueError("No 'time' column found in data")
+
+    # parse 'time' as tz-aware datetime
+    s = pd.to_datetime(df["time"], dayfirst=True, errors="raise")
+    s = s.dt.tz_localize(tz, nonexistent="raise", ambiguous="raise")
+    df.index = s
+    df.index.name = "time"
+
+    # --- numeric conversion ---
+    numeric_cols = ["into", "inth", "intl", "intc", "v", "oi"]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # exclude today’s partial data if requested
+    if exclude_today:
+        today_local = pd.Timestamp.now(tz=tz).date()
+        df = df[df.index.date != today_local]
+        if df.empty:
+            return None
+
+    # aggregate to daily OHLC (+ optional v, oi)
+    agg = {}
+    if "into" in df.columns:
+        agg["into"] = "first"  # open
+    if "inth" in df.columns:
+        agg["inth"] = "max"  # high
+    if "intl" in df.columns:
+        agg["intl"] = "min"  # low
+    if "intc" in df.columns:
+        agg["intc"] = "last"  # close
+    if "v" in df.columns:
+        agg["v"] = "sum"  # volume
+    if "oi" in df.columns:
+        agg["oi"] = "last"  # open interest
+
+    daily = df.resample("1D").agg(agg)
+
+    # drop incomplete rows (no close)
+    if "intc" in daily.columns:
+        daily = daily.dropna(subset=["intc"])
+
+    if daily.empty:
+        return None
+
+    if return_last_only:
+        daily = daily.tail(1)
+
+    out = daily.reset_index()
+    out["date"] = out["time"].dt.strftime("%Y-%m-%d")
+    out = out.drop(columns=["time"])
+
+    # ensure plain python types
+    return loads(dumps(out.to_dict(orient="records"), default=str))[0]
 
 
 def get_broker(cnfg):
@@ -71,58 +144,6 @@ def is_not_rate_limited(func):
         return func(*args, **kwargs)
 
     return wrapper
-
-
-def history(api, exchange, token, loc, key):
-    try:
-        token = str(token)
-        fm = (
-            pdlm.now()
-            .subtract(days=0)
-            .replace(hour=0, minute=0, second=0, microsecond=0)
-            .timestamp()
-        )
-        to = pdlm.now().subtract(days=0).timestamp()
-
-        data_now = api.historical(exchange, token, fm, to)
-
-        if not isinstance(data_now, list):
-            return None
-
-        if isinstance(loc, int):
-            # we have some data but it is not full
-            if len(data_now) < abs(loc):
-                logging.warning(f"TODO: found partial data {data_now}")
-                return None
-
-            if len(data_now) >= abs(loc):
-                low = float(data_now[loc][key])
-                return low
-
-        else:
-            # "time": "18-08-2025 09:30:00"
-            new_data = []
-            for d in data_now:
-                if isinstance(d, dict) and d.get("time", None):
-                    str_time = d["time"]
-                    t = pdlm.from_format(
-                        str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata"
-                    )
-                    if t >= loc:
-                        logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
-                        new_data.append(float(d[key]))
-                    else:
-                        logging.debug(f"skipping after {str_time} candles")
-                        break
-
-            if any(new_data):
-                return min(new_data)
-
-        return None
-
-    except Exception as e:
-        logging.error(f" {str(e)} in history")
-        print_exc()
 
 
 class QuoteApi:
@@ -191,6 +212,97 @@ class RestApi:
     def __init__(self, session):
         self._api = session
 
+    def daily(self, exchange, tradingsymbol):
+        try:
+            start = pdlm.now().subtract(days=5).timestamp()
+            now = pdlm.now().timestamp()
+            ret = self._api.broker.get_daily_price_series(  # type: ignore
+                exchange=exchange,
+                tradingsymbol=tradingsymbol,
+                startdate=start,
+                enddate=now,
+            )
+            if ret is not None and any(ret):
+                return loads(ret[0])
+            else:
+                return None
+        except Exception as e:
+            logging.error(f"{e} while computing grid")
+            print_exc()
+
+    def yesterday(self, exchange, token):
+        try:
+            token = str(token)
+            fm = (
+                pdlm.now()
+                .subtract(days=5)
+                .replace(hour=0, minute=0, second=0, microsecond=0)
+                .timestamp()
+            )
+            to = pdlm.now().subtract(days=0).timestamp()
+
+            data_now = self._api.historical(exchange, token, fm, to)
+
+            if not isinstance(data_now, list):
+                return None
+            else:
+                pprint(data_now)
+                return compress_candles(data_now)
+        except Exception as e:
+            logging.error(f"{e} while compressing candle")
+            print_exc()
+
+    def history(self, exchange, token, loc, key):
+        try:
+            token = str(token)
+            fm = (
+                pdlm.now()
+                .subtract(days=0)
+                .replace(hour=0, minute=0, second=0, microsecond=0)
+                .timestamp()
+            )
+            to = pdlm.now().subtract(days=0).timestamp()
+
+            data_now = self._api.historical(exchange, token, fm, to)
+
+            if not isinstance(data_now, list):
+                return None
+
+            if isinstance(loc, int):
+                # we have some data but it is not full
+                if len(data_now) < abs(loc):
+                    logging.warning(f"TODO: found partial data {data_now}")
+                    return None
+
+                if len(data_now) >= abs(loc):
+                    low = float(data_now[loc][key])
+                    return low
+
+            else:
+                # "time": "18-08-2025 09:30:00"
+                new_data = []
+                for d in data_now:
+                    if isinstance(d, dict) and d.get("time", None):
+                        str_time = d["time"]
+                        t = pdlm.from_format(
+                            str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata"
+                        )
+                        if t >= loc:
+                            logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
+                            new_data.append(float(d[key]))
+                        else:
+                            logging.debug(f"skipping after {str_time} candles")
+                            break
+
+                if any(new_data):
+                    return min(new_data)
+
+            return None
+
+        except Exception as e:
+            logging.error(f" {str(e)} in history")
+            print_exc()
+
     def ltp(self, exchange, token):
         try:
             resp = self._api.scriptinfo(exchange, token)
@@ -218,6 +330,15 @@ class RestApi:
             return resp
         except Exception as e:
             message = f"helper error {e} while modifying order"
+            logging.warning(message)
+            print_exc()
+
+    def order_cancel(self, order_id):
+        try:
+            resp = self._api.order_cancel(order_id)
+            return resp
+        except Exception as e:
+            message = f"helper error {e} while cancelling order"
             logging.warning(message)
             print_exc()
 
@@ -334,7 +455,6 @@ class Helper:
 
 
 if __name__ == "__main__":
-    from pprint import pprint
     from src.constants import S_DATA
 
     try:
@@ -347,7 +467,7 @@ if __name__ == "__main__":
                 print(pd.DataFrame(resp))
 
         def orders():
-            resp = Helper._api.broker.get_order_book()
+            resp = Helper._rest.orders()
             if resp and any(resp):
                 pd.DataFrame(resp).to_csv(S_DATA + "orders.csv", index=False)
                 print(pd.DataFrame(resp))
@@ -371,14 +491,16 @@ if __name__ == "__main__":
             resp = Helper._api.margins
             print(resp)
 
-        # trades()
+        trades()
+        orders()
         resp = Helper._rest.pnl("rpnl")
         print(resp)
-        orders()
+
+        df = Helper._rest.yesterday("NFO", "47764")
+        print(df)
 
         """
         Helper._rest.close_positions()
-        """
         while True:
             idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
             resp = history(
@@ -387,6 +509,7 @@ if __name__ == "__main__":
             print("history", resp)
     except KeyboardInterrupt:
         print("ctrl c pressed")
+        """
     except Exception as e:
         print(e)
         print_exc()

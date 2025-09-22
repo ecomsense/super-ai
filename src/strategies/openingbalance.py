@@ -98,8 +98,7 @@ class Openingbalance:
 
     def low(self, key: str):
         try:
-            intl = history(
-                api=Helper.api(),
+            intl = Helper._rest.history(
                 exchange=self.trade.exchange,
                 token=self._token,
                 loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
@@ -143,7 +142,6 @@ class Openingbalance:
             print(
                 f"WAITING: {self.trade.symbol}: ltp{self.trade.last_price} < stop:{self._stop}"
             )
-
         except Exception as e:
             print(f"{e} while waiting for breakout")
 

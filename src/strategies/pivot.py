@@ -1,114 +1,20 @@
 from src.constants import logging, S_SETG, yml_to_obj
 
-from src.sdk.helper import Helper, history
+from src.sdk.helper import Helper
 from src.config.interface import Trade
 
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
 from src.providers.state_manager import StateManager
+from src.providers.grid import Gridlines
 
 import pendulum as pdlm
 from traceback import print_exc
-from json import loads
-from typing import Dict, Any
 from sys import exit
 
+from toolkit.kokoo import blink
+
 MAX_TRADE_COUNT = 5
-
-
-def compute(ohlc_prefix):
-    try:
-        high, low, close = (
-            float(ohlc_prefix["inth"]),
-            float(ohlc_prefix["intl"]),
-            float(ohlc_prefix["intc"]),
-        )
-        pivot = (high + low + close) / 3.0
-        logging.info(f"{pivot=}")
-        R5 = (pivot * 4) + high - (4 * low)
-        logging.info(f"{R5=}")
-        R4 = (pivot * 3) + high - (3 * low)
-        logging.info(f"{R4=}")
-        R3 = high + (2 * (pivot - low))
-        logging.info(f"{R3=}")
-        R2 = pivot + (high - low)
-        logging.info(f"{R2=}")
-        R1 = (2 * pivot) - low
-        logging.info(f"{R1=}")
-        S1 = (2 * pivot) - high
-        logging.info(f"{S1=}")
-        S2 = pivot - (high - low)
-        logging.info(f"{S2=}")
-        S3 = low - (2 * (high - pivot))
-        logging.info(f"{S3=}")
-        S4 = (pivot * 3) - (high * 3 - low)
-        logging.info(f"{S4=}")
-        S5 = (pivot * 4) - (high * 4 - low)
-        logging.info(f"{S5=}")
-        lst = [R5, R4, R3, R2, R1, pivot, S1, S2, S3, S4, S5]
-        lst = [int(item) for item in lst]
-        logging.info(f"computed pivots {lst}")
-        return lst
-    except Exception as e:
-        logging.error(f"{e} while computing grid")
-        print_exc()
-
-
-class Grid:
-    grid = {}
-
-    @classmethod
-    def run(cls, api: Helper, prefix: str, symbol_constant: Dict[str, Any]):
-        """
-        Computes the grid levels for the given symbol and prefix.
-
-        Args:
-            api: An instance of the Helper class.
-            prefix: The market prefix.
-            symbol_constant: A dictionary containing information about the symbol.
-
-        Returns:
-            A list of 11 integers representing the grid levels.
-        """
-        logging.info(f"Grid running: {symbol_constant}")
-        try:
-            if cls.grid.get(prefix, None) is None:
-                if all(k in symbol_constant for k in ["intl", "inth", "intc"]):
-                    logging.info(f"HLC: found in {symbol_constant} from settings")
-                else:
-                    start = pdlm.now().subtract(days=5).timestamp()
-                    now = pdlm.now().timestamp()
-                    ret = api.broker.get_daily_price_series(  # type: ignore
-                        exchange=symbol_constant["exchange"],
-                        tradingsymbol=symbol_constant["index"],
-                        startdate=start,
-                        enddate=now,
-                    )
-                    assert ret is not None, "could not get daily price series"
-                    symbol_constant = loads(ret[0])
-                    logging.info(f"HLC: found in {symbol_constant} from API")
-                cls.grid[prefix] = compute(symbol_constant)
-            return cls.grid[prefix]
-        except Exception as e:
-            logging.error(f"{e} while computing grid")
-            print_exc()
-            __import__("sys").exit(1)
-
-
-class Gridlines:
-    def __init__(self, prices: list, reverse: bool):
-        logging.info(f"prices {prices}")
-        levels = sorted(prices, reverse=reverse)
-        self.lines = list(zip(levels[:-1], levels[1:]))
-        logging.info(f"gridlines {self.lines}")
-
-    def find_current_grid(self, ltp: float) -> int:
-        idx = -1
-        for idx, (a, b) in enumerate(self.lines):
-            lowest, highest = min(a, b), max(a, b)
-            if lowest <= ltp < highest:
-                return idx
-        return idx
 
 
 condition = {
@@ -137,7 +43,6 @@ class Pivot:
         # 2. Derived Attributes (calculated from core attributes)
         self._other_option = "CE" if self.option_type == "PE" else "PE"
         self._condition = condition[self.option_type]
-        self.underlying_ltp = float(user_settings["underlying_ltp"])
 
         # 3. Dependencies and Helper Objects
         self.trade = Trade(
@@ -151,16 +56,44 @@ class Pivot:
         self._trade_manager = TradeManager(Helper.api())
 
         # 4. State Variables
-        self._low_cache = {}
         self._fn = "is_index_breakout"
 
-        # 5. Class-level state management (if you choose to keep it)
-        # Note: You can either keep these as class variables or pass them as parameters.
-        # As discussed, using class variables is a design choice with pros and cons.
-        idx = self.lines.find_current_grid(self.underlying_ltp)
-        StateManager.initialize_prefix(prefix=self._prefix)
-        StateManager.set_idx(prefix=self._prefix, option_type=self.option_type, idx=idx)
-        logging.info(f"INITIAL IDX: {self._id} is set at {idx}")
+        # class level state management
+        if self.trade.last_price is not None:
+            idx = self.lines.find_current_grid(self.trade.last_price)
+            StateManager.initialize_prefix(prefix=self._prefix)
+            StateManager.set_idx(
+                prefix=self._prefix, option_type=self.option_type, idx=idx
+            )
+            logging.info(f"INITIAL IDX: {self._id} is set at {idx}")
+        else:
+            logging.error(f"Pivot: last price is None {self._id}")
+
+    def is_index_breakout(self):
+        try:
+            # evaluate the condition
+            curr_idx = self.lines.find_current_grid(self.trade.last_price)
+            prev_idx = StateManager.get_idx(self._prefix, self.option_type)
+
+            if self._condition(curr_idx, prev_idx):
+                self._first_trade_at = pdlm.now("Asia/Kolkata")
+
+                logging.info(
+                    f"INDEX BREAKOUT: {self._id} curr:{curr_idx}  prev:{prev_idx} ltp:{self.trade.last_price}"
+                )
+                # update index for this option because breakout happened
+
+                logging.info(f"INDEX SET: {self._id} curr:{curr_idx}")
+
+                # wait for breakout
+                self._fn = "wait_for_breakout"
+                self.wait_for_breakout()
+            else:
+                self._low = self._stop = self.trade.last_price
+
+        except Exception as e:
+            logging.error(f"{e} while checking index breakout")
+            print_exc()
 
     def _reset_trade(self):
         self.trade.filled_price = None
@@ -178,74 +111,26 @@ class Pivot:
 
         buy_order = self._trade_manager.complete_entry(self.trade)
         if buy_order.order_id is not None:
+            logging.info(
+                f"BREAKOUT: {self.trade.symbol} ltp: {self.trade.last_price} > stop:{self._stop}"
+            )
             self._fn = "find_fill_price"
             return True
+
         logging.warning(
             f"got {buy_order} without buy order order id {self.trade.symbol}"
         )
         return False
 
-    def is_index_breakout(self):
+    def low(self, key: str):
         try:
-            # evaluate the condition
-            curr_idx = self.lines.find_current_grid(self.underlying_ltp)
-            prev_idx = StateManager.get_idx(self._prefix, self.option_type)
-
-            if self._condition(curr_idx, prev_idx):
-                logging.info(
-                    f"INDEX BREAKOUT: {self._id} curr:{curr_idx}  prev:{prev_idx} ltp:{self.underlying_ltp}"
-                )
-                # update index for this option because breakout happened
-                StateManager.set_idx(self._prefix, self.option_type, curr_idx)
-                logging.info(f"INDEX SET: {self._id} curr:{curr_idx}")
-
-                # set indices for other option only if not traded before
-                if not StateManager.is_traded_once(self._prefix):
-                    # update index for other option if not traded before
-                    StateManager.set_idx(self._prefix, self._other_option, curr_idx)
-                    logging.info(f"INDEX SET: for {self._other_option} curr:{curr_idx}")
-
-                # hack to prevent index from updating again and again
-                StateManager.traded_once(self._prefix)
-
-                # wait for breakout
-                self._fn = "wait_for_breakout"
-                self.wait_for_breakout()
-            else:
-                self._low = self._stop = self.trade.last_price
-
-        except Exception as e:
-            logging.error(f"{e} while checking index breakout")
-            print_exc()
-
-    def wait_for_breakout(self):
-        try:
-            if self._time_mgr.can_trade and not StateManager.is_in_trade(self._prefix):
-                if self.trade.last_price > self._stop:  # type: ignore
-                    is_entered = self._entry()
-                    if is_entered:
-                        if (
-                            StateManager.get_trade_count(self._prefix, self.option_type)
-                            == 0
-                        ):
-                            self._last_buy_at = pdlm.now("Asia/Kolkata")
-                        StateManager.start_trade(self._prefix, self.option_type)
-            print(
-                f"WAITING: {self._id}: ltp{self.trade.last_price} < stop:{self._stop}"
-            )
-        except Exception as e:
-            logging.error(f"{e} while waiting for breakout")
-            print_exc()
-
-    def low(self):
-        try:
-            intl = history(
-                api=Helper.api(),
+            intl = Helper._rest.history(
                 exchange=self.trade.exchange,
                 token=self._token,
-                loc=self._last_buy_at,
-                key="intl",
+                loc=self._first_trade_at,
+                key=key,
             )
+            blink()
             if intl:
                 self._low = intl
             return intl
@@ -256,16 +141,36 @@ class Pivot:
     def _set_stop_for_next_trade(self):
         try:
             count = StateManager.get_trade_count(self._prefix, self.option_type)
-            if count < MAX_TRADE_COUNT:
-                if count > 0:
-                    _ = self.low()
-                    if self._stop > self._low:
-                        logging.info(
-                            f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
-                        )
-                        self._stop = self._low
+            if count <= MAX_TRADE_COUNT:
+                if count == 0:
+                    _ = self.low(key="intl")
+                else:
+                    _ = self.low(key="intc")
+
+                if self._stop > self._low:
+                    logging.info(
+                        f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
+                    )
+                    self._stop = self._low
         except Exception as e:
             logging.error(f"set stop for next trade: {e}")
+            print_exc()
+
+    def wait_for_breakout(self):
+        try:
+            if self._time_mgr.can_trade:
+
+                self._set_stop_for_next_trade()
+
+                if self.trade.last_price > self._stop:  # type: ignore
+                    is_entered = self._entry()
+                    if is_entered:
+                        StateManager.start_trade(self._prefix, self.option_type)
+            print(
+                f"WAITING: {self._id}: ltp{self.trade.last_price} < stop:{self._stop}"
+            )
+        except Exception as e:
+            logging.error(f"{e} while waiting for breakout")
             print_exc()
 
     def find_fill_price(self):
@@ -285,10 +190,11 @@ class Pivot:
             sell_order = self._trade_manager.pending_exit(self.trade)
             if sell_order.order_id is not None:
                 self._fn = "try_exiting_trade"
+                logging.info(f"FILLED: {self.trade.symbol} with {self._fill_price}")
             else:
                 logging.error(f"id is not found for sell {sell_order}")
         else:
-            logging.warning(
+            logging.error(
                 f"{self.trade.symbol} buy order {self._trade_manager.position.entry.order_id} not complete, to find fill price"
             )
 
@@ -338,7 +244,7 @@ class Pivot:
         try:
             # evaluate the condition
             curr, prev = self.lines.find_current_grid(
-                self.underlying_ltp
+                self.trade.last_price
             ), StateManager.get_idx(self._prefix, self.option_type)
 
             if self._condition(curr, prev):
@@ -378,10 +284,6 @@ class Pivot:
             ltp = ltps.get(self.trade.symbol, None)
             if ltp is not None:
                 self.trade.last_price = float(ltp)
-
-            underlying = ltps.get(self._index, None)
-            if underlying is not None:
-                self.underlying_ltp = float(underlying)
 
             return getattr(self, self._fn)()
         except Exception as e:
