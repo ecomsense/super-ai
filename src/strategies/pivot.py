@@ -85,14 +85,18 @@ class Pivot:
 
                 logging.info(f"INDEX SET: {self._id} curr:{curr_idx}")
 
-                StateManager.set_idx(
-                    prefix=self._prefix, option_type=self.option_type, idx=curr_idx
-                )
                 # wait for breakout
                 self._fn = "wait_for_breakout"
-                self.wait_for_breakout()
             else:
                 self._low = self._stop = self.trade.last_price
+
+            # anyway update index
+            StateManager.set_idx(
+                prefix=self._prefix, option_type=self.option_type, idx=curr_idx
+            )
+            # if breakout happened, wait for breakout
+            if self._fn == "wait_for_breakout":
+                self.wait_for_breakout()
 
         except Exception as e:
             logging.error(f"{e} while checking index breakout")
