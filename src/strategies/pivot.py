@@ -291,9 +291,8 @@ class Pivot:
             ltp = ltps.get(self.trade.symbol, None)
             if ltp is not None:
                 self.trade.last_price = float(ltp)
-            print(
-                f"RUNNING {self.trade.symbol} with {self._fn} @ ltp:{self.trade.last_price} stop:{self._stop}"
-            )
+            msg = f"RUNNING {self.trade.symbol} with {self._fn} @ ltp:{self.trade.last_price} stop:{self._stop}"
+            logging.info(msg)
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self.trade.symbol}")
