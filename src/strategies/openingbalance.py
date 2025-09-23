@@ -1,7 +1,7 @@
 from src.constants import logging, S_SETG, yml_to_obj
 from src.config.interface import Trade
 
-from src.sdk.helper import Helper, history
+from src.sdk.helper import Helper
 
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
