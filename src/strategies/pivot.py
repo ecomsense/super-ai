@@ -15,6 +15,7 @@ from sys import exit
 from toolkit.kokoo import blink
 
 MAX_TRADE_COUNT = 5
+MINUTES = 10
 
 
 condition = {
@@ -82,7 +83,6 @@ class Pivot:
                     f"INDEX BREAKOUT: {self._id} curr:{curr_idx}  prev:{prev_idx} ltp:{self.trade.last_price}"
                 )
                 # update index for this option because breakout happened
-
                 logging.info(f"INDEX SET: {self._id} curr:{curr_idx}")
 
                 # wait for breakout
@@ -145,6 +145,9 @@ class Pivot:
             logging.error(f"Pivot: while getting error {e}")
             print_exc()
 
+    def is_time_to_trade(self):
+        return pdlm.now("Asia/Kolkata") < self._first_trade_at.add(minutes=MINUTES)
+
     def _set_stop_for_next_trade(self):
         try:
             count = StateManager.get_trade_count(self._prefix, self.option_type)
@@ -165,17 +168,19 @@ class Pivot:
 
     def wait_for_breakout(self):
         try:
-            if self._time_mgr.can_trade:
+            if self.is_time_to_trade:
+                if self._time_mgr.can_trade:
+                    self._set_stop_for_next_trade()
+                    if self.trade.last_price > self._stop:  # type: ignore
+                        if self._entry():
+                            StateManager.start_trade(self._prefix, self.option_type)
+            else:
+                self._fn = "is_index_breakout"
+                idx = self.lines.find_current_grid(self.trade.last_price)
+                StateManager.set_idx(
+                    prefix=self._prefix, option_type=self.option_type, idx=idx
+                )
 
-                self._set_stop_for_next_trade()
-
-                if self.trade.last_price > self._stop:  # type: ignore
-                    is_entered = self._entry()
-                    if is_entered:
-                        StateManager.start_trade(self._prefix, self.option_type)
-            print(
-                f"WAITING: {self._id}: ltp{self.trade.last_price} < stop:{self._stop}"
-            )
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()
@@ -269,16 +274,11 @@ class Pivot:
                 resp = self._modify_to_kill()
                 logging.info(f"KILLING STOP: returned {resp}")
                 self._fn = "wait_for_breakout"
-            else:
-                msg = f"PROGRESS: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}"
-                print(msg)
 
             if self._fn == "wait_for_breakout":
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 # reset other option trades
                 StateManager.end_trade(self._prefix, self._other_option)
-                # reset stop and low
-                self._stop = self._low = self.trade.last_price
 
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -292,7 +292,7 @@ class Pivot:
             if ltp is not None:
                 self.trade.last_price = float(ltp)
             print(
-                f"RUNNING {self.trade.symbol} with {self._fn} @ {self.trade.last_price}"
+                f"RUNNING {self.trade.symbol} with {self._fn} @ ltp:{self.trade.last_price} stop:{self._stop}"
             )
             return getattr(self, self._fn)()
         except Exception as e:

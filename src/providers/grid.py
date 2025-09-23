@@ -75,7 +75,7 @@ class Grid:
                 )
                 if symbol_constant is None:
                     symbol_constant = rst.yesterday(exchange=exchange, token=token)
-                print(f"grid {symbol_constant}")
+                logging.info(f"OHLC: {symbol_constant}")
                 cls.grid[tradingsymbol] = compute(symbol_constant)
             return cls.grid[tradingsymbol]
         except Exception as e:
