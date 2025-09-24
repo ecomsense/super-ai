@@ -338,8 +338,12 @@ class Openingbalance:
         self._removable = True
 
     def table(self):
-        items = [[k, v] for k, v in self.__dict__.items()]
-        print(tabulate(items, fmt="fancy_grid"))
+        items = [
+            [k, v]
+            for k, v in self.__dict__.items()
+            if isinstance(v, float) or isinstance(v, int) or isinstance(v, str)
+        ]
+        print(tabulate(items, tablefmt="fancy_grid"))
 
     def run(self, orders, ltps, prefixes: list):
         try:
