@@ -18,13 +18,14 @@ MAX_TRADE_COUNT = 5
 
 
 class Openingbalance:
-    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict):
+    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
         # initialize
         self._fill_price = 0
         self._max_target_reached = 0
         self._orders = []
 
         # from parameters
+        self.rest = rest
         self._prefix = prefix
         self._token = symbol_info["token"]
         self._stop = symbol_info["ltp"]
@@ -41,7 +42,7 @@ class Openingbalance:
             quantity=user_settings["quantity"],
         )
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
-        self._trade_manager = TradeManager(Helper.api())
+        self._trade_manager = TradeManager()
 
         # state variables
         self._removable = False
@@ -99,7 +100,7 @@ class Openingbalance:
 
     def low(self, key: str):
         try:
-            intl = Helper._rest.history(
+            intl = self.rest.history(
                 exchange=self.trade.exchange,
                 token=self._token,
                 loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
@@ -175,7 +176,7 @@ class Openingbalance:
     def _set_target(self):
         try:
             rate_to_be_added = txn_cost = 0
-            resp = Helper._rest.positions()
+            resp = self.rest.positions()
             if resp and any(resp):
                 total_profit = sum(
                     item["rpnl"] + item["urmtom"]

@@ -138,6 +138,7 @@ class StrategyMaker:
                             option_type, user_settings
                         ),
                         "user_settings": user_settings,
+                        "rest": Helper._rest,
                     }
                     logging.info(f"common init: {common_init_kwargs}")
                     # create strategy object

@@ -1,5 +1,15 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
+
+
+@dataclass
+class PivotData:
+    """
+    Runtime state holder for Pivot strategy.
+    """
+
+    low: Optional[float] = None
+    first_trade_at: Optional[Any] = None
 
 
 @dataclass(slots=True)
