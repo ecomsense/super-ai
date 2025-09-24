@@ -11,6 +11,7 @@ from toolkit.kokoo import blink
 
 from traceback import print_exc
 import pendulum as pdlm
+from tabulate import tabulate
 
 # TODO to be deprecated
 MAX_TRADE_COUNT = 5
@@ -336,6 +337,10 @@ class Openingbalance:
         self._fn = "remove_me"
         self._removable = True
 
+    def table(self):
+        items = [[k, v] for k, v in self.__dict__.items()]
+        print(tabulate(items, fmt="fancy_grid"))
+
     def run(self, orders, ltps, prefixes: list):
         try:
             self._orders = orders
@@ -348,6 +353,7 @@ class Openingbalance:
                 self.remove_me()
 
             result = getattr(self, self._fn)()
+            self.table()
             return result
         except Exception as e:
             logging.error(f"{e} in running {self.trade.symbol}")
