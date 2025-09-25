@@ -34,6 +34,7 @@ class Pivot:
         self._removable = False
         self.max_trades = 5
         self.minutes = 10
+        self._pivots = []
 
         # 1. Core Attributes (directly from parameters)
         self.rest = rest
@@ -72,21 +73,29 @@ class Pivot:
         else:
             logging.error(f"Pivot: last price is None {self.trade.symbol}")
 
+    def is_pivot_not_traded(self, entry_pivot):
+        flag = False
+        if entry_pivot not in self._pivots:
+            flag = True
+            self._pivots.append(entry_pivot)
+
+        logging.debug(f"NOT TRADED: {flag} pivot#{entry_pivot} {self.trade.symbol} ")
+        return flag
+
     def is_index_breakout(self):
         try:
             # evaluate the condition
             curr_idx = self.lines.find_current_grid(self.trade.last_price)
             prev_idx = StateManager.get_idx(self._prefix, self.option_type)
 
-            if self._condition(curr_idx, prev_idx):
+            if self._condition(curr_idx, prev_idx) and self.is_pivot_not_traded(
+                entry_pivot=curr_idx
+            ):
                 self._first_trade_at = pdlm.now("Asia/Kolkata")
 
                 logging.info(
                     f"INDEX BREAKOUT: {self.trade.symbol} curr:{curr_idx}  prev:{prev_idx} ltp:{self.trade.last_price}"
                 )
-                # update index for this option because breakout happened
-                logging.info(f"INDEX SET: {self.trade.symbol} curr:{curr_idx}")
-
                 # wait for breakout
                 self._fn = "wait_for_breakout"
             """
@@ -149,7 +158,11 @@ class Pivot:
             print_exc()
 
     def is_time_to_trade(self):
-        return pdlm.now("Asia/Kolkata") < self._first_trade_at.add(minutes=self.minutes)
+        now = pdlm.now("Asia/Kolkata")
+        before = self._first_trade_at.add(minutes=self.minutes)
+        flag = now < before
+        logging.info(f"is time to trade? {now} < {before} = {flag}")
+        return flag
 
     def _set_stop_for_next_trade(self):
         try:
@@ -183,7 +196,6 @@ class Pivot:
                 StateManager.set_idx(
                     prefix=self._prefix, option_type=self.option_type, idx=idx
                 )
-
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()

@@ -10,3 +10,4 @@ pendulum
 pyotp
 requests
 websocket_client
+tabulate
