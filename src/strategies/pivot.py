@@ -70,6 +70,7 @@ class Pivot:
         self.trade_mgr.stop(self._low)
         idx = self.lines.find_current_grid(self.trade.last_price)
         StateManager.set_idx(prefix=self._prefix, option_type=self.option_type, idx=idx)
+        StateManager.end_trade(prefix=self._prefix, other_option_type=self.option_type)
         self._fn = "is_index_breakout"
 
     def is_pivot_not_traded(self, entry_pivot):
