@@ -27,8 +27,8 @@ class TradeManager:
 
     def fill_price(self, filled_price=None):
         if filled_price is None:
-            return self.position.entry.filled_price
-        self.position.entry.filled_price = filled_price
+            return self.position.filled_price
+        self.position.filled_price = filled_price
 
     def complete_entry(self, trade: Trade):
         self.position.entry = self.order_place(trade)

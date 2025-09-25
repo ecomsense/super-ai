@@ -63,6 +63,7 @@ class StateManager:
         """Sets the indices for both CE and PE options for a given prefix."""
         with cls._lock:
             cls._state[prefix][option_type]["idx"] = idx
+        logging.info(f"SET INDEX: {prefix} {option_type} to {idx}")
 
     @classmethod
     def get_idx(cls, prefix: str, option_type: str) -> int:
