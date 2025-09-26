@@ -14,12 +14,6 @@ from sys import exit
 from toolkit.kokoo import blink
 
 
-condition = {
-    "PE": lambda curr, prev: curr < prev,
-    "CE": lambda curr, prev: curr > prev,
-}
-
-
 class Pivot:
 
     def __init__(
@@ -35,6 +29,7 @@ class Pivot:
         self.max_trades = 5
         self.minutes = 10
         self._pivots = []
+        self.index_broke_on = 25
 
         # 1. Core Attributes (directly from parameters)
         self.rest = rest
@@ -91,6 +86,7 @@ class Pivot:
 
             if curr_idx > prev_idx and self.is_pivot_not_traded(entry_pivot=curr_idx):
                 self._first_trade_at = pdlm.now("Asia/Kolkata")
+                self.index_broke_on = prev_idx
 
                 logging.info(
                     f"INDEX BREAKOUT: {self.trade.symbol} curr:{curr_idx}  prev:{prev_idx} ltp:{self.trade.last_price}"
@@ -259,6 +255,12 @@ class Pivot:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
 
+    def _target_reached(self, curr_idx, prev_idx):
+        if curr_idx < prev_idx and curr_idx > self.index_broke_on:
+            return True
+        print(f"curr:{curr_idx} prev:{prev_idx} index_broke_on:{self.index_broke_on}")
+        return False
+
     def try_exiting_trade(self):
         try:
             # evaluate the condition
@@ -266,7 +268,7 @@ class Pivot:
                 self.trade.last_price
             ), StateManager.get_idx(self._prefix, self.option_type)
 
-            if curr < prev:
+            if self._target_reached(curr, prev):
                 logging.info(
                     f"TARGET: {self.trade.symbol} curr:{curr} BROKE prev:{prev}"
                 )
@@ -284,6 +286,9 @@ class Pivot:
             elif curr > prev:
                 StateManager.set_idx(
                     prefix=self._prefix, option_type=self.option_type, idx=curr
+                )
+                logging.info(
+                    f"TARGET INDEX UPDATED: {self.trade.symbol} curr:{curr} > prev:{prev}"
                 )
 
             if self._fn == "wait_for_breakout":
