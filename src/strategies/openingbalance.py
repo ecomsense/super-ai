@@ -29,8 +29,9 @@ class Openingbalance:
         self._prefix = prefix
         self._token = symbol_info["token"]
         self._stop = symbol_info["ltp"]
+        self._low = symbol_info["ltp"]
         self.option_type = symbol_info["option_type"]
-        self._t2 = user_settings["t2"]
+        self._t2 = user_settings.get("t2", user_settings["t1"])
         self._txn = user_settings["txn"]
         self._target = user_settings["t1"]
 
@@ -229,12 +230,14 @@ class Openingbalance:
                 * -1
             )
 
+            """
             # trailing
             if self._is_trailstopped(target_progress):
                 resp = self._modify_to_exit()
                 logging.debug(f"SELL MODIFY: {self.trade.symbol} got {resp}")
                 self._fn = "remove_me"
                 return True
+            """
 
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
