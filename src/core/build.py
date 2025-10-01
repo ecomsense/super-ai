@@ -37,7 +37,7 @@ class Builder:
                 # if token not found in case of mcx future expiry
                 token = symbol_item.get("token", None)
 
-                if not token and settings["exchange"] == "MCX":
+                if not token:
                     symbol_item["index"] = k + settings["future_expiry"]
                     symbol_item["exchange"] = settings["option_exchange"]
                     underlying_future = Helper._quote.symbol_info(
@@ -59,6 +59,7 @@ class Builder:
         (Refactored from your original find_instrument_tokens_to_trade)
         """
         try:
+            print(symbols_to_trade)
             tokens_of_all_trading_symbols = {}
             for k, symbol_info in symbols_to_trade.items():
                 data = OptionData(
