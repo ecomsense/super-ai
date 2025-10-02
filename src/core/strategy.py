@@ -246,4 +246,4 @@ class Engine:
             __import__("sys").exit()
         except Exception as e:
             print_exc()
-            logging.error(f"{e} while init")
+            logging.error(f"{e} Engine: run while init")

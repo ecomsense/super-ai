@@ -90,4 +90,3 @@ class Builder:
         except Exception as e:
             logging.error(f"{e} while finding instrument to trade in StrategyBuilder")
             print_exc()
-            return {}
