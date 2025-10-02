@@ -28,6 +28,11 @@ class Openingbalance:
         self.rest = rest
         self._prefix = prefix
         self._token = symbol_info["token"]
+        ltp = self.rest.ltp(
+            exchange=user_settings["option_exchange"], token=self._token
+        )
+        if ltp is not None:
+            symbol_info["ltp"] = ltp
         self._stop = symbol_info["ltp"]
         self._low = symbol_info["ltp"]
         self.option_type = symbol_info["option_type"]
@@ -179,7 +184,7 @@ class Openingbalance:
             rate_to_be_added = txn_cost = 0
             resp = self.rest.positions()
             if resp and any(resp):
-                total_profit = sum(
+                total_for_this_prefix = sum(
                     item["rpnl"] + item["urmtom"]
                     for item in resp
                     if item["symbol"].startswith(self._prefix)
@@ -192,9 +197,10 @@ class Openingbalance:
                     ),
                     0,
                 )
-                total_profit = total_profit - abs(m2m)
-                logging.debug(f"{total_profit=} excluding current {m2m=} if in profit")
-
+                total_profit = total_for_this_prefix - abs(m2m)
+                logging.debug(
+                    f"{total_for_this_prefix=} = {total_profit=} - {m2m=} if in profit"
+                )
                 # calculate txn cost
                 count = len(
                     [
@@ -229,7 +235,7 @@ class Openingbalance:
                 * 100
                 * -1
             )
-
+            logging.debug(f"{target_progress=}")
             """
             # trailing
             if self._is_trailstopped(target_progress):
@@ -238,7 +244,6 @@ class Openingbalance:
                 self._fn = "remove_me"
                 return True
             """
-
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
             return None

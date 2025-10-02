@@ -9,7 +9,6 @@ from src.providers.grid import Gridlines
 
 import pendulum as pdlm
 from traceback import print_exc
-from sys import exit
 
 from toolkit.kokoo import blink
 
@@ -60,12 +59,20 @@ class Pivot:
         else:
             logging.error(f"Pivot: last price is None {self.trade.symbol}")
 
+        """ end of initialization """
+
     def _reset_state(self):
+        # update low from ltp
         self._low = self.trade.last_price
+        # set stop loss price for next trade
         self.trade_mgr.stop(self._low)
+        # find where the grid is currently
         idx = self.lines.find_current_grid(self.trade.last_price)
+        # set the value to state manager
         StateManager.set_idx(prefix=self._prefix, option_type=self.option_type, idx=idx)
+        # end the trade, means count is 0 now
         StateManager.end_trade(prefix=self._prefix, other_option_type=self.option_type)
+        # wait for index breakout (or fresh breakout)
         self._fn = "is_index_breakout"
 
     def is_pivot_not_traded(self, entry_pivot):
@@ -80,8 +87,9 @@ class Pivot:
     def is_index_breakout(self):
         try:
             flag = False
-            # evaluate the condition
+            # where is the current grid 5
             curr_idx = self.lines.find_current_grid(self.trade.last_price)
+            # prev idx is 4
             prev_idx = StateManager.get_idx(self._prefix, self.option_type)
 
             if curr_idx > prev_idx and self.is_pivot_not_traded(entry_pivot=curr_idx):
@@ -148,11 +156,15 @@ class Pivot:
             print_exc()
 
     def is_time_to_trade(self):
-        now = pdlm.now("Asia/Kolkata")
-        before = self._first_trade_at.add(minutes=self.minutes)
-        flag = now < before
-        logging.info(f"is time to trade? {now} < {before} = {flag}")
-        return flag
+        try:
+            now = pdlm.now("Asia/Kolkata")
+            before = self._first_trade_at.add(minutes=self.minutes)
+            flag = now < before
+            logging.info(f"is time to trade? {now} < {before} = {flag}")
+            return flag
+        except Exception as e:
+            logging.error(f"Pivot: while checking time to trade {e}")
+            print_exc()
 
     def _set_stop_for_next_trade(self):
         try:
