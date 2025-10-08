@@ -12,6 +12,46 @@ from traceback import print_exc
 
 from toolkit.kokoo import blink
 
+"""
+Rentry, if stop hits
+Rentry conditions
+Note close of each candle when stop hits
+Reentry at if the price crosses above previous open.
+Re entry previous open should be updated only if lesser than previous open candle
+Rentry should happen only for certain time frame ( Say, 5 minutes or 10 minutes)
+Reentry should happen only if it ltp crosses from below to above close price of these candle
+Reentry should happen again at Pivot price if the re entry is missed at (previous open)
+Reentry should happen irrespective of price post sleep time in case of Pivot PRICE reentry
+Do one minute per trade.
+Exit when index crosses from lower pivot line to higher pivot line
+Do not trade at a particular pivot line if the target is met. There is no second chance for a particular pivot.
+Rentry stop time at a particular pivot (Say, 10 min, 15 min or 30 min)
+"""
+from dataclasses import dataclass
+
+
+@dataclass
+class IndexBreakout:
+    idx: int = 100
+    time: pdlm.DateTime = pdlm.now("Asia/Kolkata")
+    # breakout | target | waiting | exit
+    _status: str = "waiting"
+
+    def status(self, curr_idx):
+        if curr_idx is None:
+            return self._status
+
+        if curr_idx > self.idx:
+            if self._status == "waiting":
+                self._status = "breakout"
+            elif self._status == "breakout":
+                self._status = "target"
+        if curr_idx < self.idx:
+            if self._status == "target":
+                self._status = "exit"
+            elif self._status == "breakout":
+                self._status = "waiting"
+
 
 class Pivot:
 
@@ -55,7 +95,14 @@ class Pivot:
         # class level state management
         if self.trade.last_price is not None:
             StateManager.initialize_prefix(prefix=self._prefix)
-            self._reset_state()
+            # find where the grid is currently
+            idx = self.lines.find_current_grid(self.trade.last_price)
+            # set the value to state manager
+            StateManager.set_idx(
+                prefix=self._prefix, option_type=self.option_type, idx=idx
+            )
+            # wait for index breakout (or fresh breakout)
+            self._fn = "is_index_breakout"
         else:
             logging.error(f"Pivot: last price is None {self.trade.symbol}")
 
@@ -80,11 +127,14 @@ class Pivot:
         if entry_pivot not in self._pivots:
             flag = True
             self._pivots.append(entry_pivot)
-
         logging.debug(f"NOT TRADED: {flag} pivot#{entry_pivot} {self.trade.symbol} ")
         return flag
 
     def is_index_breakout(self):
+        """
+        Options ltp -crosses below to above
+        Buy and keep stop loss first stop loss as pivot price ie.(P,R1,R2,S1,S2)
+        """
         try:
             flag = False
             # where is the current grid 5
@@ -102,7 +152,6 @@ class Pivot:
                 # wait for breakout
                 flag = True
 
-            self._reset_state()
             # if breakout happened, wait for breakout
             if flag:
                 self._fn = "wait_for_breakout"
