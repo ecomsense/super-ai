@@ -34,7 +34,7 @@ from dataclasses import dataclass
 class IndexBreakout:
     idx: int = 100
     time: pdlm.DateTime = pdlm.now("Asia/Kolkata")
-    # breakout | target | waiting | exit
+    # breakout | target | waiting
     _status: str = "waiting"
 
     def status(self, curr_idx):
@@ -95,12 +95,6 @@ class Pivot:
         # class level state management
         if self.trade.last_price is not None:
             StateManager.initialize_prefix(prefix=self._prefix)
-            # find where the grid is currently
-            idx = self.lines.find_current_grid(self.trade.last_price)
-            # set the value to state manager
-            StateManager.set_idx(
-                prefix=self._prefix, option_type=self.option_type, idx=idx
-            )
             # wait for index breakout (or fresh breakout)
             self._fn = "is_index_breakout"
         else:
@@ -136,24 +130,26 @@ class Pivot:
         Buy and keep stop loss first stop loss as pivot price ie.(P,R1,R2,S1,S2)
         """
         try:
-            flag = False
+            Flag = False
             # where is the current grid 5
             curr_idx = self.lines.find_current_grid(self.trade.last_price)
             # prev idx is 4
             prev_idx = StateManager.get_idx(self._prefix, self.option_type)
 
             if curr_idx > prev_idx and self.is_pivot_not_traded(entry_pivot=curr_idx):
+                Flag = True
                 self._first_trade_at = pdlm.now("Asia/Kolkata")
                 self.index_broke_on = prev_idx
 
                 logging.info(
                     f"INDEX BREAKOUT: {self.trade.symbol} curr:{curr_idx}  prev:{prev_idx} ltp:{self.trade.last_price}"
                 )
-                # wait for breakout
-                flag = True
 
-            # if breakout happened, wait for breakout
-            if flag:
+            StateManager.set_idx(
+                prefix=self._prefix, option_type=self.option_type, idx=curr_idx
+            )
+
+            if Flag:
                 self._fn = "wait_for_breakout"
                 self.wait_for_breakout()
 

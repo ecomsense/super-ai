@@ -21,8 +21,8 @@ class StateManager:
                 cls._state[prefix] = {
                     "is_traded_once": False,
                     "is_in_trade": False,
-                    "CE": {"count": 0, "idx": 1000},
-                    "PE": {"count": 0, "idx": -1},
+                    "CE": {"count": 0},
+                    "PE": {"count": 0},
                 }
                 logging.info(f"Initialized state for prefix '{prefix}'.")
 
@@ -68,4 +68,4 @@ class StateManager:
     def get_idx(cls, prefix: str, option_type: str) -> int:
         """Returns the current index for a given option type."""
         with cls._lock:
-            return cls._state[prefix][option_type]["idx"]
+            return cls._state[prefix][option_type].get("idx", 999)
