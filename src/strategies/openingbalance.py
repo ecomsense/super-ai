@@ -191,13 +191,13 @@ class Openingbalance:
                 )
                 m2m = next(
                     (
-                        item["urmtom"]
+                        item["rpnl"] + item["urmtom"]
                         for item in resp
                         if item["symbol"] == self.trade.symbol
                     ),
                     0,
                 )
-                total_profit = total_for_this_prefix - abs(m2m)
+                total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
                 logging.debug(
                     f"{total_for_this_prefix=} = {total_profit=} - {m2m=} if in profit"
                 )
@@ -226,16 +226,15 @@ class Openingbalance:
             target_virtual = (
                 self._fill_price + target_buffer + rate_to_be_added + txn_cost
             )
-            logging.debug(
-                f"target_price {target_virtual} = fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=}"
-            )
             target_progress = (
                 (target_virtual - target_buffer - self.trade.last_price)
                 / self._fill_price
                 * 100
                 * -1
             )
-            logging.debug(f"{target_progress=}")
+            logging.debug(
+                f"target_price {target_virtual} = fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
+            )
             """
             # trailing
             if self._is_trailstopped(target_progress):

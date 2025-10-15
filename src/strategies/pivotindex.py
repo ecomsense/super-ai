@@ -6,7 +6,6 @@ from src.config.interface import Trade
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
 from src.providers.state_manager import StateManager
-from src.providers.grid import Gridlines
 
 import pendulum as pdlm
 from traceback import print_exc

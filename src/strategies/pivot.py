@@ -1,6 +1,7 @@
 from src.constants import logging, S_SETG, yml_to_obj
 
 from src.config.interface import Trade
+from src.sdk.helper import Helper
 
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
@@ -10,7 +11,6 @@ from src.providers.grid import Gridlines
 import pendulum as pdlm
 from traceback import print_exc
 
-from toolkit.kokoo import blink
 
 """
 Rentry, if stop hits
@@ -65,10 +65,8 @@ class Pivot:
     ):
         # A hard coded
         self._removable = False
-        self.max_trades = 5
         self.minutes = 10
-        self._pivots = []
-        self.index_broke_on = 25
+        self.differance = 10
 
         # 1. Core Attributes (directly from parameters)
         self.rest = rest
@@ -81,16 +79,15 @@ class Pivot:
         # self._condition = condition[self.option_type]
 
         # 3. Dependencies and Helper Objects
+        self.quantity = user_settings["quantity"]
         self.trade = Trade(
             symbol=symbol_info["symbol"],
             last_price=symbol_info["ltp"],
             exchange=user_settings["option_exchange"],
-            quantity=user_settings["quantity"],
         )
         self.lines = Gridlines(prices=pivot_grids, reverse=False)
         self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
-        self.trade_mgr = TradeManager()
-        self.trade_mgr.stop(stop_price=symbol_info["ltp"])
+        self.trade_mgr = TradeManager(Helper.api())
 
         # class level state management
         if self.trade.last_price is not None:
@@ -101,28 +98,6 @@ class Pivot:
             logging.error(f"Pivot: last price is None {self.trade.symbol}")
 
         """ end of initialization """
-
-    def _reset_state(self):
-        # update low from ltp
-        self._low = self.trade.last_price
-        # set stop loss price for next trade
-        self.trade_mgr.stop(self._low)
-        # find where the grid is currently
-        idx = self.lines.find_current_grid(self.trade.last_price)
-        # set the value to state manager
-        StateManager.set_idx(prefix=self._prefix, option_type=self.option_type, idx=idx)
-        # end the trade, means count is 0 now
-        StateManager.end_trade(prefix=self._prefix, other_option_type=self.option_type)
-        # wait for index breakout (or fresh breakout)
-        self._fn = "is_index_breakout"
-
-    def is_pivot_not_traded(self, entry_pivot):
-        flag = False
-        if entry_pivot not in self._pivots:
-            flag = True
-            self._pivots.append(entry_pivot)
-        logging.debug(f"NOT TRADED: {flag} pivot#{entry_pivot} {self.trade.symbol} ")
-        return flag
 
     def is_index_breakout(self):
         """
@@ -136,14 +111,14 @@ class Pivot:
             # prev idx is 4
             prev_idx = StateManager.get_idx(self._prefix, self.option_type)
 
-            if curr_idx > prev_idx and self.is_pivot_not_traded(entry_pivot=curr_idx):
+            if curr_idx > prev_idx:
                 Flag = True
                 self._first_trade_at = pdlm.now("Asia/Kolkata")
-                self.index_broke_on = prev_idx
-
                 logging.info(
                     f"INDEX BREAKOUT: {self.trade.symbol} curr:{curr_idx}  prev:{prev_idx} ltp:{self.trade.last_price}"
                 )
+                self.pivot_price = self.trade.last_price
+                self._low = self.trade.last_price - self.differance
 
             StateManager.set_idx(
                 prefix=self._prefix, option_type=self.option_type, idx=curr_idx
@@ -162,8 +137,9 @@ class Pivot:
         self.trade.status = None
         self.trade.order_id = None
 
-    def _entry(self):
+    def _entry(self, flag):
         self.trade.side = "B"
+        self.trade.quantity = self.quantity * flag
         self.trade.disclosed_quantity = None
         self.trade.price = self.trade.last_price + 2  # type: ignore
         self.trade.trigger_price = 0.0
@@ -184,22 +160,6 @@ class Pivot:
         )
         return False
 
-    def low(self, key: str):
-        try:
-            intl = self.rest.history(
-                exchange=self.trade.exchange,
-                token=self._token,
-                loc=self._first_trade_at,
-                key=key,
-            )
-            blink()
-            if intl:
-                self._low = intl
-            return intl
-        except Exception as e:
-            logging.error(f"Pivot: while getting error {e}")
-            print_exc()
-
     def is_time_to_trade(self):
         try:
             now = pdlm.now("Asia/Kolkata")
@@ -211,34 +171,42 @@ class Pivot:
             logging.error(f"Pivot: while checking time to trade {e}")
             print_exc()
 
-    def _set_stop_for_next_trade(self):
+    def is_traded_below(self):
+        """
+        sets to true only if it is false
+        """
         try:
-            count = StateManager.get_trade_count(self._prefix, self.option_type)
-            if count <= self.max_trades:
-                if count == 0:
-                    _ = self.low(key="intl")
-                else:
-                    _ = self.low(key="intc")
+            if not self._is_traded_below:
+                self._is_traded_below = self.trade.last_price < self._low
 
-                if self.trade_mgr.stop() > self._low:
-                    logging.info(
-                        f"#{count} NEW STOP: {self._low} instead of old STOP {self.trade_mgr.stop()}"
-                    )
-                    self.trade_mgr.stop(self._low)
+            return self._is_traded_below
         except Exception as e:
-            logging.error(f"set stop for next trade: {e}")
+            logging.error(f"Pivot: while checking traded below {e}")
             print_exc()
 
     def wait_for_breakout(self):
         try:
             if self.is_time_to_trade:
+                flag = 0
                 if self._time_mgr.can_trade:
-                    self._set_stop_for_next_trade()
-                    if self.trade.last_price > self.trade_mgr.stop():  # type: ignore
-                        if self._entry():
-                            StateManager.start_trade(self._prefix, self.option_type)
+                    if self.trade.last_price >= self.pivot_price:
+                        logging.info("PIVOT BREAK: {self.trade.symbol} > pivot_price")
+                        self.trade_mgr.stop(stop_price=self.pivot_price)
+                        flag = 1
+                    elif self.is_traded_below and (self.trade.last_price > self._low):
+                        logging.info(
+                            f"TRADED BELOW LOW: {self.trade.symbol} < {self._low}"
+                        )
+                        self.trade_mgr.stop(stop_price=self._low)
+                        flag = 2
+                if flag > 0:
+                    if self._entry(flag):
+                        StateManager.start_trade(self._prefix, self.option_type)
+                        self._is_traded_below = False
             else:
-                self._reset_state()
+                # todo: start again
+                ...
+
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()
@@ -318,6 +286,10 @@ class Pivot:
         print(f"curr:{curr_idx} prev:{prev_idx} index_broke_on:{self.index_broke_on}")
         return False
 
+    """
+            TODO
+    """
+
     def try_exiting_trade(self):
         try:
             # evaluate the condition
@@ -330,7 +302,6 @@ class Pivot:
                     f"TARGET: {self.trade.symbol} curr:{curr} BROKE prev:{prev}"
                 )
                 self._modify_to_exit()
-                self._reset_state()
             elif self._is_stoploss_hit():
                 logging.info(
                     f"STOP HIT: {self.trade.symbol} with buy fill price {self.trade_mgr.fill_price()} hit stop {self.trade_mgr.stop()}"
@@ -340,18 +311,6 @@ class Pivot:
                 resp = self._modify_to_kill()
                 logging.info(f"KILLING STOP: returned {resp}")
                 self._fn = "wait_for_breakout"
-            elif curr > prev:
-                StateManager.set_idx(
-                    prefix=self._prefix, option_type=self.option_type, idx=curr
-                )
-                logging.info(
-                    f"TARGET INDEX UPDATED: {self.trade.symbol} curr:{curr} > prev:{prev}"
-                )
-
-            if self._fn == "wait_for_breakout":
-                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
-                # reset other option trades
-                # StateManager.end_trade(self._prefix, self._other_option)
 
         except Exception as e:
             logging.error(f"{e} while exit order")

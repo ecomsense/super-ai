@@ -1,5 +1,4 @@
 from src.constants import logging
-from src.sdk.helper import Helper
 from dataclasses import asdict
 from src.config.interface import Position, Trade
 
@@ -16,8 +15,8 @@ class TradeManager:
             logging.error(f"TradeManager: Order Place {e}")
             raise  # Re-raise the exception instead of printing the error message
 
-    def __init__(self):
-        self.stock_broker = Helper.api()
+    def __init__(self, stock_broker):
+        self.stock_broker = stock_broker
         self.position = Position()
 
     def stop(self, stop_price=None):
