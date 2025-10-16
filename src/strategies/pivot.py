@@ -298,6 +298,8 @@ class Pivot:
                     f"LOW TARGET: {self.trade.symbol} > low:{self._low} < pivot_price:{self.pivot_price}"
                 )
                 self._modify_to_exit()
+                self._fn = "wait_for_breakout"
+                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
                 return
 
             self.try_exiting_trade()
@@ -317,6 +319,9 @@ class Pivot:
                 resp = self._modify_to_kill()
                 logging.info(f"KILLING STOP: returned {resp}")
                 self._fn = "wait_for_breakout"
+
+            if self._fn == "wait_for_breakout":
+                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
 
         except Exception as e:
             logging.error(f"{e} while exit order")
