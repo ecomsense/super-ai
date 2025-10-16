@@ -197,10 +197,9 @@ class Openingbalance:
                     ),
                     0,
                 )
-                total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
-                logging.debug(
-                    f"{total_for_this_prefix=} = {total_profit=} - {m2m=} if in profit"
-                )
+                # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
+                total_profit = total_for_this_prefix
+                logging.debug(f"{total_for_this_prefix=} = {total_profit=} - {m2m=}")
                 # calculate txn cost
                 count = len(
                     [

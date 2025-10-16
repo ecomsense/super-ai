@@ -65,7 +65,6 @@ class Pivot:
     ):
         # A hard coded
         self._removable = False
-        self.minutes = 10
         self.differance = 10
 
         # 1. Core Attributes (directly from parameters)
@@ -93,9 +92,11 @@ class Pivot:
         if self.trade.last_price is not None:
             StateManager.initialize_prefix(prefix=self._prefix)
             # wait for index breakout (or fresh breakout)
+            logging.info(f"RELAX: {self.trade.symbol} waiting for index breakout")
             self._fn = "is_index_breakout"
         else:
-            logging.error(f"Pivot: last price is None {self.trade.symbol}")
+            logging.error(f"Pivot: last price is None {self.trade.symbol} ... exiting")
+            __import__("sys").exit(1)
 
         """ end of initialization """
 
@@ -144,7 +145,8 @@ class Pivot:
         self.trade.price = self.trade.last_price + 2  # type: ignore
         self.trade.trigger_price = 0.0
         self.trade.order_type = "LMT"
-        self.trade.tag = "entry_pivot"
+        tag = "pivot_break" if flag == 1 else "low_break"
+        self.trade.tag = tag
         self._reset_trade()
 
         buy_order = self.trade_mgr.complete_entry(self.trade)
@@ -159,17 +161,6 @@ class Pivot:
             f"got {buy_order} without buy order order id {self.trade.symbol}"
         )
         return False
-
-    def is_time_to_trade(self):
-        try:
-            now = pdlm.now("Asia/Kolkata")
-            before = self._first_trade_at.add(minutes=self.minutes)
-            flag = now < before
-            logging.info(f"is time to trade? {now} < {before} = {flag}")
-            return flag
-        except Exception as e:
-            logging.error(f"Pivot: while checking time to trade {e}")
-            print_exc()
 
     def is_traded_below(self):
         """
@@ -186,26 +177,24 @@ class Pivot:
 
     def wait_for_breakout(self):
         try:
-            if self.is_time_to_trade:
+            if self._time_mgr.can_trade:
                 flag = 0
-                if self._time_mgr.can_trade:
-                    if self.trade.last_price >= self.pivot_price:
-                        logging.info("PIVOT BREAK: {self.trade.symbol} > pivot_price")
-                        self.trade_mgr.stop(stop_price=self.pivot_price)
-                        flag = 1
-                    elif self.is_traded_below and (self.trade.last_price > self._low):
-                        logging.info(
-                            f"TRADED BELOW LOW: {self.trade.symbol} < {self._low}"
-                        )
-                        self.trade_mgr.stop(stop_price=self._low)
-                        flag = 2
+                if self.trade.last_price >= self.pivot_price:
+                    logging.info(f"PIVOT BREAK: {self.trade.symbol} > pivot_price")
+                    self.trade_mgr.stop(stop_price=self.pivot_price)
+                    flag = 1
+                elif self.is_traded_below and (self.trade.last_price > self._low):
+                    logging.info(f"TRADED BELOW LOW: {self.trade.symbol} < {self._low}")
+                    self.trade_mgr.stop(stop_price=self._low)
+                    flag = 2
+
                 if flag > 0:
-                    if self._entry(flag):
-                        StateManager.start_trade(self._prefix, self.option_type)
-                        self._is_traded_below = False
-            else:
-                # todo: start again
-                ...
+                    is_traded = self._entry(flag=flag)
+                    self._is_traded_below = False
+                    if not is_traded:
+                        logging.error(
+                            f"EXCEPTION: {self.trade.symbol} is unable to get buy order id"
+                        )
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
@@ -224,13 +213,12 @@ class Pivot:
             self.trade.price = self.trade_mgr.stop() - 2
             self.trade.trigger_price = self.trade_mgr.stop()
             self.trade.order_type = "SL-LMT"
-            self.trade.tag = "sl_pivot"
             self._reset_trade()
             sell_order = self.trade_mgr.pending_exit(self.trade)
             # dont delay exit while logging
             logging.info(f"FILLED: {self.trade.symbol} @ {self.trade_mgr.fill_price()}")
             if sell_order.order_id is not None:
-                self._fn = "try_exiting_trade"
+                self._fn = self.trade.tag
             else:
                 logging.error(f"id is not found for sell {sell_order}")
         else:
@@ -280,29 +268,48 @@ class Pivot:
             logging.error(f"{e} while modify to exit {self.trade.symbol}")
             print_exc()
 
-    def _target_reached(self, curr_idx, prev_idx):
-        if curr_idx < prev_idx and curr_idx > self.index_broke_on:
-            return True
-        print(f"curr:{curr_idx} prev:{prev_idx} index_broke_on:{self.index_broke_on}")
-        return False
-
-    """
-            TODO
-    """
-
-    def try_exiting_trade(self):
+    def pivot_break(self):
         try:
             # evaluate the condition
             curr, prev = self.lines.find_current_grid(
                 self.trade.last_price
             ), StateManager.get_idx(self._prefix, self.option_type)
-
-            if self._target_reached(curr, prev):
+            if curr > prev:
                 logging.info(
                     f"TARGET: {self.trade.symbol} curr:{curr} BROKE prev:{prev}"
                 )
                 self._modify_to_exit()
-            elif self._is_stoploss_hit():
+                # todo: remove only this instance
+                logging.warning(f"REMOVING: {self.trade.symbol} because of target")
+                __import__("sys").exit(1)
+
+            self.try_exiting_trade()
+
+        except Exception as e:
+            logging.error(f"{e} while pivot break")
+            print_exc()
+
+    def low_break(self):
+        try:
+            # try to reach target
+            self.pivot_break()
+
+            # try secondary target
+            if self.trade.last_price > self._low:
+                logging.info(
+                    f"LOW TARGET: {self.trade.symbol} > low:{self._low} < pivot_price:{self.pivot_price}"
+                )
+                self._modify_to_exit()
+
+            self.try_exiting_trade()
+
+        except Exception as e:
+            logging.error(f"{e} while low break")
+            print_exc()
+
+    def try_exiting_trade(self):
+        try:
+            if self._is_stoploss_hit():
                 logging.info(
                     f"STOP HIT: {self.trade.symbol} with buy fill price {self.trade_mgr.fill_price()} hit stop {self.trade_mgr.stop()}"
                 )
