@@ -145,6 +145,17 @@ class Pivot:
 
     def wait_for_breakout(self):
         try:
+            # evaluate the condition
+            curr, prev = self.lines.find_current_grid(
+                self.trade.last_price
+            ), StateManager.get_idx(self._prefix, self.option_type)
+            if curr < prev:
+                # TODO:remove only this instance
+                logging.warning(
+                    f"REMOVING: {self.trade.symbol} because of we went below pivot"
+                )
+                __import__("sys").exit(1)
+
             if self._time_mgr.can_trade:
                 flag = 0
                 if self.trade.last_price >= self.pivot_price:
@@ -154,6 +165,7 @@ class Pivot:
                 elif self.is_traded_below and (self.trade.last_price > self._low):
                     logging.info(f"TRADED BELOW LOW: {self.trade.symbol} < {self._low}")
                     self.trade_mgr.stop(stop_price=self._low)
+                    self.low_exit = LowExit.ENTRY
                     flag = 2
 
                 if flag > 0:
@@ -259,9 +271,16 @@ class Pivot:
 
     def _low_target_reached(self):
         if self.low_exit == LowExit.ENTRY and self.trade.last_price > self.pivot_price:
+            self.low_exit = LowExit.TARGET
             logging.info(
-                f"LOW TARGET REACHED: {self.trade.symbol} > {self.trade.last_price} < pivot_price:{self.pivot_price}"
+                f"LOW TARGET REACHED: {self.trade.symbol} > {self.trade.last_price} > pivot_price:{self.pivot_price}"
             )
+        elif (
+            self.low_exit == LowExit.TARGET and self.trade.last_price < self.pivot_price
+        ):
+            self.low_exit = self.low_exit.EXIT
+            return True
+        return False
 
     def low_break(self):
         try:
@@ -269,11 +288,12 @@ class Pivot:
             self.pivot_break()
 
             # try secondary target
-            if self.trade.last_price > self._low:
+            if self._low_target_reached:
                 logging.info(
                     f"LOW TARGET: {self.trade.symbol} > low:{self._low} < pivot_price:{self.pivot_price}"
                 )
                 self._modify_to_exit()
+                return
 
             self.try_exiting_trade()
 
