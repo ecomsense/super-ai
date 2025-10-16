@@ -11,46 +11,13 @@ from src.providers.grid import Gridlines
 import pendulum as pdlm
 from traceback import print_exc
 
-
-"""
-Rentry, if stop hits
-Rentry conditions
-Note close of each candle when stop hits
-Reentry at if the price crosses above previous open.
-Re entry previous open should be updated only if lesser than previous open candle
-Rentry should happen only for certain time frame ( Say, 5 minutes or 10 minutes)
-Reentry should happen only if it ltp crosses from below to above close price of these candle
-Reentry should happen again at Pivot price if the re entry is missed at (previous open)
-Reentry should happen irrespective of price post sleep time in case of Pivot PRICE reentry
-Do one minute per trade.
-Exit when index crosses from lower pivot line to higher pivot line
-Do not trade at a particular pivot line if the target is met. There is no second chance for a particular pivot.
-Rentry stop time at a particular pivot (Say, 10 min, 15 min or 30 min)
-"""
-from dataclasses import dataclass
+from enum import IntEnum
 
 
-@dataclass
-class IndexBreakout:
-    idx: int = 100
-    time: pdlm.DateTime = pdlm.now("Asia/Kolkata")
-    # breakout | target | waiting
-    _status: str = "waiting"
-
-    def status(self, curr_idx):
-        if curr_idx is None:
-            return self._status
-
-        if curr_idx > self.idx:
-            if self._status == "waiting":
-                self._status = "breakout"
-            elif self._status == "breakout":
-                self._status = "target"
-        if curr_idx < self.idx:
-            if self._status == "target":
-                self._status = "exit"
-            elif self._status == "breakout":
-                self._status = "waiting"
+class LowExit(IntEnum):
+    ENTRY = 1
+    TARGET = 2
+    EXIT = 0
 
 
 class Pivot:
@@ -79,6 +46,7 @@ class Pivot:
 
         # 3. Dependencies and Helper Objects
         self.quantity = user_settings["quantity"]
+        self.low_exit = LowExit.EXIT
         self.trade = Trade(
             symbol=symbol_info["symbol"],
             last_price=symbol_info["ltp"],
@@ -288,6 +256,12 @@ class Pivot:
         except Exception as e:
             logging.error(f"{e} while pivot break")
             print_exc()
+
+    def _low_target_reached(self):
+        if self.low_exit == LowExit.ENTRY and self.trade.last_price > self.pivot_price:
+            logging.info(
+                f"LOW TARGET REACHED: {self.trade.symbol} > {self.trade.last_price} < pivot_price:{self.pivot_price}"
+            )
 
     def low_break(self):
         try:
