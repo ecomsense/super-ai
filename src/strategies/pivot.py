@@ -82,7 +82,6 @@ class Pivot:
 
             if curr_idx > prev_idx:
                 Flag = True
-                self._first_trade_at = pdlm.now("Asia/Kolkata")
                 logging.info(
                     f"INDEX BREAKOUT: {self.trade.symbol} curr:{curr_idx}  prev:{prev_idx} ltp:{self.trade.last_price}"
                 )
@@ -143,18 +142,24 @@ class Pivot:
             logging.error(f"Pivot: while checking traded below {e}")
             print_exc()
 
+    def removable(self):
+        logging.info(f"REMOVING: {self.trade.symbol} because we went below pivot")
+
     def wait_for_breakout(self):
         try:
             # evaluate the condition
             curr, prev = self.lines.find_current_grid(
                 self.trade.last_price
             ), StateManager.get_idx(self._prefix, self.option_type)
-            if curr < prev:
-                # TODO:remove only this instance
+            if curr < (prev - 1):
                 logging.warning(
-                    f"REMOVING: {self.trade.symbol} because of we went below pivot"
+                    f"TRYING ANOTHER PIVOT: {self.trade.symbol} because we went below current pivot"
                 )
-                __import__("sys").exit(1)
+                StateManager.set_idx(
+                    prefix=self._prefix, option_type=self.option_type, idx=curr
+                )
+                self._fn = "is_index_breakout"
+                return
 
             if self._time_mgr.can_trade:
                 flag = 0
@@ -259,9 +264,9 @@ class Pivot:
                     f"TARGET: {self.trade.symbol} curr:{curr} BROKE prev:{prev}"
                 )
                 self._modify_to_exit()
-                # todo: remove only this instance
-                logging.warning(f"REMOVING: {self.trade.symbol} because of target")
-                __import__("sys").exit(1)
+                self._removable = True
+                self._fn = "removable"
+                return
 
             self.try_exiting_trade()
 
