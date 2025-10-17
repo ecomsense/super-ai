@@ -118,9 +118,6 @@ class Pivot:
 
         buy_order = self.trade_mgr.complete_entry(self.trade)
         if buy_order.order_id is not None:
-            logging.info(
-                f"BREAKOUT: {self.trade.symbol} ltp: {self.trade.last_price} > stop:{self.trade_mgr.stop()}"
-            )
             self._fn = "find_fill_price"
             return True
 
@@ -168,7 +165,9 @@ class Pivot:
                     self.trade_mgr.stop(stop_price=self.pivot_price)
                     flag = 1
                 elif self.is_traded_below and (self.trade.last_price > self._low):
-                    logging.info(f"TRADED BELOW LOW: {self.trade.symbol} < {self._low}")
+                    logging.info(
+                        f"LOW BREAK: {self.trade.symbol} {self.trade.last_price} > {self._low}"
+                    )
                     self.trade_mgr.stop(stop_price=self._low)
                     self.low_exit = LowExit.ENTRY
                     flag = 2
