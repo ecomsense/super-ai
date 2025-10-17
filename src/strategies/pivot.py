@@ -32,21 +32,21 @@ class Pivot:
     ):
         # A hard coded
         self._removable = False
-        self.differance = 10
+        self.low_exit = LowExit.EXIT
 
         # 1. Core Attributes (directly from parameters)
         self.rest = rest
         self._prefix = prefix
         self.option_type = symbol_info["option_type"]
         self._token = symbol_info["token"]
+        self.differance = user_settings["differance"]
+        self.quantity = user_settings["quantity"]
 
         # 2. Derived Attributes (calculated from core attributes)
         # self._other_option = "CE" if self.option_type == "PE" else "PE"
         # self._condition = condition[self.option_type]
 
         # 3. Dependencies and Helper Objects
-        self.quantity = user_settings["quantity"]
-        self.low_exit = LowExit.EXIT
         self.trade = Trade(
             symbol=symbol_info["symbol"],
             last_price=symbol_info["ltp"],
@@ -275,16 +275,22 @@ class Pivot:
             print_exc()
 
     def _low_target_reached(self):
-        if self.low_exit == LowExit.ENTRY and self.trade.last_price > self.pivot_price:
-            self.low_exit = LowExit.TARGET
-            logging.info(
-                f"LOW TARGET REACHED: {self.trade.symbol} > {self.trade.last_price} > pivot_price:{self.pivot_price}"
-            )
-        elif (
-            self.low_exit == LowExit.TARGET and self.trade.last_price < self.pivot_price
+        if self.low_exit == LowExit.ENTRY and (
+            self.trade.last_price > self.pivot_price
         ):
+            self.low_exit = LowExit.TARGET
+            logging.debug(
+                f"LOW TRAILING: {self.trade.symbol} pivot: {self.pivot_price} < ltp: {self.trade.last_price}"
+            )
+        elif self.low_exit == LowExit.TARGET and (
+            self.trade.last_price < self.pivot_price
+        ):
+            logging.info(
+                f"LOW TARGET: {self.trade.symbol}  pivot: {self.pivot_price} > ltp: {self.trade.last_price}"
+            )
             self.low_exit = self.low_exit.EXIT
             return True
+
         return False
 
     def low_break(self):
@@ -294,9 +300,6 @@ class Pivot:
 
             # try secondary target
             if self._low_target_reached:
-                logging.info(
-                    f"LOW TARGET: {self.trade.symbol} > low:{self._low} < pivot_price:{self.pivot_price}"
-                )
                 self._modify_to_exit()
                 self._fn = "wait_for_breakout"
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
