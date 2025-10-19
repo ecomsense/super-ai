@@ -189,6 +189,7 @@ class Openingbalance:
                     for item in resp
                     if item["symbol"].startswith(self._prefix)
                 )
+                """
                 m2m = next(
                     (
                         item["urmtom"]
@@ -197,9 +198,10 @@ class Openingbalance:
                     ),
                     0,
                 )
+                """
                 # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
-                total_profit = total_for_this_prefix - abs(m2m)
-                logging.debug(f"{total_for_this_prefix=} = {total_profit=} - {m2m=}")
+                total_profit = total_for_this_prefix
+                logging.debug(f"{total_for_this_prefix=} = {total_profit=}")
                 # calculate txn cost
                 count = len(
                     [
@@ -221,7 +223,7 @@ class Openingbalance:
             else:
                 logging.warning(f"no positions for {self.trade.symbol} in {resp}")
 
-            target_buffer = self._target * self._fill_price / 100
+            target_buffer = self._target * self._fill_price / 1000
             target_virtual = (
                 self._fill_price + target_buffer + rate_to_be_added + txn_cost
             )
@@ -232,7 +234,7 @@ class Openingbalance:
                 * -1
             )
             logging.debug(
-                f"target_price {target_virtual} = fill + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
+                f"target_price {target_virtual} = fill: {self._fill_price} + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
             )
             """
             # trailing
