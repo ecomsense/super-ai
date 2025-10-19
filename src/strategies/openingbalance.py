@@ -191,14 +191,14 @@ class Openingbalance:
                 )
                 m2m = next(
                     (
-                        item["rpnl"] + item["urmtom"]
+                        item["urmtom"]
                         for item in resp
                         if item["symbol"] == self.trade.symbol
                     ),
                     0,
                 )
                 # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
-                total_profit = total_for_this_prefix
+                total_profit = total_for_this_prefix - abs(m2m)
                 logging.debug(f"{total_for_this_prefix=} = {total_profit=} - {m2m=}")
                 # calculate txn cost
                 count = len(
