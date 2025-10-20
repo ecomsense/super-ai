@@ -169,7 +169,7 @@ class Pivot:
                     )
                     self.trade_mgr.stop(stop_price=self.pivot_price)
                     flag = 1
-                elif self.is_traded_below and (self.trade.last_price > self._low):
+                elif self.is_traded_below() and (self.trade.last_price > self._low):
                     logging.info(
                         f"LOW BREAK: {self.trade.symbol} {self.trade.last_price} > {self._low}"
                     )
