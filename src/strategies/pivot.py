@@ -264,6 +264,7 @@ class Pivot:
             curr, prev = self.lines.find_current_grid(
                 self.trade.last_price
             ), StateManager.get_idx(self._prefix, self.option_type)
+            logging.debug(f"pivot_break target reache ? {curr=} {prev=}")
             if curr > prev:
                 logging.info(
                     f"TARGET: {self.trade.symbol} curr:{curr} BROKE prev:{prev}"
@@ -310,7 +311,7 @@ class Pivot:
                 return
 
             # try secondary target
-            if self._low_target_reached:
+            if self._low_target_reached():
                 self._modify_to_exit()
                 self._fn = "wait_for_breakout"
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
