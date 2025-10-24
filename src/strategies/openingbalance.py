@@ -201,7 +201,6 @@ class Openingbalance:
                 """
                 # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
                 total_profit = total_for_this_prefix
-                logging.debug(f"{total_for_this_prefix=} = {total_profit=}")
                 # calculate txn cost
                 count = len(
                     [
@@ -222,8 +221,9 @@ class Openingbalance:
                     )
             else:
                 logging.warning(f"no positions for {self.trade.symbol} in {resp}")
+                return None
 
-            target_buffer = self._target * self._fill_price / 1000
+            target_buffer = self._target * self._fill_price / 100
             target_virtual = (
                 self._fill_price + target_buffer + rate_to_be_added + txn_cost
             )
@@ -246,7 +246,6 @@ class Openingbalance:
             """
             self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
-            return None
         except Exception as e:
             print_exc()
             logging.error(f"{e} while set target")
