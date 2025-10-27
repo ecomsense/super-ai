@@ -16,7 +16,7 @@ from enum import IntEnum
 
 class LowExit(IntEnum):
     ENTRY = 1
-    TARGET = 2
+    TARGET = 2  # not used
     EXIT = 0
 
 
@@ -284,17 +284,11 @@ class Pivot:
     def _low_target_reached(self):
         try:
             if self.low_exit == LowExit.ENTRY and (
-                self.trade.last_price > self.pivot_price
-            ):
-                self.low_exit = LowExit.TARGET
-                logging.debug(
-                    f"GOING TO TRAIL: {self.trade.symbol} pivot: {self.pivot_price} < ltp: {self.trade.last_price}"
-                )
-            elif self.low_exit == LowExit.TARGET and (
-                self.trade.last_price < self.pivot_price
+                self.trade.last_price
+                > self.pivot_price + ((self.pivot_price - self._low) / 2)
             ):
                 logging.info(
-                    f"LOW TARGET: {self.trade.symbol}  pivot: {self.pivot_price} > ltp: {self.trade.last_price}"
+                    f"LOW TARGET: {self.trade.symbol} pivot +  (pivot - low / 2) > ltp: {self.trade.last_price}"
                 )
                 self.low_exit = LowExit.EXIT
                 return True
