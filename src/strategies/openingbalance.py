@@ -12,6 +12,7 @@ from toolkit.kokoo import blink
 from traceback import print_exc
 import pendulum as pdlm
 from tabulate import tabulate
+from math import ceil
 
 # TODO to be deprecated
 MAX_TRADE_COUNT = 5
@@ -189,16 +190,6 @@ class Openingbalance:
                     for item in resp
                     if item["symbol"].startswith(self._prefix)
                 )
-                """
-                m2m = next(
-                    (
-                        item["urmtom"]
-                        for item in resp
-                        if item["symbol"] == self.trade.symbol
-                    ),
-                    0,
-                )
-                """
                 # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
                 total_profit = total_for_this_prefix
                 # calculate txn cost
@@ -210,7 +201,7 @@ class Openingbalance:
                     ]
                 )
                 count = 1 if count == 0 else count / 2
-                count = count + 0.5 if txn_cost % 1 == 0.5 else count
+                count = ceil(count)
                 txn_cost = count * self._txn
                 logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
 
@@ -219,6 +210,21 @@ class Openingbalance:
                     logging.debug(
                         f"{rate_to_be_added=} because of negative {total_profit=}"
                     )
+                else:
+                    m2m = next(
+                        (
+                            item["urmtom"] + item["rpnl"]
+                            for item in resp
+                            if item["symbol"] == self.trade.symbol
+                        ),
+                        0,
+                    )
+                    other_instrument_m2m = total_for_this_prefix - m2m
+                    if other_instrument_m2m > 0:
+                        rate_to_be_added = other_instrument_m2m / self.trade.quantity / 2  # type: ignore
+                        logging.debug(
+                            f"{rate_to_be_added=} because of positive {other_instrument_m2m=}"
+                        )
             else:
                 logging.warning(f"no positions for {self.trade.symbol} in {resp}")
                 return None
