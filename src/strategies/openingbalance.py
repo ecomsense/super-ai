@@ -210,6 +210,7 @@ class Openingbalance:
                     logging.debug(
                         f"{rate_to_be_added=} because of negative {total_profit=}"
                     )
+                """
                 else:
                     m2m = next(
                         (
@@ -225,6 +226,7 @@ class Openingbalance:
                         logging.debug(
                             f"{rate_to_be_added=} because of positive {other_instrument_m2m=}"
                         )
+                """
             else:
                 logging.warning(f"no positions for {self.trade.symbol} in {resp}")
                 return None
