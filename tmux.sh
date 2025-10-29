@@ -1,5 +1,5 @@
 #!/bin/env sh
-find . -type d -name "__pycache__" -exec rm -rf {} \;
+find . -depth -type d -name "__pycache__" -exec rm -rf {} +
 # Define the session name
 sess="tmux-session"
 
