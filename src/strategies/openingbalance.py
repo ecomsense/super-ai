@@ -208,7 +208,7 @@ class Openingbalance:
                 if total_profit < 0:
                     rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
                     logging.debug(
-                        f"{rate_to_be_added=} because of negative {total_profit=}"
+                        f"{rate_to_be_added=} because of negative {total_profit=} / {self.trade.quantity}q"
                     )
                 else:
                     m2m = next(
