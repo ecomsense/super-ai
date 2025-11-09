@@ -200,16 +200,19 @@ class Engine:
         try:
             strgy_to_be_removed = []
             while self.strategies and not is_time_past(self.stop):
+                # Get the run arguments dynamically from the builder
+                trades = Helper._rest.trades()
+                quotes = Helper._quote.get_quotes()
+                positions = Helper._rest.positions()
+
                 for strgy in self.strategies:
-                    # Get the run arguments dynamically from the builder
-                    trades = Helper._rest.trades()
-                    quotes = Helper._quote.get_quotes()
                     run_args = trades, quotes
                     # Add strategy-specific run arguments that depend on loop state
                     if strategy_name == "openingbalance":
                         resp = strgy.run(
                             *run_args,
                             strgy_to_be_removed,
+                            positions,
                         )
                         if resp == strgy._prefix:
                             strgy_to_be_removed.append(resp)

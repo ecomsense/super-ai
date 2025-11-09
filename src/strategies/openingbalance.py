@@ -24,6 +24,7 @@ class Openingbalance:
         self._fill_price = 0
         self._max_target_reached = 0
         self._orders = []
+        self._positions = []
 
         # from parameters
         self.rest = rest
@@ -39,7 +40,7 @@ class Openingbalance:
         self.option_type = symbol_info["option_type"]
         self._t2 = user_settings.get("t2", user_settings["t1"])
         self._txn = user_settings["txn"]
-        self._target = user_settings["t1"]
+        self._target = user_settings["t1"] * 2
 
         # objects and dependencies
         self.trade = Trade(
@@ -183,51 +184,48 @@ class Openingbalance:
     def _set_target(self):
         try:
             rate_to_be_added = txn_cost = 0
-            resp = self.rest.positions()
-            if resp and any(resp):
-                total_for_this_prefix = sum(
-                    item["rpnl"] + item["urmtom"]
-                    for item in resp
-                    if item["symbol"].startswith(self._prefix)
-                )
-                # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
-                total_profit = total_for_this_prefix
-                # calculate txn cost
-                count = len(
-                    [
-                        order["order_id"]
-                        for order in self._orders
-                        if order["symbol"].startswith(self._prefix)
-                    ]
-                )
-                count = 1 if count == 0 else count / 2
-                count = ceil(count)
-                txn_cost = count * self._txn
-                logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
+            # resp = self.rest.positions()
+            resp = self._positions
+            total_profit = sum(
+                item["rpnl"] + item["urmtom"]
+                for item in resp
+                if item["symbol"].startswith(self._prefix)
+            )
+            # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
+            # calculate txn cost
+            count = len(
+                [
+                    order["order_id"]
+                    for order in self._orders
+                    if order["symbol"].startswith(self._prefix)
+                ]
+            )
+            count = 1 if count == 0 else count / 2
+            count = ceil(count)
+            txn_cost = count * self._txn
+            logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
 
-                if total_profit < 0:
-                    rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
-                    logging.debug(
-                        f"{rate_to_be_added=} because of negative {total_profit=} / {self.trade.quantity}q"
-                    )
-                else:
-                    m2m = next(
-                        (
-                            item["urmtom"] + item["rpnl"]
-                            for item in resp
-                            if item["symbol"] == self.trade.symbol
-                        ),
-                        0,
-                    )
-                    other_instrument_m2m = total_for_this_prefix - m2m
-                    if other_instrument_m2m > 0:
-                        rate_to_be_added = other_instrument_m2m / self.trade.quantity / 2  # type: ignore
-                        logging.debug(
-                            f"{rate_to_be_added=} because of positive {other_instrument_m2m=}"
-                        )
+            if total_profit < 0:
+                rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
+                logging.debug(
+                    f"{rate_to_be_added=} because of negative {total_profit=} / {self.trade.quantity}q"
+                )
             else:
-                logging.warning(f"no positions for {self.trade.symbol} in {resp}")
-                return None
+                m2m = next(
+                    (
+                        item["urmtom"] + item["rpnl"]
+                        for item in resp
+                        if item["symbol"] == self.trade.symbol
+                    ),
+                    0,
+                )
+                other_instrument_m2m = total_profit - m2m
+                differance_between_instruments = other_instrument_m2m - m2m
+                if other_instrument_m2m > m2m:
+                    rate_to_be_added = differance_between_instruments / self.trade.quantity  # type: ignore
+                    logging.debug(
+                        f"{rate_to_be_added=} because of positive {differance_between_instruments=}"
+                    )
 
             target_buffer = self._target * self._fill_price / 100
             target_virtual = (
@@ -359,9 +357,15 @@ class Openingbalance:
         ]
         print(tabulate(items, tablefmt="fancy_grid"))
 
-    def run(self, orders, ltps, prefixes: list):
+    def run(self, orders, ltps, prefixes: list, positions):
         try:
             self._orders = orders
+
+            if positions and any(positions):
+                self._positions = positions
+            else:
+                logging.warning(f"no positions for {self.trade.symbol} in {positions}")
+                return None
 
             ltp = ltps.get(self.trade.symbol, None)
             if ltp is not None:
