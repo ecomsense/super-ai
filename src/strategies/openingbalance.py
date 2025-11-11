@@ -363,9 +363,6 @@ class Openingbalance:
 
             if positions and any(positions):
                 self._positions = positions
-            else:
-                logging.warning(f"no positions for {self.trade.symbol} in {positions}")
-                return None
 
             ltp = ltps.get(self.trade.symbol, None)
             if ltp is not None:
