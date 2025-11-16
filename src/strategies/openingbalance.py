@@ -149,6 +149,10 @@ class Openingbalance:
                     if is_entered:
                         StateManager.start_trade(self._prefix, self.option_type)
                         return
+                # if noo breakout add time
+                else:
+                    self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+
             print(
                 f"WAITING: {self.trade.symbol}: ltp{self.trade.last_price} < stop:{self._stop}"
             )
@@ -346,6 +350,7 @@ class Openingbalance:
             logging.info(
                 f"REMOVING: {self.trade.symbol} switching from waiting for breakout"
             )
+
         self._fn = "remove_me"
         self._removable = True
 
