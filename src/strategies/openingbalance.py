@@ -187,7 +187,6 @@ class Openingbalance:
 
     def _set_target(self):
         try:
-            rate_to_be_added = txn_cost = 0
             # resp = self.rest.positions()
             resp = self._positions
             total_profit = sum(
@@ -208,32 +207,29 @@ class Openingbalance:
             count = ceil(count)
             txn_cost = count * self._txn
             logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
-
-            if total_profit < 0:
-                rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
-                logging.debug(
-                    f"{rate_to_be_added=} because of negative {total_profit=} / {self.trade.quantity}q"
-                )
-            else:
-                m2m = next(
-                    (
-                        item["urmtom"] + item["rpnl"]
-                        for item in resp
-                        if item["symbol"] == self.trade.symbol
-                    ),
-                    0,
-                )
-                other_instrument_m2m = total_profit - m2m
-                differance_between_instruments = other_instrument_m2m - m2m
-                if other_instrument_m2m > m2m:
-                    rate_to_be_added = differance_between_instruments / self.trade.quantity  # type: ignore
-                    logging.debug(
-                        f"{rate_to_be_added=} because of positive {differance_between_instruments=}"
-                    )
+            """
+            rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
+            logging.debug(
+                f"{rate_to_be_added=} because of negative {total_profit=} / {self.trade.quantity}q"
+            )
+            """
+            m2m = next(
+                (
+                    item["urmtom"] + item["rpnl"]
+                    for item in resp
+                    if item["symbol"] == self.trade.symbol
+                ),
+                0,
+            )
+            other_instrument_m2m = total_profit - m2m
+            rate_to_be_added = other_instrument_m2m / self.trade.quantity  # type: ignore
+            logging.debug(
+                f"{rate_to_be_added=}  {other_instrument_m2m=} ./ {self.trade.quantity}q"
+            )
 
             target_buffer = self._target * self._fill_price / 100
             target_virtual = (
-                self._fill_price + target_buffer + rate_to_be_added + txn_cost
+                self._fill_price + target_buffer + (-1 * rate_to_be_added) + txn_cost
             )
             target_progress = (
                 (target_virtual - target_buffer - self.trade.last_price)
