@@ -222,14 +222,20 @@ class Openingbalance:
                 0,
             )
             other_instrument_m2m = total_profit - m2m
-            rate_to_be_added = other_instrument_m2m / self.trade.quantity  # type: ignore
+            rpnl = next(
+                (item["rpnl"] for item in resp if item["symbol"] == self.trade.symbol),
+                0,
+            )
+
+            rate_to_be_added = (other_instrument_m2m + rpnl) / self.trade.quantity  # type: ignore
+            rate_to_be_added = -1 * rate_to_be_added
             logging.debug(
-                f"{rate_to_be_added=}  {other_instrument_m2m=} ./ {self.trade.quantity}q"
+                f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self.trade.quantity}q"
             )
 
             target_buffer = self._target * self._fill_price / 100
             target_virtual = (
-                self._fill_price + target_buffer + (-1 * rate_to_be_added) + txn_cost
+                self._fill_price + target_buffer + rate_to_be_added + txn_cost
             )
             target_progress = (
                 (target_virtual - target_buffer - self.trade.last_price)
