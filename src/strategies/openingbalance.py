@@ -49,7 +49,7 @@ class Openingbalance:
             exchange=user_settings["option_exchange"],
             quantity=user_settings["quantity"],
         )
-        self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
+        self._time_mgr = TimeManager(user_settings["rest_time"])
         self._trade_manager = TradeManager(Helper.api())
 
         # state variables

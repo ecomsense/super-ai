@@ -53,7 +53,7 @@ class Pivot:
             exchange=user_settings["option_exchange"],
         )
         self.lines = Gridlines(prices=pivot_grids, reverse=False)
-        self._time_mgr = TimeManager(rest_min=user_settings["rest_min"])
+        self._time_mgr = TimeManager(user_settings["rest_time"])
         self.trade_mgr = TradeManager(Helper.api())
 
         # class level state management

@@ -1,14 +1,14 @@
 import pendulum
 
+
 class TimeManager:
-    def __init__(self, rest_min: int):
+    def __init__(self, rest_time: dict):
         self.last_trade_time = None
         self.market_open = pendulum.today("Asia/Kolkata").at(9, 0, 0)
         self.market_close = pendulum.today("Asia/Kolkata").at(23, 55, 0)
-        self.rest_min = rest_min
-        self.candle_times = self._generate_candle_times()
+        self.candle_times = self._generate_candle_times(rest_time)
 
-    def _generate_candle_times(self):
+    def _generate_candle_times(self, rest_time):
         """
         Generate a list of 1-minute candle close times from market open to close.
         e.g., if rest_min=1, market_open=9:00, market_close=9:05
@@ -17,7 +17,7 @@ class TimeManager:
         times = []
         current_time = self.market_open
         while current_time < self.market_close:
-            next_close_time = current_time.add(minutes=self.rest_min)
+            next_close_time = current_time.add(**rest_time)
             # Ensure we don't go past market close if the last interval overlaps
             if next_close_time <= self.market_close:
                 times.append(next_close_time)

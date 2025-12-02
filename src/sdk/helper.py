@@ -275,6 +275,7 @@ class RestApi:
                     return None
 
                 if len(data_now) >= abs(loc):
+                    logging.debug(f"DATA NOW: {data_now[loc]}")
                     low = float(data_now[loc][key])
                     return low
 
