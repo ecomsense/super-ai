@@ -77,16 +77,15 @@ class Hilo:
     def is_breakout(self):
         try:
             if self.is_trading_below_low():
-                if self.time_mgr.can_trade:
-                    self._init_low_condition()
-                    if self._last_price > self._low:
-                        order_id = self.trade_mgr.complete_entry(
-                            quantity=self._quantity, price=self._last_price + 2
-                        )
-                        if order_id is not None:
-                            self._fn = "place_exit_order"
-                        else:
-                            logging.warning(f"{self._symbol} without order id")
+                self._init_low_condition()
+                if self._last_price > self._low:
+                    order_id = self.trade_mgr.complete_entry(
+                        quantity=self._quantity, price=self._last_price + 2
+                    )
+                    if order_id is not None:
+                        self._fn = "place_exit_order"
+                    else:
+                        logging.warning(f"{self._symbol} without order id")
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()
