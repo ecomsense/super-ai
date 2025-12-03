@@ -42,7 +42,7 @@ class Hilo:
 
         self._high = self._rest.history(
             exchange=user_settings["option_exchange"],
-            token=user_settings["option_token"],
+            token=symbol_info["token"],
             loc=0,
             key="inth",
         )
