@@ -35,7 +35,7 @@ class Position:
     symbol: Optional[str] = None
     entry: Trade = field(default_factory=Trade)
     exit: Trade = field(default_factory=Trade)
-    filled_price: Optional[float] = None
+    average_price: Optional[float] = None
     stop_price: Optional[float] = None
     target_price: Optional[float] = None
     is_position: bool = True

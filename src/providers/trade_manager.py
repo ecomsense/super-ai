@@ -3,6 +3,15 @@ from dataclasses import asdict
 from src.config.interface import Position, Trade
 
 
+def find_order_if_exists(needle, order_hay):
+    match = None
+    for order in order_hay:
+        if needle == order["order_id"]:
+            match = order
+            break
+    return match
+
+
 class TradeManager:
 
     def order_place(self, trade: Trade):
@@ -15,30 +24,67 @@ class TradeManager:
             logging.error(f"TradeManager: Order Place {e}")
             raise  # Re-raise the exception instead of printing the error message
 
-    def __init__(self, stock_broker):
+    def __init__(self, stock_broker, symbol, last_price, exchange):
         self.stock_broker = stock_broker
         self.position = Position()
+        self.trade = Trade(
+            symbol=symbol,
+            last_price=last_price,
+            exchange=exchange,
+        )
 
     def stop(self, stop_price=None):
-        if stop_price is None:
-            return self.position.stop_price
-        self.position.stop_price = stop_price
+        if stop_price is not None:
+            self.position.stop_price = stop_price
+        return self.position.stop_price
 
-    def fill_price(self, filled_price=None):
-        if filled_price is None:
-            return self.position.filled_price
-        self.position.filled_price = filled_price
+    def target(self, target_price=None):
+        if target_price is not None:
+            self.position.target_price = target_price
+        return self.position.target_price
 
-    def complete_entry(self, trade: Trade):
-        self.position.entry = self.order_place(trade)
-        return self.position.entry
+    def update_fill_price(self, trade: Trade, filled_price):
+        trade.filled_price = filled_price
 
-    def pending_exit(self, trade: Trade):
-        self.position.exit = self.order_place(trade)
-        return self.position.exit
+    def _reset_trade(self):
+        self.trade.filled_price = None
+        self.trade.status = None
+        self.trade.order_id = None
 
-    def set_target_price(self, target_price):
-        self.position.target_price = target_price
+    def complete_entry(self, quantity, price):
+        self.trade.side = "B"
+        self.trade.quantity = quantity
+        self.trade.disclosed_quantity = None
+        self.trade.price = price  # type: ignore
+        self.trade.trigger_price = 0.0
+        self.trade.order_type = "LMT"
+        self.trade.tag = "entry"
+        self._reset_trade()
+        self.position.entry = self.order_place(self.trade)
+        return self.position.entry.order_id
+
+    def pending_exit(self, stop, orders):
+
+        order = find_order_if_exists(self.position.entry.order_id, orders)
+        if isinstance(order, dict):
+            self.update_fill_price(self.position.entry, float(order["fill_price"]))
+
+            # place sell order only if buy order is filled
+            self.trade.side = "S"
+            self.trade.disclosed_quantity = 0
+            self.trade.price = stop - 2
+            self.trade.trigger_price = stop
+            self.trade.order_type = "SL-LMT"
+            self.trade.tag = "exit"
+            self._reset_trade()
+            self.position.exit = self.order_place(self.trade)
+            self.stop(stop_price=stop)
+            return self.position.exit
+        else:
+            logging.warning(
+                f"{self.trade.symbol} buy order {self.position.entry.order_id} not complete, to place sell order"
+            )
+        return None
 
     def is_stopped(self, orders):
         flag = False
@@ -47,12 +93,6 @@ class TradeManager:
                 flag = True
                 break
         return flag
-
-    def find_order_if_exists(self, needle, order_hay):
-        for order in order_hay:
-            if needle == order["order_id"]:
-                return order
-        return
 
     def complete_exit(self, **kwargs):
         try:
@@ -71,3 +111,35 @@ class TradeManager:
             return self.stock_broker.order_modify(**exit_order_args)
         except Exception as e:
             logging.error(f"Error in complete_exit {e}")
+
+    def is_trade_exited(self, last_price, orders):
+
+        order = find_order_if_exists(self.position.exit.order_id, orders)
+
+        if isinstance(order, dict):
+            logging.debug(
+                f"STOP HIT: {self.trade.symbol} buy fill: {self.position.entry.fill_price}  stop: {self.stop()}"
+            )
+            return True
+
+        elif last_price <= self.stop():  # type: ignore
+            kwargs = dict(
+                price=0.0,
+                order_type="MARKET",
+                last_price=last_price,
+            )
+            resp = self.complete_exit(**kwargs)
+            logging.debug(f"KILLING STOP: returned {resp}")
+            return True
+
+        elif last_price > self.target():
+            kwargs = dict(
+                trigger_price=0.0,
+                order_type="LIMIT",
+                last_price=last_price,
+            )
+            resp = self.complete_exit(**kwargs)
+            logging.debug(f"TARGET REACHED: returned {resp}")
+            return True
+
+        return False
