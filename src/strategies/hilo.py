@@ -34,10 +34,10 @@ class Hilo:
 
         self.time_mgr = TimeManager(user_settings["rest_time"])
         self.trade_mgr = TradeManager(
-            Helper.api(),
-            self._symbol,
-            self._last_price,
-            user_settings["option_exchange"],
+            stock_broker=Helper.api(),
+            symbol=self._symbol,
+            last_price=self._last_price,
+            exchange=user_settings["option_exchange"],
         )
 
         self._high = self._rest.history(
@@ -49,7 +49,7 @@ class Hilo:
 
         self._low = self._rest.history(
             exchange=user_settings["option_exchange"],
-            token=user_settings["option_token"],
+            token=symbol_info["token"],
             loc=0,
             key="intl",
         )
