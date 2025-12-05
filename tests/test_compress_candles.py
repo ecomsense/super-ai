@@ -43,16 +43,14 @@ def test_compress_candles_daily_ohlc(monkeypatch):
         data_now, tz="Asia/Kolkata", return_last_only=True, exclude_today=True
     )
 
-    expected = [
-        {
-            "into": 100.0,
-            "inth": 110.0,
-            "intl": 98.0,
-            "intc": 108.0,
-            "v": 3000.0,
-            "oi": 55.0,
-            "date": "2025-09-18",
-        }
-    ]
+    expected = {
+        "into": 100.0,
+        "inth": 110.0,
+        "intl": 98.0,
+        "intc": 108.0,
+        "v": 3000.0,
+        "oi": 55.0,
+        "date": "2025-09-18",
+    }
 
     assert result == expected

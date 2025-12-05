@@ -3,42 +3,46 @@ platform linux -- Python 3.13.5, pytest-8.4.2, pluggy-1.6.0 -- /home/pannet1/py/
 cachedir: .pytest_cache
 rootdir: /home/pannet1/py/finvasia/super-ai
 configfile: pytest.ini
-collecting ... collected 1 item / 3 errors
+collecting ... collected 2 items
 
-==================================== ERRORS ====================================
-___________________ ERROR collecting tests/test_one_trade.py ___________________
-ImportError while importing test module '/home/pannet1/py/finvasia/super-ai/tests/test_one_trade.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/usr/lib/python3.13/importlib/__init__.py:88: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_one_trade.py:4: in <module>
-    from src.one_trade import OneTrade
-E   ModuleNotFoundError: No module named 'src.one_trade'
-_________________ ERROR collecting tests/test_state_manager.py _________________
-ImportError while importing test module '/home/pannet1/py/finvasia/super-ai/tests/test_state_manager.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/usr/lib/python3.13/importlib/__init__.py:88: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_state_manager.py:2: in <module>
-    from src.state_manager import StateManager
-E   ModuleNotFoundError: No module named 'src.state_manager'
-____________________ ERROR collecting tests/test_symbol.py _____________________
-ImportError while importing test module '/home/pannet1/py/finvasia/super-ai/tests/test_symbol.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/usr/lib/python3.13/importlib/__init__.py:88: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_symbol.py:4: in <module>
-    from src.symbol import Symbol
-E   ModuleNotFoundError: No module named 'src.symbol'
+tests/test_compress_candles.py::test_compress_candles_daily_ohlc PASSED  [ 50%]
+tests/test_symbol.py::test_symbol_creation FAILED                        [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_symbol_creation _____________________________
+
+    def test_symbol_creation():
+>       sym = Symbol(
+            base="SENSEX",
+            symbol="BSXOPT",
+            option_exchange="BFO",
+            moneyness=-1,
+            expiry="05-AUG-2025",
+            quantity=20,
+            rest_min=2,
+            diff=100,
+            index="BSE Sensex",
+            exchange="BSE",
+            token="1",
+            depth=10,
+            atm=81000,
+        )
+
+tests/test_symbol.py:7: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.sdk.symbol.Symbol object at 0x7bf9e7015550>, args = ()
+kwargs = {'atm': 81000, 'base': 'SENSEX', 'depth': 10, 'diff': 100, ...}
+cls = <class 'src.sdk.symbol.Symbol'>
+
+    def _no_init_or_replace_init(self, *args, **kwargs):
+        cls = type(self)
+    
+        if cls._is_protocol:
+>           raise TypeError('Protocols cannot be instantiated')
+E           TypeError: Protocols cannot be instantiated
+
+/usr/lib/python3.13/typing.py:1948: TypeError
 =========================== short test summary info ============================
-ERROR tests/test_one_trade.py
-ERROR tests/test_state_manager.py
-ERROR tests/test_symbol.py
-!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!
-============================== 3 errors in 1.63s ===============================
+FAILED tests/test_symbol.py::test_symbol_creation - TypeError: Protocols cann...
+========================= 1 failed, 1 passed in 0.63s ==========================
