@@ -2,10 +2,9 @@ from src.constants import logging
 
 from src.sdk.helper import Helper
 
-from src.providers.time_manager import TimeManager
+from src.providers.time_manager import Gate, Bucket
 from src.providers.trade_manager import TradeManager
 
-import pendulum as pdlm
 from traceback import print_exc
 
 
@@ -32,7 +31,14 @@ class Hilo:
         self._symbol = symbol_info["symbol"]
         self._last_price = symbol_info["ltp"]
 
-        self.time_mgr = TimeManager(user_settings["rest_time"])
+        # new
+        self._prev_price = self._last_price
+        self._check_gate = Gate(user_settings["check_every"])
+        self._trade_bucket = Bucket(
+            bucket_seconds=user_settings["time_bucket"],
+            max_trades=user_settings["max_trade_in_bucket"],
+        )
+
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
             symbol=self._symbol,
@@ -56,36 +62,31 @@ class Hilo:
         """
         initial trade low condition
         """
-        self._init_low_condition()
-
-    def _init_low_condition(self):
-        self._below_low = False
-        self._fn = "is_trading_below_low"
-        self.time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
-
-    def is_trading_below_low(self):
-        try:
-            if self.time_mgr.can_trade:
-                if self._last_price < self._low:
-                    self._below_low = True
-                    self._fn = "is_breakout"
-        except Exception as e:
-            logging.error(f"Hilo: while checking traded below {e}")
-        finally:
-            return self._below_low
+        self._fn = "is_breakout"
 
     def is_breakout(self):
         try:
-            if self.is_trading_below_low():
-                self._init_low_condition()
-                if self._last_price > self._low:
-                    order_id = self.trade_mgr.complete_entry(
-                        quantity=self._quantity, price=self._last_price + 2
-                    )
-                    if order_id is not None:
-                        self._fn = "place_exit_order"
-                    else:
-                        logging.warning(f"{self._symbol} without order id")
+            # 1. Check other conditions every check_every (30 seconds)
+            if not self._check_gate.allow():
+                return
+
+            # 2. check actual breakout condition
+            if self._last_price > self._low and self._prev_price <= self._low:
+
+                # 3. are we with the trade limits in this bucket
+                if not self._trade_bucket.allow():
+                    logging.debug(f"{self._symbol} bucket full, skipping trading")
+                    return
+
+                # 4. place entry
+                order_id = self.trade_mgr.complete_entry(
+                    quantity=self._quantity, price=self._last_price + 2
+                )
+                if order_id:
+                    self._fn = "place_exit_order"
+                else:
+                    logging.warning(f"{self._symbol} without order id")
+
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()
@@ -105,7 +106,7 @@ class Hilo:
     def try_exiting_trade(self):
         try:
             if self.trade_mgr.is_trade_exited(self._last_price, self._orders):
-                self._init_low_condition()
+                self._fn = "is_breakout"
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
@@ -116,7 +117,9 @@ class Hilo:
 
             ltp = ltps.get(self._symbol, None)
             if ltp is not None:
+                self._prev_price = self._last_price
                 self._last_price = float(ltp)
+
             msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price}"
             print(msg)
             return getattr(self, self._fn)()

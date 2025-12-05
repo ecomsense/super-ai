@@ -1,11 +1,11 @@
-import pendulum
+import pendulum as pdlm
 
 
 class TimeManager:
     def __init__(self, rest_time: dict):
         self.last_trade_time = None
-        self.market_open = pendulum.today("Asia/Kolkata").at(9, 0, 0)
-        self.market_close = pendulum.today("Asia/Kolkata").at(23, 55, 0)
+        self.market_open = pdlm.today("Asia/Kolkata").at(9, 0, 0)
+        self.market_close = pdlm.today("Asia/Kolkata").at(23, 55, 0)
         self.candle_times = self._generate_candle_times(rest_time)
 
     def _generate_candle_times(self, rest_time):
@@ -71,7 +71,7 @@ class TimeManager:
             ):
                 target_candle_close = self.candle_times[-1]
 
-        now = pendulum.now("Asia/Kolkata")
+        now = pdlm.now("Asia/Kolkata")
 
         if target_candle_close is None:
             # This means last_trade_time was outside any defined valid interval,
@@ -85,3 +85,45 @@ class TimeManager:
         else:
             # The "rest_min" period has not yet elapsed
             return False
+
+
+class Gate:
+    """Allows action only if 'interval' seconds have passed since last allow()."""
+
+    def __init__(self, interval_seconds: int):
+        self.interval = interval_seconds
+        self._next_time = pdlm.now()
+
+    def allow(self) -> bool:
+        now = pdlm.now()
+        if now >= self._next_time:
+            self._next_time = now.add(seconds=self.interval)
+            return True
+        return False
+
+
+class Bucket:
+    """Limit N events every M seconds — never earlier."""
+
+    def __init__(self, bucket_seconds: int, max_trades: int):
+        self.bucket_seconds = bucket_seconds
+        self.max_trades = max_trades
+        self.reset()
+
+    def reset(self):
+        now = pdlm.now()
+        self.bucket_end = now.add(seconds=self.bucket_seconds)
+        self.count = 0
+
+    def allow(self) -> bool:
+        now = pdlm.now()
+
+        # bucket expired → reset
+        if now >= self.bucket_end:
+            self.reset()
+
+        if self.count < self.max_trades:
+            self.count += 1
+            return True
+
+        return False
