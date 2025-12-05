@@ -111,7 +111,7 @@ class Bucket:
         self.reset()
 
     def reset(self):
-        now = pdlm.now("Asia/kolkata")
+        now = pdlm.now("Asia/Kolkata")
         self.bucket_end = now.add(**self.period)
         self.count = 0
 
