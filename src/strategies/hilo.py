@@ -35,7 +35,7 @@ class Hilo:
         self._prev_price = self._last_price
         self._check_gate = Gate(user_settings["rest_time"])
         self._trade_bucket = Bucket(
-            bucket_seconds=user_settings["time_bucket"],
+            period=user_settings["time_bucket"],
             max_trades=user_settings["max_trade_in_bucket"],
         )
 
