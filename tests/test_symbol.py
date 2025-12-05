@@ -1,7 +1,6 @@
 # tests/test_symbol.py
 
-import pytest
-from src.symbol import Symbol
+from src.sdk.symbol import Symbol
 
 
 def test_symbol_creation():
@@ -18,7 +17,7 @@ def test_symbol_creation():
         exchange="BSE",
         token="1",
         depth=10,
-        atm=81000
+        atm=81000,
     )
 
     assert sym.base == "SENSEX"
