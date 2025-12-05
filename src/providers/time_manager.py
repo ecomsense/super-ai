@@ -90,14 +90,14 @@ class TimeManager:
 class Gate:
     """Allows action only if 'interval' seconds have passed since last allow()."""
 
-    def __init__(self, interval_seconds: int):
-        self.interval = interval_seconds
-        self._next_time = pdlm.now()
+    def __init__(self, interval: dict):
+        self.interval = interval
+        self._next_time = pdlm.now("Asia/Kolkata")
 
     def allow(self) -> bool:
         now = pdlm.now()
         if now >= self._next_time:
-            self._next_time = now.add(seconds=self.interval)
+            self._next_time = now.add(**self.interval)
             return True
         return False
 
@@ -105,18 +105,18 @@ class Gate:
 class Bucket:
     """Limit N events every M seconds — never earlier."""
 
-    def __init__(self, bucket_seconds: int, max_trades: int):
-        self.bucket_seconds = bucket_seconds
+    def __init__(self, period: dict, max_trades: int):
+        self.period = period
         self.max_trades = max_trades
         self.reset()
 
     def reset(self):
-        now = pdlm.now()
-        self.bucket_end = now.add(seconds=self.bucket_seconds)
+        now = pdlm.now("Asia/kolkata")
+        self.bucket_end = now.add(**self.period)
         self.count = 0
 
     def allow(self) -> bool:
-        now = pdlm.now()
+        now = pdlm.now("Asia/Kolkata")
 
         # bucket expired → reset
         if now >= self.bucket_end:
