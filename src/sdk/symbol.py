@@ -133,20 +133,3 @@ class OptionSymbol(Symbol):
         except Exception as e:
             logging.error(f"{e} Symbol: while find_option_by_distance")
             print_exc()
-
-
-if __name__ == "__main__":
-    data = OptionData(
-        exchange="NFO",
-        base="NIFTY",
-        symbol="NIFTY",
-        diff=50,
-        depth=10,
-        expiry="21-AUG-2025",
-    )
-    symbols = OptionSymbol(data)
-    dct_tokens = symbols.get_tokens(24500)
-    # print(dct_tokens)
-
-    option_data = symbols.find_option_by_distance(atm=24500, distance=1, c_or_p="CE")
-    print(option_data)
