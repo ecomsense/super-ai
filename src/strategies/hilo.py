@@ -10,10 +10,10 @@ from traceback import print_exc
 
 def calc_highest_target(high, target):
     """
-    calculate the highest target price
+    calculate the target price from percentage or fixed value
     """
-    if target[1] == "%":
-        target = target.split("%")[0]
+    if isinstance(target, str) and target.endswith("%"):
+        target = target.split("%")[0].strip()
         return high + (high * float(target) / 100)
     return high + float(target)
 
@@ -55,25 +55,25 @@ class Hilo:
             last_price=self._last_price,
             exchange=user_settings["option_exchange"],
         )
-
+        loc = user_settings.get("candle_number", -1)
         self._high = self._rest.history(
             exchange=user_settings["option_exchange"],
             token=symbol_info["token"],
-            loc=0,
+            loc=loc,
             key="inth",
         )
 
         self._low = self._rest.history(
             exchange=user_settings["option_exchange"],
             token=symbol_info["token"],
-            loc=0,
+            loc=loc,
             key="intl",
         )
         self._stop = self._low
 
         self._target = self._high
 
-        self._target_set_by_user = "50%"
+        self._target_set_by_user = user_settings.get("target", "50%")
         """
         initial trade low condition
         """
@@ -87,6 +87,7 @@ class Hilo:
 
             for stop in [self._low, self._high]:
                 # 2. check actual breakout condition
+                logging.debug(f"Gate Opened: {self._symbol} checking breakout@ {stop}")
                 if self._last_price > stop and self._prev_price <= stop:
 
                     # 3. are we with the trade limits in this bucket
@@ -141,9 +142,14 @@ class Hilo:
                 self._prev_price = self._last_price
                 self._last_price = float(ltp)
 
-            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}  high:{self._high)")
+            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}  high:{self._high}"
             print(msg)
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._symbol}")
             print_exc()
+
+
+if __name__ == "__main__":
+    assert calc_highest_target(100, "50%") == 150  # 50% of 100
+    assert calc_highest_target(100, "50") == 150  # 50 fixed

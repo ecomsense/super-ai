@@ -1,0 +1,19 @@
+trade:
+  strategy: hilo
+  start: "9:15"
+  stop: "15:20"
+  live: 1      # 0 for paper 1 for live
+NIFTY:
+  base: NIFTY
+  option_exchange: NFO
+  moneyness: -1
+  premium: 200
+  expiry: 09-DEC-2025
+  quantity: 75
+  rest_time:
+    seconds: 30 #seconds: 30
+  time_bucket:
+    minutes: 5
+  max_trade_in_bucket: 2
+  candle_number: -1    # 1 = latest candle; -1 = first candle, -2 = second candle
+  target: 50%    # target can be in points or percentage 
