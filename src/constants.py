@@ -5,6 +5,9 @@ from toolkit.logger import Logger
 from toolkit.fileutils import Fileutils
 from typing import Any, Optional
 
+# from src.providers.async_logger import AsyncLogger  # Assuming you put the class here
+
+
 S_DATA = "./data/"
 S_FACT = "./factory/"
 S_SETG = "settings.yml"
@@ -79,6 +82,30 @@ def set_logger():
     else:
         return Logger()
 
+
+"""
+def async_logger():
+    # Request: Log level and file name decided here
+
+    refresh_files(S_LOG)
+
+    O_SETG = yml_to_obj(S_SETG)
+    if isinstance(O_SETG, dict):
+        level = O_SETG.get("log_level", 10)
+        if O_SETG.get("log_show", True):
+            logger_manager = AsyncLogger(level)
+        else:
+            logger_manager = AsyncLogger(level, S_LOG)
+
+        # 2. Start the asynchronous thread BEFORE any other strategy logic runs
+        logger_manager.start()
+
+        # 3. Expose the logger access function to the rest of the project
+        # 'logging' now refers to the standard getLogger function
+        # Request: Your strategy modules will import this 'logging'
+        logging = logger_manager.get_logger_function()
+        return logging
+"""
 
 logging = set_logger()
 
