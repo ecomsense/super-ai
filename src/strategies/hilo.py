@@ -8,6 +8,16 @@ from src.providers.trade_manager import TradeManager
 from traceback import print_exc
 
 
+def calc_highest_target(high, target):
+    """
+    calculate the highest target price
+    """
+    if target[1] == "%":
+        target = target.split("%")[0]
+        return high + (high * float(target) / 100)
+    return high + float(target)
+
+
 class Hilo:
 
     def __init__(
@@ -59,6 +69,11 @@ class Hilo:
             loc=0,
             key="intl",
         )
+        self._stop = self._low
+
+        self._target = self._high
+
+        self._target_set_by_user = "50%"
         """
         initial trade low condition
         """
@@ -70,22 +85,28 @@ class Hilo:
             if not self._check_gate.allow():
                 return
 
-            # 2. check actual breakout condition
-            if self._last_price > self._low and self._prev_price <= self._low:
+            for stop in [self._low, self._high]:
+                # 2. check actual breakout condition
+                if self._last_price > stop and self._prev_price <= stop:
 
-                # 3. are we with the trade limits in this bucket
-                if not self._trade_bucket.allow():
-                    logging.debug(f"{self._symbol} bucket full, skipping trading")
-                    return
+                    # 3. are we with the trade limits in this bucket
+                    if not self._trade_bucket.allow():
+                        logging.debug(f"{self._symbol} bucket full, skipping trading")
+                        return
 
-                # 4. place entry
-                order_id = self.trade_mgr.complete_entry(
-                    quantity=self._quantity, price=self._last_price + 2
-                )
-                if order_id:
-                    self._fn = "place_exit_order"
-                else:
-                    logging.warning(f"{self._symbol} without order id")
+                    self._target = (
+                        self._high
+                        if stop == self._low
+                        else calc_highest_target(self._high, self._target_set_by_user)
+                    )
+                    # 4. place entry
+                    order_id = self.trade_mgr.complete_entry(
+                        quantity=self._quantity, price=self._last_price + 2
+                    )
+                    if order_id:
+                        self._fn = "place_exit_order"
+                    else:
+                        logging.warning(f"{self._symbol} without order id")
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
@@ -94,10 +115,10 @@ class Hilo:
     def place_exit_order(self):
         try:
             sell_order = self.trade_mgr.pending_exit(
-                stop=self._low, orders=self._orders
+                stop=self._stop, orders=self._orders
             )
-            if sell_order.order_id is not None:
-                self.trade_mgr.target(target_price=self._high)
+            if sell_order.order_id:
+                self.trade_mgr.target(target_price=self._target)
                 self._fn = "try_exiting_trade"
         except Exception as e:
             logging.error(f"{e} while place exit order")
@@ -120,7 +141,7 @@ class Hilo:
                 self._prev_price = self._last_price
                 self._last_price = float(ltp)
 
-            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price}"
+            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}  high:{self._high)")
             print(msg)
             return getattr(self, self._fn)()
         except Exception as e:
