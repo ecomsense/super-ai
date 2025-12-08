@@ -118,7 +118,7 @@ class TradeManager:
 
         if isinstance(order, dict):
             logging.debug(
-                f"STOP HIT: {self.trade.symbol} buy fill: {self.position.entry.fill_price}  stop: {self.stop()}"
+                f"STOP HIT: {self.trade.symbol} buy fill: {self.position.entry.filled_price}  stop: {self.stop()}"
             )
             return True
 
