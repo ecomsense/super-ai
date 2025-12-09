@@ -7,7 +7,7 @@ from src.providers.trade_manager import TradeManager
 
 from traceback import print_exc
 
-logging.info(__name__)
+logging = logging_func(__name__)
 
 
 def calc_highest_target(high, target):
