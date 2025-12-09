@@ -1,6 +1,7 @@
 from sys import exit
 from os import path
 from pprint import pprint
+import logging
 
 # from toolkit.logger import Logger
 from toolkit.fileutils import Fileutils
@@ -88,7 +89,7 @@ def async_logger():
 
     O_SETG = yml_to_obj(S_SETG)
     if isinstance(O_SETG, dict):
-        level = O_SETG.get("log_level", 10)
+        level = O_SETG.get("log_level", logging.DEBUG)
         if O_SETG.get("log_show", True):
             logger_manager = AsyncLogger(level)
         else:
@@ -96,6 +97,14 @@ def async_logger():
 
         # 2. Start the asynchronous thread BEFORE any other strategy logic runs
         logger_manager.start()
+
+        # Silence urllib3 connection pool noise
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+        # Silence general websocket library noise (pings, etc.)
+        logging.getLogger("websocket").setLevel(logging.WARNING)
+        # You may want to keep the broker API chatter if you are debugging network calls
+        # but if it's too much, silence it slightly.
+        logging.getLogger("stock_brokers.finvasia.NorenApi").setLevel(logging.INFO)
 
         # 3. Expose the logger access function to the rest of the project
         # 'logging' now refers to the standard getLogger function
