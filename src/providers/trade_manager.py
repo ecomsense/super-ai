@@ -1,6 +1,8 @@
-from src.constants import logging
+from src.constants import logging_func
 from dataclasses import asdict
 from src.config.interface import Position, Trade
+
+logging = logging_func(__name__)
 
 
 def find_order_if_exists(needle, order_hay):

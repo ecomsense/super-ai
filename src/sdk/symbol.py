@@ -1,4 +1,4 @@
-from src.constants import logging
+from src.constants import logging_func
 
 from src.config.interface import OptionData
 
@@ -6,6 +6,8 @@ import pandas as pd
 from toolkit.fileutils import Fileutils
 from typing import Dict, Optional, Protocol
 from traceback import print_exc
+
+logging = logging_func(__name__)
 
 
 def get_exchange_token_map_finvasia(csvfile, exchange):

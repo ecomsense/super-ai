@@ -1,4 +1,4 @@
-from src.constants import logging
+from src.constants import logging_func
 
 from src.sdk.helper import Helper
 
@@ -6,6 +6,8 @@ from src.providers.time_manager import Gate, Bucket
 from src.providers.trade_manager import TradeManager
 
 from traceback import print_exc
+
+logging.info(__name__)
 
 
 def calc_highest_target(high, target):

@@ -1,4 +1,4 @@
-from src.constants import S_DATA, logging
+from src.constants import S_DATA, logging_func
 
 from src.sdk.helper import get_broker
 from src.sdk.utils import generate_unique_id
@@ -7,6 +7,8 @@ from toolkit.fileutils import Fileutils
 import pandas as pd
 import pendulum as plum
 from traceback import print_exc
+
+logging = logging_func(__name__)
 
 ORDER_CSV = S_DATA + "orders.csv"
 

@@ -1,8 +1,10 @@
 # src/state_manager.py
 
-from src.constants import logging
+from src.constants import logging_func
 from threading import Lock
 from typing import Dict, Any
+
+logging = logging_func(__name__)
 
 
 class StateManager:

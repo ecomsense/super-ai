@@ -1,6 +1,8 @@
-from src.constants import logging
+from src.constants import logging_func
 from traceback import print_exc
 from typing import Dict, Any
+
+logging = logging_func(__name__)
 
 
 def compute(ohlc_prefix):

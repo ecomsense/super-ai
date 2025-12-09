@@ -1,9 +1,12 @@
-from src.constants import logging
+from src.constants import logging_func
 from src.sdk.symbol import OptionSymbol, OptionData
 from src.sdk.helper import Helper
 
 from traceback import print_exc
 from typing import Any
+
+
+logging = logging_func(__name__)
 
 
 class Builder:

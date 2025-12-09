@@ -1,6 +1,8 @@
-from src.constants import logging
+from src.constants import logging_func
 import time
 from stock_brokers.finvasia.NorenApi import FeedType
+
+logging = logging_func(__name__)
 
 
 class Wserver:

@@ -1,4 +1,4 @@
-from src.constants import logging, S_SETG, S_DATA, yml_to_obj
+from src.constants import logging_func, S_SETG, S_DATA, yml_to_obj
 from src.sdk.wserver import Wserver
 
 import pendulum as pdlm
@@ -9,6 +9,8 @@ from traceback import print_exc
 
 from json import dumps, loads
 from pprint import pprint
+
+logging = logging_func(__name__)
 
 
 def df_to_csv(df, csv_file, is_index=False):
