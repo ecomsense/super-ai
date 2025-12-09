@@ -1,4 +1,4 @@
-from src.constants import logging
+from src.constants import logging_func
 
 from src.sdk.symbol import OptionSymbol, OptionData
 from src.sdk.helper import Helper
@@ -7,6 +7,8 @@ from traceback import print_exc
 from typing import Any, Literal
 from importlib import import_module
 from toolkit.kokoo import is_time_past, kill_tmux
+
+logging = logging_func(__name__)
 
 """
 def unsubscribe_tokens_not_in_strategies(strategies: list[Any]):
