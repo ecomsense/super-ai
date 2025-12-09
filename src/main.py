@@ -14,7 +14,7 @@ from src.core.strategy import StrategyMaker, Engine
 from toolkit.kokoo import is_time_past, blink
 from traceback import print_exc
 
-logging = logging_Func(__name__)
+logging = logging_func(__name__)
 
 
 def login_and_get_settings():
