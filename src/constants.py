@@ -1,11 +1,12 @@
 from sys import exit
 from os import path
 from pprint import pprint
-from toolkit.logger import Logger
+
+# from toolkit.logger import Logger
 from toolkit.fileutils import Fileutils
 from typing import Any, Optional
 
-# from src.providers.async_logger import AsyncLogger  # Assuming you put the class here
+from src.providers.async_logger import AsyncLogger  # Assuming you put the class here
 
 
 S_DATA = "./data/"
@@ -64,13 +65,8 @@ def yml_to_obj(arg=None):
     return futl.get_lst_fm_yml(file)
 
 
+"""
 def set_logger():
-    """
-    description:
-        set custom logger's log level
-        display or write to file
-        based on user choice from settings
-    """
     refresh_files(S_LOG)
 
     O_SETG = yml_to_obj(S_SETG)
@@ -82,8 +78,9 @@ def set_logger():
     else:
         return Logger()
 
-
 """
+
+
 def async_logger():
     # Request: Log level and file name decided here
 
@@ -105,9 +102,9 @@ def async_logger():
         # Request: Your strategy modules will import this 'logging'
         logging = logger_manager.get_logger_function()
         return logging
-"""
 
-logging = set_logger()
+
+logging = async_logger()
 
 
 class TradeSet:
