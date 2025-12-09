@@ -100,11 +100,11 @@ def async_logger():
         # 3. Expose the logger access function to the rest of the project
         # 'logging' now refers to the standard getLogger function
         # Request: Your strategy modules will import this 'logging'
-        logger_manager.get_logger_function()
-        return logger_manager
+        logging_func = logger_manager.get_logger_function()
+        return logging_func
 
 
-logging = async_logger()
+logging_func = async_logger()
 
 
 class TradeSet:

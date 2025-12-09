@@ -1,5 +1,11 @@
 # main.py
-from src.constants import logging, S_SETG, TradeSet, yml_to_obj, get_symbol_fm_factory
+from src.constants import (
+    logging_func,
+    S_SETG,
+    TradeSet,
+    yml_to_obj,
+    get_symbol_fm_factory,
+)
 
 from src.sdk.helper import Helper
 from src.core.build import Builder
@@ -7,6 +13,8 @@ from src.core.strategy import StrategyMaker, Engine
 
 from toolkit.kokoo import is_time_past, blink
 from traceback import print_exc
+
+logging = logging_Func(__name__)
 
 
 def login_and_get_settings():
