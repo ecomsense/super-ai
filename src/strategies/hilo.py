@@ -45,7 +45,7 @@ class Hilo:
 
         # new
         self._prev_price = self._last_price
-        self._check_gate = Gate(user_settings["rest_time"])
+        self._check_gate = Bucket(user_settings["rest_time"], 1)
         self._trade_bucket = Bucket(
             period=user_settings["time_bucket"],
             max_trades=user_settings["max_trade_in_bucket"],
@@ -85,17 +85,16 @@ class Hilo:
         try:
             # 1. Check other conditions every check_every (30 seconds)
             if not self._check_gate.allow():
+                logging.debug(f"small BUCKET full: {self._symbol} skipping trading")
+                return
+
+            # 3. are we with the trade limits in this bucket
+            if not self._trade_bucket.allow():
+                logging.debug(f"BIG BUCKET FULL: {self._symbol} skipping trading")
                 return
 
             for stop in [self._low, self._high]:
-                # 2. check actual breakout condition
-                logging.debug(f"Gate Opened: {self._symbol} checking breakout@ {stop}")
                 if self._last_price > stop and self._prev_price <= stop:
-
-                    # 3. are we with the trade limits in this bucket
-                    if not self._trade_bucket.allow():
-                        logging.debug(f"{self._symbol} bucket full, skipping trading")
-                        return
 
                     self._target = (
                         self._high
@@ -110,6 +109,11 @@ class Hilo:
                         self._fn = "place_exit_order"
                     else:
                         logging.warning(f"{self._symbol} without order id")
+
+                # 2. check actual breakout condition
+                logging.debug(
+                    f"No Breakout: {self._symbol} not {self._prev_price} < {stop} < {self._last_price} "
+                )
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
