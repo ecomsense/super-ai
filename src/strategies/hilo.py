@@ -83,18 +83,21 @@ class Hilo:
 
     def is_breakout(self):
         try:
-            # 1. Check other conditions every check_every (30 seconds)
-            if not self._check_gate.allow():
-                logging.debug(f"small BUCKET full: {self._symbol} skipping trading")
-                return
-
-            # 3. are we with the trade limits in this bucket
-            if not self._trade_bucket.allow():
-                logging.debug(f"BIG BUCKET FULL: {self._symbol} skipping trading")
-                return
 
             for stop in [self._low, self._high]:
                 if self._last_price > stop and self._prev_price <= stop:
+
+                    # 3. are we with the trade limits in this bucket
+                    if not self._trade_bucket.allow():
+                        logging.debug(
+                            f"BIG BUCKET FULL: {self._symbol} skipping trading"
+                        )
+                        return
+                    elif not self._check_gate.allow():
+                        logging.debug(
+                            f"small BUCKET full: {self._symbol} skipping trading"
+                        )
+                        return
 
                     self._target = (
                         self._high
