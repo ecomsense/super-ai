@@ -85,42 +85,43 @@ class Hilo:
         try:
 
             for self._stop in [self._low, self._high]:
+                # 1.1 check actual breakout condition
                 if self._last_price > self._stop and self._prev_price <= self._stop:
-
-                    # 3. are we with the trade limits in this bucket
-                    if not self._big_bucket.can_allow():
-                        logging.debug(
-                            f"BIG BUCKET FULL: {self._symbol} skipping trading"
-                        )
-                        return
+                    # 2. are we with the trade limits of time buckets
                     if not self._small_bucket.can_allow():
                         logging.debug(
                             f"small BUCKET full: {self._symbol} skipping trading"
                         )
                         return
+                    if not self._big_bucket.can_allow():
+                        logging.debug(
+                            f"BIG BUCKET FULL: {self._symbol} skipping trading"
+                        )
+                        return
 
-                    self._small_bucket.allow()
-                    self._big_bucket.allow()
-
+                    # 3. calculate target price
                     self._target = (
                         self._high
                         if self._stop == self._low
                         else calc_highest_target(self._high, self._target_set_by_user)
                     )
-
                     # 4. place entry
                     order_id = self.trade_mgr.complete_entry(
                         quantity=self._quantity, price=self._last_price + 2
                     )
                     if order_id:
+                        # 5. consume tokens
+                        self._small_bucket.allow()
+                        self._big_bucket.allow()
                         self._fn = "place_exit_order"
                     else:
                         logging.warning(f"{self._symbol} without order id")
 
-                # 2. check actual breakout condition
-                logging.debug(
-                    f"No Breakout: {self._symbol} not {self._prev_price} < {self._stop} < {self._last_price} "
-                )
+                # 1.2. check actual breakout condition
+                else:
+                    logging.debug(
+                        f"No Breakout: {self._symbol} not {self._prev_price} < {self._stop} < {self._last_price} "
+                    )
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
