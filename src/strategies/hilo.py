@@ -114,6 +114,7 @@ class Hilo:
                         self._small_bucket.allow()
                         self._big_bucket.allow()
                         self._fn = "place_exit_order"
+                        return
                     else:
                         logging.warning(f"{self._symbol} without order id")
 
@@ -143,6 +144,10 @@ class Hilo:
         try:
             if self.trade_mgr.is_trade_exited(self._last_price, self._orders):
                 self._fn = "is_breakout"
+            else:
+                logging.debug(
+                    f"Progress: {self._symbol} stop:{self._stop} < ltp:{self._last_price} < target:{self._target}"
+                )
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
@@ -155,9 +160,10 @@ class Hilo:
             if ltp is not None:
                 self._prev_price = self._last_price
                 self._last_price = float(ltp)
-
+            """
             msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}  high:{self._high}"
             print(msg)
+            """
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._symbol}")
