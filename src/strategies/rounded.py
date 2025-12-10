@@ -10,17 +10,7 @@ from traceback import print_exc
 logging = logging_func(__name__)
 
 
-def calc_highest_target(high, target):
-    """
-    calculate the target price from percentage or fixed value
-    """
-    if isinstance(target, str) and target.endswith("%"):
-        target = target.split("%")[0].strip()
-        return high + (high * float(target) / 100)
-    return high + float(target)
-
-
-class Hilo:
+class Rounded:
 
     def __init__(
         self,
@@ -56,25 +46,17 @@ class Hilo:
             symbol=self._symbol,
             exchange=user_settings["option_exchange"],
         )
-        loc = user_settings.get("candle_number", -1)
-        self._high = self._rest.history(
-            exchange=user_settings["option_exchange"],
-            token=symbol_info["token"],
-            loc=loc,
-            key="inth",
-        )
 
-        self._low = self._rest.history(
-            exchange=user_settings["option_exchange"],
-            token=symbol_info["token"],
-            loc=loc,
-            key="intl",
-        )
-        self._stop = self._low
+        low = user_settings.get("low", 150)
+        levels = user_settings.get("no_of_levels", 3)
+        self._distance = user_settings.get("distance", 50)
 
-        self._target = self._high
+        self._stops = []
+        start = 1
+        while start <= levels:
+            self._stops.append(low + self._distance * start)
+            start += 1
 
-        self._target_set_by_user = user_settings.get("target", "50%")
         """
         initial trade low condition
         """
@@ -83,7 +65,7 @@ class Hilo:
     def is_breakout(self):
         try:
 
-            for self._stop in [self._low, self._high]:
+            for self._stop in self._stops:
                 # 1.1 check actual breakout condition
                 if self._last_price > self._stop and self._prev_price <= self._stop:
                     # 2. are we with the trade limits of time buckets
@@ -99,11 +81,7 @@ class Hilo:
                         return
 
                     # 3. calculate target price
-                    self._target = (
-                        self._high
-                        if self._stop == self._low
-                        else calc_highest_target(self._high, self._target_set_by_user)
-                    )
+                    self._target = self._stop + self._distance
                     # 4. place entry
                     order_id = self.trade_mgr.complete_entry(
                         quantity=self._quantity, price=self._last_price + 2
@@ -116,11 +94,12 @@ class Hilo:
                         return
                     else:
                         logging.warning(f"{self._symbol} without order id")
+                        return
 
-                # 1.2. check actual breakout condition
-                logging.debug(
-                    f"No Breakout: {self._symbol} {self._prev_price} is not less than  {self._low} {self._high} or  {self._last_price} is not greater "
-                )
+            # 1.2. check actual breakout condition
+            logging.debug(
+                f"No Breakout: {self._symbol}  {self._prev_price} is not less than {self._stops} and not less than {self._last_price} "
+            )
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")

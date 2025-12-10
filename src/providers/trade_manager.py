@@ -26,12 +26,11 @@ class TradeManager:
             logging.error(f"TradeManager: Order Place {e}")
             raise  # Re-raise the exception instead of printing the error message
 
-    def __init__(self, stock_broker, symbol, last_price, exchange):
+    def __init__(self, stock_broker, symbol, exchange):
         self.stock_broker = stock_broker
         self.position = Position()
         self.trade = Trade(
             symbol=symbol,
-            last_price=last_price,
             exchange=exchange,
         )
 
