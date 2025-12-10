@@ -103,7 +103,9 @@ class Gate:
 
 
 class Bucket:
-    """Limit N events every M seconds — never earlier."""
+    """Limit N events every M seconds — never earlier.
+    Uses Fixed Window Counter approach.
+    """
 
     def __init__(self, period: dict, max_trades: int):
         self.period = period
@@ -112,17 +114,26 @@ class Bucket:
 
     def reset(self):
         now = pdlm.now("Asia/Kolkata")
+        # Ensure the bucket_end calculation handles the 'period' dict correctly
         self.bucket_end = now.add(**self.period)
         self.count = 0
 
-    def allow(self) -> bool:
+    def can_allow(self) -> bool:
+        """Checks if a trade can occur WITHOUT consuming a count."""
         now = pdlm.now("Asia/Kolkata")
 
-        # bucket expired → reset
+        # Check for expiry first and reset if necessary
         if now >= self.bucket_end:
             self.reset()
 
-        if self.count < self.max_trades:
+        # Check if we are below the trade limit
+        return self.count < self.max_trades
+
+    def allow(self) -> bool:
+        """Consumes a trade count ONLY if allowed."""
+
+        # Check if the trade is allowed using the safe check
+        if self.can_allow():
             self.count += 1
             return True
 
