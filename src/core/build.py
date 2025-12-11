@@ -35,7 +35,7 @@ class Builder:
                 symbol_item["base"] = k
 
                 # use base key as default for symbol
-                symbol_item["symbol"] = symbol_item.pop("symbol", k)
+                symbol_item["symbol"] = settings.get("symbol", k)
 
                 # if token not found in case of mcx future expiry
                 token = symbol_item.get("token", None)
