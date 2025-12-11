@@ -62,7 +62,7 @@ class Builder:
         (Refactored from your original find_instrument_tokens_to_trade)
         """
         try:
-            print(symbols_to_trade)
+            logging.debug(f"symbols to trade: {symbols_to_trade}")
             tokens_of_all_trading_symbols = {}
             for k, symbol_info in symbols_to_trade.items():
                 data = OptionData(
