@@ -1,6 +1,7 @@
 from src.constants import logging_func
 from dataclasses import asdict
 from src.config.interface import Position, Trade
+from sdk.utils import round_down_to_tick
 
 logging = logging_func(__name__)
 
@@ -118,19 +119,27 @@ class TradeManager:
         order = find_order_if_exists(self.position.exit.order_id, orders)
 
         if isinstance(order, dict):
-            logging.debug(
+            logging.info(
                 f"STOP HIT: {self.trade.symbol} buy fill: {self.position.entry.filled_price}  stop: {self.stop()}"
             )
             return True
 
-        elif last_price <= self.stop():  # type: ignore
+        elif last_price < self.stop():  # type: ignore
+            """
             kwargs = dict(
                 price=0.0,
                 order_type="MARKET",
                 last_price=last_price,
             )
+            """
+            kwargs = dict(
+                trigger_price=0.0,
+                price=round_down_to_tick(last_price),
+                order_type="LIMIT",
+                last_price=last_price,
+            )
             resp = self.complete_exit(**kwargs)
-            logging.debug(f"KILLING STOP: returned {resp}")
+            logging.info(f"KILLING STOP: returned {resp}")
             return True
 
         elif last_price > self.target():
@@ -140,7 +149,7 @@ class TradeManager:
                 last_price=last_price,
             )
             resp = self.complete_exit(**kwargs)
-            logging.debug(f"TARGET REACHED: returned {resp}")
+            logging.info(f"TARGET REACHED: returned {resp}")
             return True
 
         return False

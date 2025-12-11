@@ -44,3 +44,13 @@ def generate_unique_id():
     # Combine the timestamp with the random string to form the unique ID
     unique_id = f"{timestamp}_{random_str}"
     return unique_id
+
+
+def round_down_to_tick(last_price, tick_size=0.05, percentage_reduction=0.02):
+    # 1. Calculate 2% less than last_price
+    reduced_price = last_price * (1 - percentage_reduction)
+
+    # 3. Round to the nearest 0.05 tick
+    final_price = round(reduced_price / tick_size) * tick_size
+
+    return final_price
