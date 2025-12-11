@@ -73,7 +73,7 @@ class Builder:
                     depth=symbol_info["depth"],
                     expiry=symbol_info["expiry"],
                 )
-                sym = OptionSymbol(OptionData=data)
+                sym = OptionSymbol(data)
 
                 # get atm for the underlying
                 exchange = symbol_info["exchange"]
