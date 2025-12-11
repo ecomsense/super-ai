@@ -35,9 +35,9 @@ class Rounded:
 
         # new
         self._prev_price = self._last_price
-        self._small_bucket = Bucket(user_settings["rest_time"], 1)
+        self._small_bucket = Bucket(user_settings["small_bucket"], 1)
         self._big_bucket = Bucket(
-            period=user_settings["time_bucket"],
+            period=user_settings["big_bucket"],
             max_trades=user_settings["max_trade_in_bucket"],
         )
 

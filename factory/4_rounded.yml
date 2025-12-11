@@ -12,7 +12,7 @@ NIFTY:
   quantity: 75
   small_bucket:
     seconds: 30 #seconds: 30
-  big_bucket::
+  big_bucket:
     minutes: 5
   max_trade_in_bucket: 2
   low: 150
