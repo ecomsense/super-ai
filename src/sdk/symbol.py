@@ -36,8 +36,8 @@ class OptionSymbol(Symbol):
     Class to get symbols from finvasia, implementing the SymbolProtocol.
     """
 
-    def __init__(self, OptionData):
-        self._data = OptionData
+    def __init__(self, data: OptionData):
+        self._data = data
         self.csvfile = f"./data/{self._data.exchange}_symbols.csv"
         get_exchange_token_map_finvasia(self.csvfile, self._data.exchange)
 

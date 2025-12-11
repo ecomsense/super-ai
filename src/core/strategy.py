@@ -57,6 +57,10 @@ class StrategyMaker:
                 expiry=user_settings["expiry"],
             )
             atm = user_settings["atm"]
+
+            logging.info(
+                f"find option by distance with {data} for user settings atm:{atm}"
+            )
             sym = OptionSymbol(data)
 
             result = sym.find_option_by_distance(
