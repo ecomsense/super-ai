@@ -1,7 +1,7 @@
 from src.constants import logging_func
 from dataclasses import asdict
 from src.config.interface import Position, Trade
-from sdk.utils import round_down_to_tick
+from src.sdk.utils import round_down_to_tick
 
 logging = logging_func(__name__)
 
