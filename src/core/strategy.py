@@ -35,7 +35,7 @@ class StrategyMaker:
         self,
         tokens_for_all_trading_symbols,
         symbols_to_trade,
-    ) -> None:
+ e    ) -> None:
         self.tokens_for_all_trading_symbols = tokens_for_all_trading_symbols
         self.symbols_to_trade = symbols_to_trade
 

@@ -49,6 +49,33 @@ class OptionSymbol(Symbol):
             else current_strike
         )
 
+    def _find_expiry(self):
+        """
+            find 
+        """
+        df = pd.read_csv(self.csvfile, usecols=["Symbol", "Expiry"])
+
+        df = df[df.Symbol==self._data.symbol]
+
+        df = df.drop_duplicates(subset=["Expiry"])
+
+        df['Sort_Key'] = pd.to_datetime(df['Expiry'], format='%d-%b-%Y')
+
+        today = pd.to_datetime('today').normalize()
+
+        df = df[df["Sort_Key"] >= today]
+
+
+        df = df.sort_values(by=["Sort_Key"])
+
+        print(df.head())
+        if len(df.index)>0:
+            first_row = df.iloc[0]['Expiry']
+            return first_row
+        return None
+        
+
+
     def get_tokens(self, strike: int) -> Dict[str, str]:
         try:
             df = pd.read_csv(self.csvfile)

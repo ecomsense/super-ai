@@ -49,6 +49,8 @@ def main():
         )
         logging.info(f"symbol_to_trade: {symbol_to_trade}")
 
+        symbol_to_trade = builder.find_expiry(symbol_to_trade)
+
         missing_token = builder.find_fno_tokens(symbols_to_trade=symbol_to_trade)
         logging.info(f"missing token: {missing_token}")
 

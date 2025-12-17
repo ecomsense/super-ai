@@ -56,6 +56,28 @@ class Builder:
             logging.error(f"{e} while getting symbols to trade in StrategyBuilder")
             return {}
 
+    def find_expiry(self, symbols_to_trade):
+        try:
+            for k, symbol_info in symbols_to_trade.items():
+                data = OptionData(
+                    exchange=symbol_info["option_exchange"],
+                    base=symbol_info["base"],
+                    symbol=symbol_info["symbol"],
+                    diff=symbol_info["diff"],
+                    depth=symbol_info["depth"],
+                    expiry=symbol_info.get("expiry", None)
+                )
+                sym = OptionSymbol(data)
+                if not sym._data.expiry:
+                    expiry = sym._find_expiry()
+                    symbols_to_trade[k]["expiry"] = expiry
+
+            return symbols_to_trade
+        except Exception as e:
+            logging.error(f"{e} while finding expiry")
+            print_exc()
+
+
     def find_fno_tokens(self, symbols_to_trade) -> dict[str, Any]:
         """
         get instrument tokens from broker for each symbol to trade and merge them together
@@ -71,7 +93,7 @@ class Builder:
                     symbol=symbol_info["symbol"],
                     diff=symbol_info["diff"],
                     depth=symbol_info["depth"],
-                    expiry=symbol_info["expiry"],
+                    expiry=symbol_info["expiry"]
                 )
                 sym = OptionSymbol(data)
 
@@ -81,7 +103,7 @@ class Builder:
                 ltp_for_underlying = Helper._rest.ltp(exchange, token)
                 assert ltp_for_underlying is not None, "ltp_for_underlying is None"
                 atm = sym.get_atm(ltp_for_underlying)
-
+                
                 # set atm for later use
                 symbols_to_trade[k]["atm"] = atm
                 symbols_to_trade[k]["underlying_ltp"] = ltp_for_underlying

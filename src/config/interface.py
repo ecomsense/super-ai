@@ -41,7 +41,7 @@ class Position:
     is_position: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class OptionData:
     """A dataclass to hold the core attributes of a financial symbol."""
 
