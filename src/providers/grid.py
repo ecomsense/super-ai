@@ -100,3 +100,29 @@ class Gridlines:
             if lowest <= ltp < highest:
                 return idx
         return idx
+
+
+def pivot_to_stop_and_target(pivots: list):
+    lst_of_tuples = None
+    logging.info(f"{pivots}")
+    level = sorted(pivots, reverse=False)
+    level = [item for item in level if item > 0]
+    lst_of_tuples = list(zip(level, level[1:]))
+    return lst_of_tuples
+
+
+if __name__ == "__main__":
+    from src.sdk.helper import Helper
+
+    Helper.api()
+    rst = Helper._rest
+    sym = {}
+    resp = Grid().get(rst=rst, exchange="NSE", tradingsymbol="NIFTY 50", token="26000")
+    print("begin", resp, "end")
+
+    try:
+        pivots = [25, 30, 5, -2]
+        resp = pivot_to_stop_and_target(pivots)
+        assert resp == [(5, 25), (25, 30)], "not sorted"
+    except Exception as e:
+        print(e)
