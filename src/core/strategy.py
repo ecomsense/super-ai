@@ -35,7 +35,7 @@ class StrategyMaker:
         self,
         tokens_for_all_trading_symbols,
         symbols_to_trade,
-     ) -> None:
+    ) -> None:
         self.tokens_for_all_trading_symbols = tokens_for_all_trading_symbols
         self.symbols_to_trade = symbols_to_trade
 
@@ -238,8 +238,9 @@ class Engine:
                 )
                 orders = Helper._rest.orders()
                 for item in orders:
-                    if (item["status"] == "OPEN") or (
-                        item["status"] == "TRIGGER_PENDING"
+                    if (
+                        item.get("status", None) == "OPEN"
+                        or item.get("status", None) == "TRIGGER_PENDING"
                     ):
                         order_id = item.get("order_id", None)
                         logging.info(f"cancelling open order {order_id}")

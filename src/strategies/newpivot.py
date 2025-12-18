@@ -51,11 +51,12 @@ class Newpivot:
         rst = Helper._rest
         resp = Grid().get(
             rst=rst,
-            exchange=symbol_info["option_exchange"],
+            exchange=user_settings["option_exchange"],
             tradingsymbol=self._symbol,
             token=self._token,
         )
         self._levels = pivot_to_stop_and_target(pivots=resp)
+        print(self._levels)
         """
         initial trade low condition
         """

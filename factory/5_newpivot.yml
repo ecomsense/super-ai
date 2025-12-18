@@ -1,0 +1,16 @@
+trade:
+  strategy: newpivot
+  start: "0:15"
+  stop: "15:20"
+  live: 1 # 0 for paper 1 for live
+NIFTY:
+  base: NIFTY
+  option_exchange: NFO
+  moneyness: -1
+  premium: 200
+  quantity: 75
+  small_bucket:
+    seconds: 30 #seconds: 30
+  big_bucket:
+    minutes: 5
+  max_trade_in_bucket: 2
