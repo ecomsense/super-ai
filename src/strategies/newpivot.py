@@ -96,7 +96,7 @@ class Newpivot:
 
             # 1.2. check actual breakout condition
             logging.debug(
-                f"No Breakout: {self._symbol}  {self._prev_price} > {self._stops} or < {self._last_price} "
+                f"No Breakout: {self._symbol}  {self._prev_price} > {self._levels} or < {self._last_price} "
             )
 
         except Exception as e:
