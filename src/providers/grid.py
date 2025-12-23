@@ -1,4 +1,5 @@
 from src.constants import logging_func
+from sdk.utils import round_down_to_tick
 from traceback import print_exc
 from typing import Dict, Any
 
@@ -107,7 +108,11 @@ def pivot_to_stop_and_target(pivots: list):
     logging.info(f"{pivots}")
     level = sorted(pivots, reverse=False)
     level = [item for item in level if item > 0]
-    lst_of_tuples = list(zip(level, level[1:]))
+    new_lst = []
+    for item in level:
+        resp = round_down_to_tick(item)
+        new_lst.append(resp)
+    lst_of_tuples = list(zip(new_lst, new_lst[1:]))
     return lst_of_tuples
 
 

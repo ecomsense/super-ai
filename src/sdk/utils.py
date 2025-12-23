@@ -46,11 +46,15 @@ def generate_unique_id():
     return unique_id
 
 
-def round_down_to_tick(last_price, tick_size=0.05, percentage_reduction=0.02):
-    # 1. Calculate 2% less than last_price
-    reduced_price = last_price * (1 - percentage_reduction)
+def round_down_to_tick(last_price, tick_size=0.05, percentage_reduction=None):
 
-    # 3. Round to the nearest 0.05 tick
-    final_price = round(reduced_price / tick_size) * tick_size
+    if percentage_reduction:
+        # 1. Calculate 2% less than last_price
+        reduced_price = last_price * (1 - percentage_reduction)
+
+        # 3. Round to the nearest 0.05 tick
+        final_price = round(reduced_price / tick_size) * tick_size
+    else:
+        final_price = round(last_price / tick_size) * tick_size
 
     return final_price
