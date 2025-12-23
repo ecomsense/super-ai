@@ -110,7 +110,7 @@ def pivot_to_stop_and_target(pivots: list):
     level = [item for item in level if item > 0]
     new_lst = []
     for item in level:
-        resp = round_down_to_tick(item)
+        resp = round(round_down_to_tick(item), 2)
         new_lst.append(resp)
     lst_of_tuples = list(zip(new_lst, new_lst[1:]))
     return lst_of_tuples
