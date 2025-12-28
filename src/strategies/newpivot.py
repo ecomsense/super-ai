@@ -7,6 +7,7 @@ from src.providers.time_manager import Bucket
 from src.providers.trade_manager import TradeManager
 
 from traceback import print_exc
+import pendulum as pdlm
 
 logging = logging_func(__name__)
 
@@ -41,6 +42,9 @@ class Newpivot:
             period=user_settings["big_bucket"],
             max_trades=user_settings["max_trade_in_bucket"],
         )
+        self._big_bucket_time = user_settings["big_bucket"]
+
+        self.last_trade_time(pdlm.now())
 
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
@@ -62,30 +66,41 @@ class Newpivot:
         """
         self._fn = "is_breakout"
 
+    def _high(self):
+        return self._last_price
+
+    def last_trade_time(self, now):
+        if now:
+            self._last_trade_time = now + self._big_bucket_time
+        return self._last_trade_time
+
+    def is_idle_bucket_elapsed(self):
+        return pdlm.now() > self._last_trade_time
+
     def is_breakout(self):
         try:
+            # 1. are we with the trade limits of time buckets
+            if not self._small_bucket.can_allow():
+                logging.debug(f"small BUCKET full: {self._symbol} skipping trading")
+                return
+            if not self._big_bucket.can_allow():
+                logging.debug(f"BIG BUCKET FULL: {self._symbol} skipping trading")
+                return
 
+            # 2 check actual breakout condition
             for self._stop, self._target in self._levels:
-                # 1.1 check actual breakout condition
-                if self._last_price > self._stop and self._prev_price <= self._stop:
-                    # 2. are we with the trade limits of time buckets
-                    if not self._small_bucket.can_allow():
-                        logging.debug(
-                            f"small BUCKET full: {self._symbol} skipping trading"
-                        )
-                        return
-                    if not self._big_bucket.can_allow():
-                        logging.debug(
-                            f"BIG BUCKET FULL: {self._symbol} skipping trading"
-                        )
-                        return
+                if (
+                    self._last_price > self._stop and self._prev_price <= self._stop
+                ) or (
+                    self.is_idle_bucket_elapsed() and self._last_price > self._high()
+                ):
 
-                    # 4. place entry
+                    # 3. place entry
                     order_id = self.trade_mgr.complete_entry(
                         quantity=self._quantity, price=self._last_price + 2
                     )
                     if order_id:
-                        # 5. consume tokens
+                        # 4. consume tokens
                         self._small_bucket.allow()
                         self._big_bucket.allow()
                         self._fn = "place_exit_order"
