@@ -138,3 +138,21 @@ class Bucket:
             return True
 
         return False
+
+
+class SimpleBucket:
+    def __init__(self, bucket_time: dict):
+        self._bucket_time = bucket_time
+        self._next_bucket = None
+
+    def set_bucket(self):
+        """
+        set next time of trade
+        """
+        now = pdlm.now("Asia/Kolkata")
+        self._next_bucket = now.add(**self._bucket_time)
+
+    def is_bucket(self):
+        if self._next_bucket and pdlm.now("Asia/Kolkata") > self._next_bucket:
+            return True
+        return False

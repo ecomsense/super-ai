@@ -3,11 +3,10 @@ from src.constants import logging_func
 from src.sdk.helper import Helper
 from src.providers.grid import Grid, pivot_to_stop_and_target
 
-from src.providers.time_manager import Bucket
+from src.providers.time_manager import Bucket, SimpleBucket
 from src.providers.trade_manager import TradeManager
 
 from traceback import print_exc
-import pendulum as pdlm
 
 logging = logging_func(__name__)
 
@@ -42,9 +41,7 @@ class Newpivot:
             period=user_settings["big_bucket"],
             max_trades=user_settings["max_trade_in_bucket"],
         )
-        self._big_bucket_time = user_settings["big_bucket"]
-
-        self.last_trade_time(pdlm.now())
+        self._simple = SimpleBucket(user_settings["big_bucket"])
 
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
@@ -60,25 +57,19 @@ class Newpivot:
             token=self._token,
         )
         self._levels = pivot_to_stop_and_target(pivots=resp)
-        print(self._levels)
         """
         initial trade low condition
         """
         self._fn = "is_breakout"
 
-    def _high(self):
-        return self._last_price
-
-    def last_trade_time(self, now):
-        if now:
-            self._last_trade_time = now + self._big_bucket_time
-        return self._last_trade_time
-
-    def is_idle_bucket_elapsed(self):
-        return pdlm.now() > self._last_trade_time
+    def _is_tradeable(self, stop, ltp, target):
+        half = target / stop
+        max = stop + half
+        return ltp < max
 
     def is_breakout(self):
         try:
+
             # 1. are we with the trade limits of time buckets
             if not self._small_bucket.can_allow():
                 logging.debug(f"small BUCKET full: {self._symbol} skipping trading")
@@ -89,25 +80,31 @@ class Newpivot:
 
             # 2 check actual breakout condition
             for self._stop, self._target in self._levels:
-                if (
-                    self._last_price > self._stop and self._prev_price <= self._stop
-                ) or (
-                    self.is_idle_bucket_elapsed() and self._last_price > self._high()
-                ):
+                if self._last_price > self._target:
+                    return
 
-                    # 3. place entry
-                    order_id = self.trade_mgr.complete_entry(
-                        quantity=self._quantity, price=self._last_price + 2
-                    )
-                    if order_id:
-                        # 4. consume tokens
-                        self._small_bucket.allow()
-                        self._big_bucket.allow()
-                        self._fn = "place_exit_order"
-                        return
-                    else:
-                        logging.warning(f"{self._symbol} without order id")
-                        return
+                if self._last_price > self._stop:
+
+                    if self._prev_price <= self._stop or (
+                        self._simple.is_bucket()
+                        and self._is_tradeable(
+                            stop=self._stop, ltp=self._last_price, target=self._target
+                        )
+                    ):
+                        # 3. place entry
+                        order_id = self.trade_mgr.complete_entry(
+                            quantity=self._quantity, price=self._last_price + 2
+                        )
+                        if order_id:
+                            self._simple._next_bucket = None
+                            # 4. consume tokens
+                            self._small_bucket.allow()
+                            self._big_bucket.allow()
+                            self._fn = "place_exit_order"
+                            return
+                        else:
+                            logging.warning(f"{self._symbol} without order id")
+                            return
 
             # 1.2. check actual breakout condition
             logging.debug(
@@ -133,6 +130,7 @@ class Newpivot:
     def try_exiting_trade(self):
         try:
             if self.trade_mgr.is_trade_exited(self._last_price, self._orders):
+                self._simple.set_bucket()
                 self._fn = "is_breakout"
             else:
                 logging.debug(
@@ -150,6 +148,7 @@ class Newpivot:
             if ltp is not None:
                 self._prev_price = self._last_price
                 self._last_price = float(ltp)
+
             """
             msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}  high:{self._high}"
             print(msg)
