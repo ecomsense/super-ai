@@ -57,7 +57,6 @@ class Newpivot:
             token=self._token,
         )
         self._levels = pivot_to_stop_and_target(pivots=resp)
-        logging.info(f"pivot levels: {self._levels}")
         """
         initial trade low condition
         """
@@ -88,9 +87,6 @@ class Newpivot:
                     continue
 
                 if self._last_price > self._stop:
-                    logging.info(
-                        f"ltp:{self._last_price} > stop:{self._stop} when prev_price={self._prev_price}"
-                    )
                     if self._prev_price <= self._stop or (
                         self._simple.is_bucket()
                         and self._is_tradeable(
