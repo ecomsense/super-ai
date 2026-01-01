@@ -1,3 +1,0 @@
-14 9 * * * /var/www/clients/client5/web8/home/harinath.l/no_venv/super-ai/data/cron.sh > /tmp/harinath_cron.txt 2>&1
-
-
