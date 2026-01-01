@@ -72,19 +72,20 @@ class Newpivot:
 
             # 1. are we with the trade limits of time buckets
             if not self._small_bucket.can_allow():
-                logging.debug(f"small BUCKET full: {self._symbol} skipping trading")
+                print(f"small BUCKET full: {self._symbol} skipping trading")
                 return
             if not self._big_bucket.can_allow():
-                logging.debug(f"BIG BUCKET FULL: {self._symbol} skipping trading")
+                print(f"BIG BUCKET FULL: {self._symbol} skipping trading")
                 return
 
             # 2 check actual breakout condition
             for self._stop, self._target in self._levels:
                 if self._last_price > self._target:
+                    print(f"ltp{self._last_price} > {self._target}")
                     return
 
                 if self._last_price > self._stop:
-
+                    logging.debug(f"ltp{self._last_price} > stop:{self._stop}")
                     if self._prev_price <= self._stop or (
                         self._simple.is_bucket()
                         and self._is_tradeable(
