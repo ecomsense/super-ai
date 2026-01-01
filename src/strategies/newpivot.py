@@ -81,11 +81,13 @@ class Newpivot:
             # 2 check actual breakout condition
             for self._stop, self._target in self._levels:
                 if self._last_price > self._target:
-                    print(f"ltp{self._last_price} > {self._target}")
+                    print(f"ltp:{self._last_price} > target:{self._target} returning")
                     return
 
                 if self._last_price > self._stop:
-                    logging.debug(f"ltp{self._last_price} > stop:{self._stop}")
+                    logging.info(
+                        f"ltp:{self._last_price} > stop:{self._stop} when prev_price={self._prev_price}"
+                    )
                     if self._prev_price <= self._stop or (
                         self._simple.is_bucket()
                         and self._is_tradeable(
