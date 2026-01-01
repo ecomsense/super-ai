@@ -149,7 +149,7 @@ class Newpivot:
                 self._prev_price = self._last_price
                 self._last_price = float(ltp)
 
-            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}"
+            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price}"
             print(msg)
             return getattr(self, self._fn)()
         except Exception as e:
