@@ -149,9 +149,10 @@ class Newpivot:
             if ltp is not None:
                 self._prev_price = self._last_price
                 self._last_price = float(ltp)
-
+            """
             msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price}"
             print(msg)
+                """
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._symbol}")
