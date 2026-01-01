@@ -57,6 +57,7 @@ class Newpivot:
             token=self._token,
         )
         self._levels = pivot_to_stop_and_target(pivots=resp)
+        logging.info(f"pivot levels: {self._levels}")
         """
         initial trade low condition
         """
@@ -81,8 +82,10 @@ class Newpivot:
             # 2 check actual breakout condition
             for self._stop, self._target in self._levels:
                 if self._last_price > self._target:
-                    print(f"ltp:{self._last_price} > target:{self._target} returning")
-                    return
+                    print(
+                        f"{self._symbol} ltp:{self._last_price} > target:{self._target} returning"
+                    )
+                    continue
 
                 if self._last_price > self._stop:
                     logging.info(
