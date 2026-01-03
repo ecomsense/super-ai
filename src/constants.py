@@ -66,22 +66,6 @@ def yml_to_obj(arg=None):
     return futl.get_lst_fm_yml(file)
 
 
-"""
-def set_logger():
-    refresh_files(S_LOG)
-
-    O_SETG = yml_to_obj(S_SETG)
-    if isinstance(O_SETG, dict):
-        level = O_SETG.get("log_level", 10)
-        if O_SETG.get("log_show", True):
-            return Logger(level)
-        return Logger(level, S_LOG)
-    else:
-        return Logger()
-
-"""
-
-
 def async_logger():
     # Request: Log level and file name decided here
 

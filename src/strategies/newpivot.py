@@ -131,7 +131,9 @@ class Newpivot:
 
     def try_exiting_trade(self):
         try:
-            if self.trade_mgr.is_trade_exited(self._last_price, self._orders):
+            if self.trade_mgr.is_trade_exited(
+                self._last_price, self._orders, self._removable
+            ):
                 self._simple.set_bucket()
                 self._fn = "is_breakout"
             else:

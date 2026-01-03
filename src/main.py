@@ -9,7 +9,8 @@ from src.constants import (
 
 from src.sdk.helper import Helper
 from src.core.build import Builder
-from src.core.strategy import StrategyMaker, Engine
+from src.core.strategy import StrategyMaker
+from src.core.engine import Engine
 
 from toolkit.kokoo import is_time_past, blink
 from traceback import print_exc
@@ -17,35 +18,39 @@ from traceback import print_exc
 logging = logging_func(__name__)
 
 
-def login_and_get_settings():
+def read_engine_settings():
     O_SETG = yml_to_obj(S_SETG)
     logging.info(O_SETG)
-
-    O_TRADESET = TradeSet().read()
-    if O_TRADESET and any(O_TRADESET):
-        trade_settings = O_TRADESET.get("trade", None)
-        if not trade_settings:
-            logging.info(f"you have exhausted all strategies to run in {O_TRADESET}")
-            __import__("sys").exit(1)
-
-    logging.info(f"WAITING: till Algo start time {O_SETG['start']}")
+    logging.info(f"WAITING: till Engine start time {O_SETG['start']}")
     while not is_time_past(O_SETG["start"]):
         blink()
+    return O_SETG["stop"]
 
-    return O_TRADESET
+
+def read_trade_settings():
+    O_TRADESET = TradeSet().read()
+    if O_TRADESET and any(O_TRADESET):
+        return O_TRADESET
+    logging.info(f"you have exhausted all strategies to run in {O_TRADESET}")
+    __import__("sys").exit(1)
 
 
 def main():
     try:
-        O_TRADESET = login_and_get_settings()
+        # read common start time and stop time
+        engine_stop = read_engine_settings()
+
+        O_TRADESET = read_trade_settings()
         trade_settings = O_TRADESET.pop("trade", None)
-        dct_sym = get_symbol_fm_factory()
+        print(trade_settings)
+        while not is_time_past("11:05"):
+            blink()
 
         # login to broker api
         Helper.api()
         builder = Builder()
         symbol_to_trade = builder.merge_settings_and_symbols(
-            user_settings=O_TRADESET, dct_sym=dct_sym
+            user_settings=O_TRADESET, dct_sym=get_symbol_fm_factory()
         )
         logging.info(f"symbol_to_trade: {symbol_to_trade}")
 
@@ -67,7 +72,7 @@ def main():
             symbols_to_trade=symbol_to_trade,
         ).create(strategy_name)
 
-        engine = Engine(strategies=strategies, trade_stop=trade_settings["stop"])
+        engine = Engine(strategies=strategies, trade_stop=engine_stop)
         engine.run(strategy_name)
     except Exception as e:
         logging.error(f"main: {e}")

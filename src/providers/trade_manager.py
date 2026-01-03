@@ -114,7 +114,7 @@ class TradeManager:
         except Exception as e:
             logging.error(f"Error in complete_exit {e}")
 
-    def is_trade_exited(self, last_price, orders):
+    def is_trade_exited(self, last_price, orders, removable=None):
 
         order = find_order_if_exists(self.position.exit.order_id, orders)
 
@@ -124,7 +124,7 @@ class TradeManager:
             )
             return True
 
-        elif last_price < self.stop():  # type: ignore
+        elif last_price < self.stop() or removable:  # type: ignore
             """
             kwargs = dict(
                 price=0.0,
