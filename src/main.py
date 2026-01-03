@@ -75,7 +75,7 @@ def main():
                     sgy = StrategyMaker(
                         tokens_for_all_trading_symbols=missing_token,
                         symbols_to_trade=symbol_to_trade,
-                    ).create(trade_settings["strategy"])
+                    ).create(trade_settings["strategy"], trade_settings["stop"])
 
                     engine.add_strategy(sgy)
                     merged_settings.remove(item)

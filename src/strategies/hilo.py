@@ -1,5 +1,6 @@
 from src.constants import logging_func
 
+from toolkit.kokoo import is_time_past
 from src.sdk.helper import Helper
 
 from src.providers.time_manager import Bucket
@@ -84,6 +85,7 @@ class Hilo:
         try:
 
             for self._stop in [self._low, self._high]:
+
                 # 1.1 check actual breakout condition
                 if self._last_price > self._stop and self._prev_price <= self._stop:
                     # 2. are we with the trade limits of time buckets
@@ -140,7 +142,9 @@ class Hilo:
 
     def try_exiting_trade(self):
         try:
-            if self.trade_mgr.is_trade_exited(self._last_price, self._orders):
+            if self.trade_mgr.is_trade_exited(
+                self._last_price, self._orders, removable=self._removable
+            ):
                 self._fn = "is_breakout"
             else:
                 logging.debug(
@@ -152,6 +156,7 @@ class Hilo:
 
     def run(self, orders, ltps):
         try:
+
             self._orders = orders
 
             ltp = ltps.get(self._symbol, None)
@@ -162,6 +167,9 @@ class Hilo:
             msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}  high:{self._high}"
             print(msg)
             """
+            self._removable = is_time_past(self.stop_time)
+            if self._fn == "is_breakout" and self._removable:
+                return
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._symbol}")

@@ -1,5 +1,6 @@
 from src.constants import logging_func
 
+from toolkit.kokoo import is_time_past
 from src.sdk.helper import Helper
 from src.providers.grid import Grid, pivot_to_stop_and_target
 
@@ -152,10 +153,9 @@ class Newpivot:
             if ltp is not None:
                 self._prev_price = self._last_price
                 self._last_price = float(ltp)
-            """
-            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price}"
-            print(msg)
-                """
+            self._removable = is_time_past(self.stop_time)
+            if self._fn == "is_breakout" and self._removable:
+                return
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._symbol}")

@@ -1,5 +1,4 @@
 from src.constants import logging_func
-
 from src.sdk.symbol import OptionSymbol, OptionData
 from src.sdk.helper import Helper
 
@@ -124,7 +123,7 @@ class StrategyMaker:
             print_exc()
             return {}
 
-    def create(self, strategy_name):
+    def create(self, strategy_name, stop_time):
         """
         Creates a list of strategies based on the provided symbols_to_trade.
         """
@@ -184,9 +183,9 @@ class StrategyMaker:
                                 token=common_init_kwargs["symbol_info"]["token"],
                             )
                         )
-                    print(common_init_kwargs)
                     strgy = Strategy(**common_init_kwargs)
                     strgy.name = strategy_name
+                    strgy.stop_time = stop_time
                     strategies.append(strgy)
 
             # unsubscribe_tokens_not_in_strategies(strategies=strategies)
