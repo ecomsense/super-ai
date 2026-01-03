@@ -42,9 +42,6 @@ def main():
 
         O_TRADESET = read_trade_settings()
         trade_settings = O_TRADESET.pop("trade", None)
-        print(trade_settings)
-        while not is_time_past("11:05"):
-            blink()
 
         # login to broker api
         Helper.api()
@@ -52,10 +49,11 @@ def main():
         symbol_to_trade = builder.merge_settings_and_symbols(
             user_settings=O_TRADESET, dct_sym=get_symbol_fm_factory()
         )
-        logging.info(f"symbol_to_trade: {symbol_to_trade}")
-
         symbol_to_trade = builder.find_expiry(symbol_to_trade)
+        print("symbol_to_trade", symbol_to_trade)
 
+        while not is_time_past("12:05"):
+            blink()
         missing_token = builder.find_fno_tokens(symbols_to_trade=symbol_to_trade)
         logging.info(f"missing token: {missing_token}")
 
