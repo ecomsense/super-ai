@@ -77,39 +77,40 @@ class Builder:
             logging.error(f"{e} while finding expiry")
             print_exc()
 
-    def find_fno_tokens(self, symbols_to_trade: dict):
-        """
-        get instrument tokens from broker for each symbol to trade and merge them together
-        (Refactored from your original find_instrument_tokens_to_trade)
-        """
-        try:
-            tokens_of_all_trading_symbols = {}
-            for k, symbol_info in symbols_to_trade.items():
-                data = OptionData(
-                    exchange=symbol_info["option_exchange"],
-                    base=symbol_info["base"],
-                    symbol=symbol_info["symbol"],
-                    diff=symbol_info["diff"],
-                    depth=symbol_info["depth"],
-                    expiry=symbol_info["expiry"],
-                )
-                sym = OptionSymbol(data)
 
-                # get atm for the underlying
-                exchange = symbol_info["exchange"]
-                token = symbol_info["token"]
-                ltp_for_underlying = Helper._rest.ltp(exchange, token)
-                assert ltp_for_underlying is not None, "ltp_for_underlying is None"
-                atm = sym.get_atm(ltp_for_underlying)
+def find_fno_tokens(symbols_to_trade: dict):
+    """
+    get instrument tokens from broker for each symbol to trade and merge them together
+    (Refactored from your original find_instrument_tokens_to_trade)
+    """
+    try:
+        tokens_of_all_trading_symbols = {}
+        for k, symbol_info in symbols_to_trade.items():
+            data = OptionData(
+                exchange=symbol_info["option_exchange"],
+                base=symbol_info["base"],
+                symbol=symbol_info["symbol"],
+                diff=symbol_info["diff"],
+                depth=symbol_info["depth"],
+                expiry=symbol_info["expiry"],
+            )
+            sym = OptionSymbol(data)
 
-                # set atm for later use
-                symbols_to_trade[k]["atm"] = atm
-                symbols_to_trade[k]["underlying_ltp"] = ltp_for_underlying
-                logging.info(f"atm {atm} for underlying {k} from {ltp_for_underlying}")
+            # get atm for the underlying
+            exchange = symbol_info["exchange"]
+            token = symbol_info["token"]
+            ltp_for_underlying = Helper._rest.ltp(exchange, token)
+            assert ltp_for_underlying is not None, "ltp_for_underlying is None"
+            atm = sym.get_atm(ltp_for_underlying)
 
-                # get tokens for the option
-                tokens_of_all_trading_symbols.update(sym.get_tokens(atm))
-            return tokens_of_all_trading_symbols
-        except Exception as e:
-            logging.error(f"{e} while finding instrument to trade in StrategyBuilder")
-            print_exc()
+            # set atm for later use
+            symbols_to_trade[k]["atm"] = atm
+            symbols_to_trade[k]["underlying_ltp"] = ltp_for_underlying
+            logging.info(f"atm {atm} for underlying {k} from {ltp_for_underlying}")
+
+            # get tokens for the option
+            tokens_of_all_trading_symbols.update(sym.get_tokens(atm))
+        return tokens_of_all_trading_symbols
+    except Exception as e:
+        logging.error(f"{e} while finding instrument to trade in StrategyBuilder")
+        print_exc()
