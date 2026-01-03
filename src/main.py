@@ -34,13 +34,14 @@ def read_trade_settings():
     while Flag:
         O_TRADESET = TradeSet().read()
         if O_TRADESET and any(O_TRADESET):
-            # trade_settings = O_TRADESET.pop("trade", None)
+            trade_settings = O_TRADESET.pop("trade")
             builder = Builder()
             symbol_to_trade = builder.merge_settings_and_symbols(
                 user_settings=O_TRADESET, dct_sym=get_symbol_fm_factory()
             )
             symbol_to_trade = builder.find_expiry(symbol_to_trade)
-            lst.append(symbol_to_trade)
+            item = (trade_settings, symbol_to_trade)
+            lst.append(item)
         else:
             Flag = False
 
@@ -62,10 +63,11 @@ def main():
         Helper.api()
 
         while not is_time_past(engine_stop):
-            for symbol_to_trade in merged_settings[:]:
+            for item in merged_settings[:]:
 
-                if is_time_past(symbol_to_trade["trade"]["start"]):
-                    trade_settings = symbol_to_trade.pop("trade")
+                trade_settings, symbol_to_trade = item
+
+                if is_time_past(trade_settings["start"]):
                     missing_token = find_fno_tokens(symbols_to_trade=symbol_to_trade)
                     logging.debug(f"missing token: {missing_token}")
 
@@ -76,7 +78,7 @@ def main():
                     ).create(trade_settings["strategy"])
 
                     engine.add_strategy(sgy)
-                    merged_settings.remove(symbol_to_trade)
+                    merged_settings.remove(item)
 
             engine.tick()
 
