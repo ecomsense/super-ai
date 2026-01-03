@@ -186,6 +186,7 @@ class StrategyMaker:
                         )
                     print(common_init_kwargs)
                     strgy = Strategy(**common_init_kwargs)
+                    strgy.name = strategy_name
                     strategies.append(strgy)
 
             # unsubscribe_tokens_not_in_strategies(strategies=strategies)
