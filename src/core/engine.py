@@ -1,4 +1,3 @@
-from toolkit.kokoo import is_time_past
 from src.constants import logging_func
 from traceback import print_exc
 
@@ -9,7 +8,6 @@ class Engine:
 
     def __init__(self):
         self.strategies = []
-        self.stop = trade_stop
 
     def add_strategy(self, new_strats):
         if new_strats:

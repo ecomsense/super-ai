@@ -163,8 +163,7 @@ class TradeSet:
             pprint(trade_settings)
             return trade_settings
         else:
-            print("no strategy to trade")
-            exit(1)
+            return None
 
 
 def get_symbol_fm_factory():

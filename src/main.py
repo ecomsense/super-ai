@@ -9,7 +9,7 @@ from src.constants import (
 
 from src.sdk import symbol
 from src.sdk.helper import Helper
-from src.core.build import Builder
+from src.core.build import Builder, find_fno_tokens
 from src.core.strategy import StrategyMaker
 from src.core.engine import Engine
 
@@ -83,7 +83,7 @@ def main():
             blink()
         else:
             logging.info(
-                f"main: killing tmux because we started after stop time {self.stop}"
+                f"main: killing tmux because we started after stop time {engine_stop}"
             )
             kill_tmux()
 
