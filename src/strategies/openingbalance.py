@@ -1,4 +1,4 @@
-from src.constants import logging, S_SETG, yml_to_obj
+from src.constants import logging_func, S_SETG, yml_to_obj
 from src.config.interface import Trade
 
 from src.sdk.helper import Helper
@@ -13,6 +13,9 @@ from traceback import print_exc
 import pendulum as pdlm
 from tabulate import tabulate
 from math import ceil
+
+
+logging = logging_func(__name__)
 
 # TODO to be deprecated
 MAX_TRADE_COUNT = 5
@@ -29,28 +32,31 @@ class Openingbalance:
         # from parameters
         self.rest = rest
         self._prefix = prefix
+        self.option_type = symbol_info["option_type"]
         self._token = symbol_info["token"]
+        self._quantity = user_settings["quantity"]
+
+        self._symbol = symbol_info["symbol"]
+
         ltp = self.rest.ltp(
             exchange=user_settings["option_exchange"], token=self._token
         )
         if ltp is not None:
             symbol_info["ltp"] = ltp
+        self._last_price = symbol_info["ltp"]
+
         self._stop = symbol_info["ltp"]
         self._low = symbol_info["ltp"]
-        self.option_type = symbol_info["option_type"]
         self._t2 = user_settings.get("t2", user_settings["t1"])
         self._txn = user_settings["txn"]
         self._target = user_settings["t1"] * 2
+        self._exchange = user_settings["option_exchange"]
 
         # objects and dependencies
-        self.trade = Trade(
-            symbol=symbol_info["symbol"],
-            # last_price=symbol_info["ltp"],
-            exchange=user_settings["option_exchange"],
-            quantity=user_settings["quantity"],
-        )
         self._time_mgr = TimeManager(user_settings["rest_time"])
-        self._trade_manager = TradeManager(Helper.api())
+        self.trade_mgr = TradeManager(
+            Helper.api(), symbol=self._symbol, exchange=user_settings["option_exchange"]
+        )
 
         # state variables
         self._removable = False
@@ -67,49 +73,22 @@ class Openingbalance:
 
         # if currently above stop% and below trailing target
         if self._t2 <= percent < trailing_target:
-            msg = f"#TSL 50 PERC: {self.trade.symbol} {percent=} < {trailing_target=}"
+            msg = f"#TSL 50 PERC: {self._symbol} {percent=} < {trailing_target=}"
             logging.info(msg)
             return True
         elif percent < self._t2 < self._max_target_reached:
-            msg = f"#TSL T2 HIT: {self.trade.symbol} {percent=} < t2={self._t2}"
+            msg = f"#TSL T2 HIT: {self._symbol} {percent=} < t2={self._t2}"
             logging.info(msg)
             return True
 
-        msg = f"#TRAIL: {self.trade.symbol} {percent=} vs  max target reached:{self._max_target_reached}"
+        msg = f"#TRAIL: {self._symbol} {percent=} vs  max target reached:{self._max_target_reached}"
         logging.info(msg)
-        return False
-
-    def _reset_trade(self):
-        self.trade.filled_price = None
-        self.trade.status = None
-        self.trade.order_id = None
-
-    def _entry(self):
-        self.trade.side = "B"
-        self.trade.disclosed_quantity = None
-        self.trade.price = self.trade.last_price + 2  # type: ignore
-        self.trade.trigger_price = 0.0
-        self.trade.order_type = "LMT"
-        self.trade.tag = "entry_ob"
-        self._reset_trade()
-
-        buy_order = self._trade_manager.complete_entry(self.trade)
-        if buy_order.order_id is not None:
-            # OneTrade.add(self._prefix, self.trade.symbol)
-            logging.info(
-                f"BREAKOUT: {self.trade.symbol} ltp:{self.trade.last_price} > stop:{self._stop}"
-            )
-            self._fn = "find_fill_price"
-            return True
-        logging.warning(
-            f"got {buy_order} without buy order order id {self.trade.symbol}"
-        )
         return False
 
     def low(self, key: str):
         try:
             intl = self.rest.history(
-                exchange=self.trade.exchange,
+                exchange=self._exchange,
                 token=self._token,
                 loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
                 key=key,
@@ -144,46 +123,36 @@ class Openingbalance:
         try:
             if self._time_mgr.can_trade:
                 self._set_stop_for_next_trade()
-                if self.trade.last_price > self._stop:
-                    is_entered = self._entry()
+                if self._last_price > self._stop:
+                    is_entered = self.trade_mgr.complete_entry(
+                        quantity=self._quantity, price=self._last_price + 2
+                    )
                     if is_entered:
                         StateManager.start_trade(self._prefix, self.option_type)
+                        self._fn = "place_exit_order"
                         return
                 # if noo breakout add time
                 else:
                     self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+                    logging.warning(f"{self._symbol} without order id")
 
-            print(
-                f"WAITING: {self.trade.symbol}: ltp{self.trade.last_price} < stop:{self._stop}"
+            logging.debug(
+                f"WAITING: {self._symbol}: ltp{self._last_price} < stop:{self._stop}"
             )
         except Exception as e:
             print(f"{e} while waiting for breakout")
+            print_exc()
 
-    def find_fill_price(self):
-        order = self._trade_manager.find_order_if_exists(
-            self._trade_manager.position.entry.order_id, self._orders
-        )
-        if isinstance(order, dict):
-            self._fill_price = float(order["fill_price"])
-
-            # place sell order only if buy order is filled
-            self.trade.side = "S"
-            self.trade.disclosed_quantity = 0
-            self.trade.price = self._stop - 2
-            self.trade.trigger_price = self._stop
-            self.trade.order_type = "SL-LMT"
-            self.trade.tag = "sl_ob"
-            self._reset_trade()
-            sell_order = self._trade_manager.pending_exit(self.trade)
-            if sell_order.order_id is not None:
-                self._fn = "try_exiting_trade"
-                logging.info(f"FILLED: {self.trade.symbol} at {self._fill_price}")
-            else:
-                logging.error(f"id is not found for sell {sell_order}")
-        else:
-            logging.error(
-                f"order {self._trade_manager.position.entry.order_id} not complete"
+    def place_exit_order(self):
+        try:
+            sell_order = self.trade_mgr.pending_exit(
+                stop=self._stop, orders=self._orders
             )
+            if sell_order.order_id:
+                self._fn = "try_exiting_trade"
+        except Exception as e:
+            logging.error(f"{e} while place exit order")
+            print_exc()
 
     def _set_target(self):
         try:
@@ -217,20 +186,20 @@ class Openingbalance:
                 (
                     item["urmtom"] + item["rpnl"]
                     for item in resp
-                    if item["symbol"] == self.trade.symbol
+                    if item["symbol"] == self._symbol
                 ),
                 0,
             )
             other_instrument_m2m = total_profit - m2m
             rpnl = next(
-                (item["rpnl"] for item in resp if item["symbol"] == self.trade.symbol),
+                (item["rpnl"] for item in resp if item["symbol"] == self._symbol),
                 0,
             )
 
             rate_to_be_added = (other_instrument_m2m + rpnl) / self.trade.quantity  # type: ignore
             rate_to_be_added = -1 * rate_to_be_added
             logging.debug(
-                f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self.trade.quantity}q"
+                f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self._quantity}q"
             )
 
             target_buffer = self._target * self._fill_price / 100
@@ -238,7 +207,7 @@ class Openingbalance:
                 self._fill_price + target_buffer + rate_to_be_added + txn_cost
             )
             target_progress = (
-                (target_virtual - target_buffer - self.trade.last_price)
+                (target_virtual - target_buffer - self._last_price)
                 / self._fill_price
                 * 100
                 * -1
@@ -254,53 +223,11 @@ class Openingbalance:
                 self._fn = "remove_me"
                 return True
             """
-            self._trade_manager.set_target_price(round(target_virtual / 0.05) * 0.05)
+            self.trade_mgr.target(round(target_virtual / 0.05) * 0.05)
             self._fn = "try_exiting_trade"
         except Exception as e:
             print_exc()
             logging.error(f"{e} while set target")
-
-    def _is_stoploss_hit(self):
-        try:
-            O_SETG = yml_to_obj(S_SETG)
-            if O_SETG.get("live", 1) == 1:
-                order = self._trade_manager.find_order_if_exists(
-                    self._trade_manager.position.exit.order_id, self._orders
-                )
-                if isinstance(order, dict):
-                    return True
-            else:
-                logging.debug("CHECKING STOP IN PAPER MODE")
-                return Helper.api().can_move_order_to_trade(
-                    self._trade_manager.position.exit.order_id, self.trade.last_price
-                )
-        except Exception as e:
-            logging.error(f"{e} is stoploss hit {self.trade.symbol}")
-            print_exc()
-
-    def _modify_to_exit(self):
-        try:
-            kwargs = dict(
-                trigger_price=0.0,
-                order_type="LIMIT",
-                last_price=self.trade.last_price,
-            )
-            return self._trade_manager.complete_exit(**kwargs)
-        except Exception as e:
-            logging.error(f"{e} while modify to exit {self.trade.symbol}")
-            print_exc()
-
-    def _modify_to_kill(self):
-        try:
-            kwargs = dict(
-                price=0.0,
-                order_type="MARKET",
-                last_price=self.trade.last_price,
-            )
-            return self._trade_manager.complete_exit(**kwargs)
-        except Exception as e:
-            logging.error(f"{e} while modify to exit {self.trade.symbol}")
-            print_exc()
 
     def try_exiting_trade(self):
         try:
@@ -309,27 +236,13 @@ class Openingbalance:
             if is_prefix:
                 return self._prefix
 
-            if self._is_stoploss_hit():
-                logging.info(
-                    f"SL HIT: {self.trade.symbol} stop order {self._trade_manager.position.exit.order_id}"
-                )
-                self._fn = "wait_for_breakout"
-            elif self.trade.last_price <= self._stop:  # type: ignore
-                resp = self._modify_to_kill()
-                logging.info(
-                    f"KILLED: {self.trade.symbol} {self.trade.last_price} < stop ... got {resp}"
-                )
-                self._fn = "wait_for_breakout"
-            elif self.trade.last_price >= self._trade_manager.position.target_price:  # type: ignore
-                resp = self._modify_to_exit()
-                logging.info(
-                    f"TARGET REACHED: {self.trade.symbol} {self.trade.last_price} < target price ... got {resp}"
-                )
+            if self.trade_mgr.is_trade_exited(
+                self._last_price, self._orders, removable=self._removable
+            ):
                 self._fn = "remove_me"
                 return self._prefix
-            else:
-                msg = f"PROGRESS: {self.trade.symbol} target {self._trade_manager.position.target_price} < {self.trade.last_price} > sl {self._stop} "
-                logging.info(msg)
+            msg = f"PROGRESS: {self.trade.symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
+            logging.info(msg)
 
             if self._fn == "wait_for_breakout":
                 # OneTrade.remove(self._prefix, self.trade.symbol)
@@ -340,17 +253,11 @@ class Openingbalance:
             print_exc()
 
     def remove_me(self):
-
-        if self._fn == "find_fill_price":
-            self.find_fill_price()
-            return
-
         if self._fn == "try_exiting_trade":
-            resp = self._modify_to_exit()
-            logging.info(f"REMOVING: {self.trade.symbol} modify got {resp}")
+            self.trade_mgr.is_trade_exited(self._last_price, self._orders, True)
         elif self._fn == "wait_for_breakout":
             logging.info(
-                f"REMOVING: {self.trade.symbol} switching from waiting for breakout"
+                f"REMOVING: {self._symbol} switching from waiting for breakout"
             )
 
         self._fn = "remove_me"
@@ -371,9 +278,9 @@ class Openingbalance:
             if positions and any(positions):
                 self._positions = positions
 
-            ltp = ltps.get(self.trade.symbol, None)
+            ltp = ltps.get(self._symbol, None)
             if ltp is not None:
-                self.trade.last_price = float(ltp)
+                self._last_price = float(ltp)
 
             if self._prefix in prefixes:
                 self.remove_me()
@@ -382,5 +289,5 @@ class Openingbalance:
             self.table()
             return result
         except Exception as e:
-            logging.error(f"{e} in running {self.trade.symbol}")
+            logging.error(f"{e} in running {self._symbol}")
             print_exc()

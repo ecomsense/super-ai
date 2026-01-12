@@ -21,46 +21,45 @@ class Newpivot:
         user_settings: dict,
         rest,
     ):
-        # A hard coded
+        # initial values
+        # self.name
+        # self.stop
         self._removable = False
 
         # 1. Core Attributes (directly from parameters)
-        self._rest = rest
         self._prefix = prefix
+
         self._option_type = symbol_info["option_type"]
         self._token = symbol_info["token"]
-        self._quantity = user_settings["quantity"]
-
-        # 3. Dependencies and Helper Objects
         self._symbol = symbol_info["symbol"]
         self._last_price = symbol_info["ltp"]
+        self._prev_price = symbol_info["ltp"]
 
-        # new
-        self._prev_price = self._last_price
+        self._quantity = user_settings["quantity"]
+
+        # 2. create dependent objects
         self._small_bucket = Bucket(user_settings["small_bucket"], 1)
         self._big_bucket = Bucket(
             period=user_settings["big_bucket"],
             max_trades=user_settings["max_trade_in_bucket"],
         )
         self._simple = SimpleBucket(user_settings["big_bucket"])
-
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
             symbol=self._symbol,
             exchange=user_settings["option_exchange"],
         )
-
-        rst = Helper._rest
         resp = Grid().get(
-            rst=rst,
+            rst=rest,
             exchange=user_settings["option_exchange"],
             tradingsymbol=self._symbol,
             token=self._token,
         )
+
+        # 3. Dependencies
         self._levels = pivot_to_stop_and_target(pivots=resp)
-        """
-        initial trade low condition
-        """
+
+        # 4 next
         self._fn = "is_breakout"
 
     def _is_tradeable(self, stop, ltp, target):

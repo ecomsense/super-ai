@@ -3,11 +3,11 @@
 # Assuming your concrete class is named Breakout
 # and is located in src/priveders/breakout.py
 
-from src.providers.breakout import Breakout
+from src.providers.time_manager import SimpleBucket
 
 
-def test_breakout():
-    b = Breakout(bucket_time={"minutes": 1})
+def test_simple_bucket():
+    b = SimpleBucket(bucket_time={"minutes": 1})
 
     b.set_bucket()
 
