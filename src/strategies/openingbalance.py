@@ -1,17 +1,15 @@
-from src.constants import logging_func, S_SETG, yml_to_obj
-from src.config.interface import Trade
-
+from src.constants import logging_func
 from src.sdk.helper import Helper
 
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
 from src.providers.state_manager import StateManager
+from src.providers.utils import table
 
 from toolkit.kokoo import blink
 
 from traceback import print_exc
 import pendulum as pdlm
-from tabulate import tabulate
 from math import ceil
 
 
@@ -24,13 +22,12 @@ MAX_TRADE_COUNT = 5
 class Openingbalance:
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
         # initialize
-        self._fill_price = 0
         self._max_target_reached = 0
         self._orders = []
         self._positions = []
 
         # from parameters
-        self.rest = rest
+        self._rest = rest
         self._prefix = prefix
         self.option_type = symbol_info["option_type"]
         self._token = symbol_info["token"]
@@ -38,7 +35,7 @@ class Openingbalance:
 
         self._symbol = symbol_info["symbol"]
 
-        ltp = self.rest.ltp(
+        ltp = self._rest.ltp(
             exchange=user_settings["option_exchange"], token=self._token
         )
         if ltp is not None:
@@ -65,6 +62,7 @@ class Openingbalance:
         # class level state management
         StateManager.initialize_prefix(prefix=self._prefix)
 
+    """
     def _is_trailstopped(self, percent):
         # set max target reached
         if max(percent, self._max_target_reached) == percent:
@@ -84,31 +82,29 @@ class Openingbalance:
         msg = f"#TRAIL: {self._symbol} {percent=} vs  max target reached:{self._max_target_reached}"
         logging.info(msg)
         return False
-
-    def low(self, key: str):
-        try:
-            intl = self.rest.history(
-                exchange=self._exchange,
-                token=self._token,
-                loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
-                key=key,
-            )
-            blink()
-            if intl:
-                self._low = intl
-            return intl
-        except Exception as e:
-            logging.error(f"Pivot: while getting error {e}")
-            print_exc()
+    """
 
     def _set_stop_for_next_trade(self):
         try:
+
+            def low(key: str):
+                intl = self._rest.history(
+                    exchange=self._exchange,
+                    token=self._token,
+                    loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
+                    key=key,
+                )
+                blink()
+                if intl:
+                    self._low = intl
+                return intl
+
             count = StateManager.get_trade_count(self._prefix, self.option_type)
             if count <= MAX_TRADE_COUNT:
                 if count == 0:
-                    _ = self.low(key="intl")
+                    _ = low(key="intl")
                 else:
-                    _ = self.low(key="intc")
+                    _ = low(key="intc")
 
                 if self._stop > self._low:
                     logging.info(
@@ -202,18 +198,17 @@ class Openingbalance:
                 f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self._quantity}q"
             )
 
-            target_buffer = self._target * self._fill_price / 100
-            target_virtual = (
-                self._fill_price + target_buffer + rate_to_be_added + txn_cost
-            )
+            fill_price = self.trade_mgr.position.entry.filled_price  # type: ignore
+            target_buffer = self._target * fill_price / 100
+            target_virtual = fill_price + target_buffer + rate_to_be_added + txn_cost
             target_progress = (
                 (target_virtual - target_buffer - self._last_price)
-                / self._fill_price
+                / fill_price
                 * 100
                 * -1
             )
             logging.debug(
-                f"target_price {target_virtual} = fill: {self._fill_price} + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
+                f"target_price {target_virtual} = fill: {fill_price} + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
             )
             """
             # trailing
@@ -224,13 +219,13 @@ class Openingbalance:
                 return True
             """
             self.trade_mgr.target(round(target_virtual / 0.05) * 0.05)
-            self._fn = "try_exiting_trade"
         except Exception as e:
             print_exc()
             logging.error(f"{e} while set target")
 
     def try_exiting_trade(self):
         try:
+            # TODO
             # if trail stopped return prefix
             is_prefix = self._set_target()
             if is_prefix:
@@ -241,7 +236,7 @@ class Openingbalance:
             ):
                 self._fn = "remove_me"
                 return self._prefix
-            msg = f"PROGRESS: {self.trade.symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
+            msg = f"PROGRESS: {self._symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
             logging.info(msg)
 
             if self._fn == "wait_for_breakout":
@@ -263,14 +258,6 @@ class Openingbalance:
         self._fn = "remove_me"
         self._removable = True
 
-    def table(self):
-        items = [
-            [k, v]
-            for k, v in self.__dict__.items()
-            if isinstance(v, float) or isinstance(v, int) or isinstance(v, str)
-        ]
-        print(tabulate(items, tablefmt="fancy_grid"))
-
     def run(self, orders, ltps, prefixes: list, positions):
         try:
             self._orders = orders
@@ -286,7 +273,7 @@ class Openingbalance:
                 self.remove_me()
 
             result = getattr(self, self._fn)()
-            self.table()
+            table(self)
             return result
         except Exception as e:
             logging.error(f"{e} in running {self._symbol}")
