@@ -15,8 +15,6 @@ from math import ceil
 
 logging = logging_func(__name__)
 
-MAX_TRADE_COUNT = 5
-
 
 class Openingbalance:
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
@@ -99,17 +97,16 @@ class Openingbalance:
                 return intl
 
             count = StateManager.get_trade_count(self._prefix, self.option_type)
-            if count <= MAX_TRADE_COUNT:
-                if count == 0:
-                    _ = low(key="intl")
-                else:
-                    _ = low(key="intc")
+            if count == 0:
+                _ = low(key="intl")
+            else:
+                _ = low(key="intc")
 
-                if self._stop > self._low:
-                    logging.info(
-                        f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
-                    )
-                    self._stop = self._low
+            if self._stop > self._low:
+                logging.info(
+                    f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
+                )
+                self._stop = self._low
         except Exception as e:
             logging.error(f"set stop for next trade: {e}")
             print_exc()
