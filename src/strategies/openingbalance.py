@@ -15,7 +15,6 @@ from math import ceil
 
 logging = logging_func(__name__)
 
-# TODO to be deprecated
 MAX_TRADE_COUNT = 5
 
 
@@ -192,7 +191,7 @@ class Openingbalance:
                 0,
             )
 
-            rate_to_be_added = (other_instrument_m2m + rpnl) / self.trade.quantity  # type: ignore
+            rate_to_be_added = (other_instrument_m2m + rpnl) / self._quantity  # type: ignore
             rate_to_be_added = -1 * rate_to_be_added
             logging.debug(
                 f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self._quantity}q"

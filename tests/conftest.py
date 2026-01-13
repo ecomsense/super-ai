@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture
@@ -63,4 +63,62 @@ def strategy(mock_env, mock_symbol_info, mock_user_settings):
         )
         # Mocking specific state variables
         strat.stop_time = "15:20:00"
+        return strat
+
+
+@pytest.fixture
+def mock_ob_settings():
+    """Specific settings for the Opening Balance strategy."""
+    return {
+        "quantity": 15,
+        "t1": 10,
+        "t2": 5,
+        "txn": 20,
+        "rest_time": {"minutes": 5},
+        "option_exchange": "NFO",
+    }
+
+
+@pytest.fixture
+def ob_strategy(mock_symbol_info, mock_ob_settings):
+    """
+    Returns an instance of Openingbalance with mocked Managers,
+    Buckets, and StateManager.
+    """
+    from src.strategies.openingbalance import Openingbalance
+
+    # 1. Create the 'rest' mock for history and ltp calls
+    mock_rest = MagicMock()
+    mock_rest.ltp.return_value = 100.0
+    mock_rest.history.return_value = 95.0
+
+    # 2. Patch dependencies inside the strategy module
+    with patch("src.strategies.openingbalance.TimeManager") as mock_time_class, patch(
+        "src.strategies.openingbalance.StateManager"
+    ) as mock_state, patch(
+        "src.strategies.openingbalance.TradeManager"
+    ) as mock_tm_class, patch(
+        "src.strategies.openingbalance.Helper.api"
+    ), patch(
+        "src.strategies.openingbalance.table"
+    ):
+
+        # Capture the instance of TradeManager
+        mock_tm_instance = mock_tm_class.return_value
+
+        # Default StateManager behavior
+        mock_state.get_trade_count.return_value = 0
+
+        strat = Openingbalance(
+            prefix="OB_TEST",
+            symbol_info=mock_symbol_info,
+            user_settings=mock_ob_settings,
+            rest=mock_rest,
+        )
+
+        # Ensure TradeManager mock is accessible
+        strat.trade_mgr = mock_tm_instance
+        # Force time manager to allow trading for tests
+        strat._time_mgr.can_trade = True
+
         return strat
