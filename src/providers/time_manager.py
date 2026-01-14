@@ -86,6 +86,22 @@ class TimeManager:
             # The "rest_min" period has not yet elapsed
             return False
 
+    @property
+    def current_index(self):
+        """
+        Returns the index of the last completed candle.
+        Returns -1 if the market hasn't reached the first candle close.
+        """
+        now = pdlm.now("Asia/Kolkata")
+        # Find the highest index where candle_time <= now
+        idx = -1
+        for i, candle_time in enumerate(self.candle_times):
+            if now >= candle_time:
+                idx = i
+            else:
+                break
+        return idx
+
 
 class Gate:
     """Allows action only if 'interval' seconds have passed since last allow()."""

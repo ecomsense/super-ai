@@ -7,7 +7,6 @@ from src.constants import (
     get_symbol_fm_factory,
 )
 
-from src.sdk import symbol
 from src.sdk.helper import Helper
 from src.core.build import Builder, find_fno_tokens
 from src.core.strategy import StrategyMaker

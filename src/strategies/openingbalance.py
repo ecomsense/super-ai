@@ -3,10 +3,7 @@ from src.sdk.helper import Helper
 
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
-from src.providers.state_manager import StateManager
 from src.providers.utils import table
-
-from toolkit.kokoo import blink
 
 from traceback import print_exc
 import pendulum as pdlm
@@ -29,18 +26,10 @@ class Openingbalance:
         self.option_type = symbol_info["option_type"]
         self._token = symbol_info["token"]
         self._quantity = user_settings["quantity"]
-
         self._symbol = symbol_info["symbol"]
-
-        ltp = self._rest.ltp(
-            exchange=user_settings["option_exchange"], token=self._token
-        )
-        if ltp is not None:
-            symbol_info["ltp"] = ltp
         self._last_price = symbol_info["ltp"]
 
-        self._stop = symbol_info["ltp"]
-        self._low = symbol_info["ltp"]
+        self._stop = None
         self._t2 = user_settings.get("t2", user_settings["t1"])
         self._txn = user_settings["txn"]
         self._target = user_settings["t1"] * 2
@@ -48,16 +37,18 @@ class Openingbalance:
 
         # objects and dependencies
         self._time_mgr = TimeManager(user_settings["rest_time"])
+        self._last_idx = self._time_mgr.current_index
+        self._is_armed = False
+        self._breached_mid_candle = False
+        self._entry_index = -1
+        self._is_breakout = False
         self.trade_mgr = TradeManager(
             Helper.api(), symbol=self._symbol, exchange=user_settings["option_exchange"]
         )
 
         # state variables
         self._removable = False
-        self._fn = "wait_for_breakout"
-
-        # class level state management
-        StateManager.initialize_prefix(prefix=self._prefix)
+        self._fn = "set_stop"
 
     """
     def _is_trailstopped(self, percent):
@@ -81,59 +72,76 @@ class Openingbalance:
         return False
     """
 
-    def _set_stop_for_next_trade(self):
+    def set_stop(self):
         try:
-
-            def low(key: str):
+            if self._stop is not None:
                 intl = self._rest.history(
                     exchange=self._exchange,
                     token=self._token,
                     loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
-                    key=key,
+                    key="intl",
                 )
-                blink()
-                if intl:
-                    self._low = intl
-                return intl
-
-            count = StateManager.get_trade_count(self._prefix, self.option_type)
-            if count == 0:
-                _ = low(key="intl")
-            else:
-                _ = low(key="intc")
-
-            if self._stop > self._low:
-                logging.info(
-                    f"#{count} NEW STOP: {self._low} instead of old STOP {self._stop}"
-                )
-                self._stop = self._low
+                if intl is not None:
+                    self._stop = intl
+                    self._fn = "wait_for_breakout"
+            return self._stop
         except Exception as e:
             logging.error(f"set stop for next trade: {e}")
             print_exc()
 
     def wait_for_breakout(self):
         try:
-            if self._time_mgr.can_trade:
-                self._set_stop_for_next_trade()
+            curr_idx = self._time_mgr.current_index
+
+            # Condition: Don't trade in the same candle as a previous entry
+            if curr_idx == self._entry_index:
+                return
+
+            # PHASE 1: Detection of a New Candle & Breakout (Condition 1)
+            # Only check for a fresh arming if we aren't currently validating one
+            if not self._is_armed and curr_idx > self._last_idx:
                 if self._last_price > self._stop:
-                    is_entered = self.trade_mgr.complete_entry(
-                        quantity=self._quantity, price=self._last_price + 2
+                    self._is_armed = True
+                    self._breached_mid_candle = False
+                    self._last_idx = (
+                        curr_idx  # Mark this candle as the "Validation" candle
                     )
-                    if is_entered:
-                        StateManager.start_trade(self._prefix, self.option_type)
-                        self._fn = "place_exit_order"
-                        return
-                # if noo breakout add time
-                else:
-                    self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
-                    logging.warning(f"{self._symbol} without order id")
+                return
+
+            # PHASE 2: Validation (Condition 2)
+            # While we are in the same candle index where we armed
+            if self._is_armed and curr_idx == self._last_idx:
+                if self._last_price <= self._stop:
+                    self._breached_mid_candle = True
+                    self._is_armed = False  # Trip the safety: Disarm immediately
+                return
+
+            # PHASE 3: Execution on Next Candle (Condition 3)
+            # If the index moves forward and we survived the validation phase
+            if (
+                self._is_armed
+                and not self._breached_mid_candle
+                and curr_idx > self._last_idx
+            ):
+                is_entered = self.trade_mgr.complete_entry(
+                    quantity=self._quantity, price=self._last_price + 2
+                )
+                if is_entered:
+                    self._entry_index = curr_idx
+                    self._is_armed = False
+                    self._fn = "place_exit_order"
+                return
+
+            # Update index tracker if no trade was taken
+            if curr_idx > self._last_idx:
+                self._last_idx = curr_idx
 
             logging.debug(
                 f"WAITING: {self._symbol}: ltp{self._last_price} < stop:{self._stop}"
             )
+
         except Exception as e:
-            print(f"{e} while waiting for breakout")
-            print_exc()
+            print(f"Error in state machine: {e}")
 
     def place_exit_order(self):
         try:
@@ -235,9 +243,10 @@ class Openingbalance:
             msg = f"PROGRESS: {self._symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
             logging.info(msg)
 
+            """ 
             if self._fn == "wait_for_breakout":
-                # OneTrade.remove(self._prefix, self.trade.symbol)
                 self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
+            """
 
         except Exception as e:
             logging.error(f"{e} while exit order")
