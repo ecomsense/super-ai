@@ -8,9 +8,15 @@ from src.providers.utils import table
 from traceback import print_exc
 import pendulum as pdlm
 from math import ceil
+from enum import IntEnum
 
 
 logging = logging_func(__name__)
+
+
+class BreakoutState(IntEnum):
+    DEFAULT = 0  # waiting fore new candle + breakout
+    ARMED = 1  # breakout detected, monitoring for Condition 2
 
 
 class Openingbalance:
@@ -37,10 +43,7 @@ class Openingbalance:
 
         # objects and dependencies
         self._time_mgr = TimeManager(user_settings["rest_time"])
-        self._last_idx = self._time_mgr.current_index
-        self._is_armed = False
-        self._breached_mid_candle = False
-        self._entry_index = -1
+        self._state = BreakoutState.DEFAULT
         self._is_breakout = False
         self.trade_mgr = TradeManager(
             Helper.api(), symbol=self._symbol, exchange=user_settings["option_exchange"]
@@ -74,6 +77,7 @@ class Openingbalance:
 
     def set_stop(self):
         try:
+            self._last_idx = self._time_mgr.current_index
             if self._stop is not None:
                 intl = self._rest.history(
                     exchange=self._exchange,
@@ -84,7 +88,6 @@ class Openingbalance:
                 if intl is not None:
                     self._stop = intl
                     self._fn = "wait_for_breakout"
-            return self._stop
         except Exception as e:
             logging.error(f"set stop for next trade: {e}")
             print_exc()
@@ -93,55 +96,36 @@ class Openingbalance:
         try:
             curr_idx = self._time_mgr.current_index
 
-            # Condition: Don't trade in the same candle as a previous entry
-            if curr_idx == self._entry_index:
+            # --- PHASE 1: ARMING (Condition 1) ---
+            if self._state == BreakoutState.DEFAULT:
+                if curr_idx > self._last_idx:
+                    if self._last_price > self._stop:
+                        self._state = BreakoutState.ARMED
+                        self._last_idx = curr_idx
                 return
 
-            # PHASE 1: Detection of a New Candle & Breakout (Condition 1)
-            # Only check for a fresh arming if we aren't currently validating one
-            if not self._is_armed and curr_idx > self._last_idx:
-                if self._last_price > self._stop:
-                    self._is_armed = True
-                    self._breached_mid_candle = False
-                    self._last_idx = (
-                        curr_idx  # Mark this candle as the "Validation" candle
-                    )
-                return
+            # --- PHASE 2: VALIDATION (Condition 2) ---
+            if self._state == BreakoutState.ARMED:
+                # If we are still in the same candle, check for breach
+                if curr_idx == self._last_idx:
+                    if self._last_price <= self._stop:
+                        self._state = BreakoutState.DEFAULT  # Reset if touched
+                    return
 
-            # PHASE 2: Validation (Condition 2)
-            # While we are in the same candle index where we armed
-            if self._is_armed and curr_idx == self._last_idx:
-                if self._last_price <= self._stop:
-                    self._breached_mid_candle = True
-                    self._is_armed = False  # Trip the safety: Disarm immediately
-                return
-
-            # PHASE 3: Execution on Next Candle (Condition 3)
-            # If the index moves forward and we survived the validation phase
-            if (
-                self._is_armed
-                and not self._breached_mid_candle
-                and curr_idx > self._last_idx
-            ):
+                # If index changed and we are still ARMED, it means NO BREACH happened
+                self._state = BreakoutState.DEFAULT
+                self._last_idx = curr_idx
+                # Execute trade because the previous candle survived the test
                 is_entered = self.trade_mgr.complete_entry(
                     quantity=self._quantity, price=self._last_price + 2
                 )
                 if is_entered:
-                    self._entry_index = curr_idx
-                    self._is_armed = False
                     self._fn = "place_exit_order"
                 return
 
-            # Update index tracker if no trade was taken
-            if curr_idx > self._last_idx:
-                self._last_idx = curr_idx
-
-            logging.debug(
-                f"WAITING: {self._symbol}: ltp{self._last_price} < stop:{self._stop}"
-            )
-
         except Exception as e:
-            print(f"Error in state machine: {e}")
+            logging.error(f"Logic Error: {e}")
+            print_exc()
 
     def place_exit_order(self):
         try:

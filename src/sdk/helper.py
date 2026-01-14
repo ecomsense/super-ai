@@ -500,10 +500,10 @@ if __name__ == "__main__":
         resp = Helper._rest.pnl("rpnl")
         print(resp)
 
+        """
         df = Helper._rest.yesterday("NFO", "47764")
         print(df)
 
-        """
         Helper._rest.close_positions()
         while True:
             idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
