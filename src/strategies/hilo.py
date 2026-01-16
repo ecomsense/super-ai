@@ -131,7 +131,7 @@ class Hilo:
     def place_exit_order(self):
         try:
             sell_order = self.trade_mgr.pending_exit(
-                stop=self._stop, orders=self._orders
+                stop=self._stop, orders=self._trades
             )
             if sell_order.order_id:
                 self.trade_mgr.target(target_price=self._target)
@@ -143,7 +143,7 @@ class Hilo:
     def try_exiting_trade(self):
         try:
             if self.trade_mgr.is_trade_exited(
-                self._last_price, self._orders, removable=self._removable
+                self._last_price, self._trades, removable=False
             ):
                 self._fn = "is_breakout"
             else:
@@ -154,22 +154,34 @@ class Hilo:
             logging.error(f"{e} while exit order")
             print_exc()
 
-    def run(self, orders, ltps):
-        try:
+    def remove_me(self):
+        if self._fn == "place_exit_order":
+            self.place_exit_order()
+            return
 
-            self._orders = orders
+        if self._fn == "try_exiting_trade":
+            status = self.trade_mgr.is_trade_exited(
+                self._last_price, self._trades, True
+            )
+            assert status == 3
+            self._fn = "wait_for_breakout"
+
+        self._removable = True
+        logging.info(f"REMOVING: {self._symbol} switching from waiting for breakout")
+
+    def run(self, trades, ltps):
+        try:
+            self._trades = trades
 
             ltp = ltps.get(self._symbol, None)
             if ltp is not None:
                 self._prev_price = self._last_price
-                self._last_price = float(ltp)
-            """
-            msg = f"RUNNING {self._symbol} with {self._fn} @ ltp:{self._last_price} low:{self._low}  high:{self._high}"
-            print(msg)
-            """
-            self._removable = is_time_past(self.stop_time)
-            if self._fn == "is_breakout" and self._removable:
-                return
+
+            is_removable = is_time_past(self.stop_time)
+            if is_removable:
+                if self.remove_me():
+                    return
+
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._symbol}")

@@ -4,6 +4,7 @@ from src.sdk.helper import Helper
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
 from src.providers.utils import table
+from toolkit.kokoo import is_time_past
 
 from traceback import print_exc
 import pendulum as pdlm
@@ -242,11 +243,6 @@ class Openingbalance:
             msg = f"PROGRESS: {self._symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
             logging.info(msg)
 
-            """ 
-            if self._fn == "wait_for_breakout":
-                self._time_mgr.set_last_trade_time(pdlm.now("Asia/Kolkata"))
-            """
-
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
@@ -254,17 +250,17 @@ class Openingbalance:
     def remove_me(self):
         if self._fn == "place_exit_order":
             self.place_exit_order()
+            return
 
         if self._fn == "try_exiting_trade":
             status = self.trade_mgr.is_trade_exited(
                 self._last_price, self._trades, True
             )
             assert status == 3
+            self._fn = "wait_for_breakout"
 
-            self._removable = True
-            logging.info(
-                f"REMOVING: {self._symbol} switching from waiting for breakout"
-            )
+        self._removable = True
+        logging.info(f"REMOVING: {self._symbol} switching from waiting for breakout")
 
     def run(self, trades, ltps, positions):
         try:
@@ -277,8 +273,10 @@ class Openingbalance:
             if ltp is not None:
                 self._last_price = float(ltp)
 
-            if self._prefix in self._STOPPED:
-                self.remove_me()
+            is_removable = is_time_past(self.stop_time)
+            if is_removable or self._prefix in self._STOPPED:
+                if self.remove_me():
+                    return
 
             result = getattr(self, self._fn)()
             table(self)
