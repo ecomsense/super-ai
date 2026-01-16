@@ -122,16 +122,9 @@ class TradeManager:
             logging.info(
                 f"STOP HIT: {self.trade.symbol} buy fill: {self.position.entry.filled_price}  stop: {self.stop()}"
             )
-            return True
+            return 1  # stop hit
 
         elif last_price < self.stop() or removable:  # type: ignore
-            """
-            kwargs = dict(
-                price=0.0,
-                order_type="MARKET",
-                last_price=last_price,
-            )
-            """
             kwargs = dict(
                 trigger_price=0.0,
                 price=round_down_to_tick(last_price),
@@ -140,7 +133,7 @@ class TradeManager:
             )
             resp = self.complete_exit(**kwargs)
             logging.info(f"KILLING STOP: returned {resp}")
-            return True
+            return 2
 
         elif last_price > self.target():
             kwargs = dict(
@@ -150,6 +143,6 @@ class TradeManager:
             )
             resp = self.complete_exit(**kwargs)
             logging.info(f"TARGET REACHED: returned {resp}")
-            return True
+            return 3
 
-        return False
+        return 0

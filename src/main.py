@@ -18,15 +18,6 @@ from traceback import print_exc
 logging = logging_func(__name__)
 
 
-def read_engine_settings():
-    O_SETG = yml_to_obj(S_SETG)
-    logging.info(O_SETG)
-    logging.info(f"WAITING: till Engine start time {O_SETG['start']}")
-    while not is_time_past(O_SETG["start"]):
-        blink()
-    return O_SETG["stop"]
-
-
 def read_trade_settings():
     lst = []
     Flag = True
@@ -53,17 +44,16 @@ def read_trade_settings():
 def main():
     try:
         # read common start time and stop time
-        engine_stop = read_engine_settings()
-        engine = Engine()
+        O_SETG = yml_to_obj(S_SETG)
+        engine = Engine(O_SETG["start"], O_SETG["stop"])
 
         merged_settings = read_trade_settings()
 
         # login to broker api
         Helper.api()
 
-        while not is_time_past(engine_stop):
+        while not is_time_past(engine.stop):
             for item in merged_settings[:]:
-
                 trade_settings, symbol_to_trade = item
 
                 if is_time_past(trade_settings["start"]):

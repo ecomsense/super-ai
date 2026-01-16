@@ -22,7 +22,7 @@ class BreakoutState(IntEnum):
 class Openingbalance:
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
         # initialize
-        self._max_target_reached = 0
+        self._stopped = set()
         self._orders = []
         self._positions = []
 
@@ -214,16 +214,21 @@ class Openingbalance:
     def try_exiting_trade(self):
         try:
             # TODO
-            # if trail stopped return prefix
-            is_prefix = self._set_target()
-            if is_prefix:
-                return self._prefix
+            self._last_idx = self._time_mgr.current_index
 
-            if self.trade_mgr.is_trade_exited(
-                self._last_price, self._orders, removable=self._removable
-            ):
-                self._fn = "remove_me"
-                return self._prefix
+            # if trail stopped return prefix
+            self._set_target()
+
+            exit_status = self.trade_mgr.is_trade_exited(
+                self._last_price, self._orders, removable=False
+            )
+
+            if exit_status in [1, 2]:
+                self._fn = "wait_for_breakout"
+            elif exit_status == 3:
+                self._stop.add(self._prefix)
+                self._removable = True
+
             msg = f"PROGRESS: {self._symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
             logging.info(msg)
 
@@ -237,17 +242,21 @@ class Openingbalance:
             print_exc()
 
     def remove_me(self):
+        if self._fn == "place_exit_order":
+            self.place_exit_order()
+
         if self._fn == "try_exiting_trade":
-            self.trade_mgr.is_trade_exited(self._last_price, self._orders, True)
-        elif self._fn == "wait_for_breakout":
+            status = self.trade_mgr.is_trade_exited(
+                self._last_price, self._orders, True
+            )
+            assert status == 3
+
+            self._removable = True
             logging.info(
                 f"REMOVING: {self._symbol} switching from waiting for breakout"
             )
 
-        self._fn = "remove_me"
-        self._removable = True
-
-    def run(self, orders, ltps, prefixes: list, positions):
+    def run(self, orders, ltps, positions):
         try:
             self._orders = orders
 
@@ -258,7 +267,7 @@ class Openingbalance:
             if ltp is not None:
                 self._last_price = float(ltp)
 
-            if self._prefix in prefixes:
+            if self._prefix in self._stopped:
                 self.remove_me()
 
             result = getattr(self, self._fn)()

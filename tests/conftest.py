@@ -66,9 +66,18 @@ def strategy(mock_env, mock_symbol_info, mock_user_settings):
         return strat
 
 
+from unittest.mock import patch, MagicMock, PropertyMock
+from enum import IntEnum
+
+
+# Define the Enum here or import it from your strategy file
+class BreakoutState(IntEnum):
+    DEFAULT = 0
+    ARMED = 1
+
+
 @pytest.fixture
 def mock_ob_settings():
-    """Specific settings for the Opening Balance strategy."""
     return {
         "quantity": 15,
         "t1": 10,
@@ -81,33 +90,21 @@ def mock_ob_settings():
 
 @pytest.fixture
 def ob_strategy(mock_symbol_info, mock_ob_settings):
-    """
-    Returns an instance of Openingbalance with mocked Managers,
-    Buckets, and StateManager.
-    """
-    from src.strategies.openingbalance import Openingbalance
+    from src.strategies.openingbalance import Openingbalance, BreakoutState
 
-    # 1. Create the 'rest' mock for history and ltp calls
     mock_rest = MagicMock()
     mock_rest.ltp.return_value = 100.0
     mock_rest.history.return_value = 95.0
 
-    # 2. Patch dependencies inside the strategy module
     with patch("src.strategies.openingbalance.TimeManager") as mock_time_class, patch(
-        "src.strategies.openingbalance.StateManager"
-    ) as mock_state, patch(
         "src.strategies.openingbalance.TradeManager"
-    ) as mock_tm_class, patch(
-        "src.strategies.openingbalance.Helper.api"
-    ), patch(
+    ) as mock_tm_class, patch("src.strategies.openingbalance.Helper.api"), patch(
         "src.strategies.openingbalance.table"
     ):
 
-        # Capture the instance of TradeManager
-        mock_tm_instance = mock_tm_class.return_value
-
-        # Default StateManager behavior
-        mock_state.get_trade_count.return_value = 0
+        # Setup TimeManager with a mockable current_index property
+        mock_time_instance = mock_time_class.return_value
+        type(mock_time_instance).current_index = PropertyMock(return_value=10)
 
         strat = Openingbalance(
             prefix="OB_TEST",
@@ -116,9 +113,12 @@ def ob_strategy(mock_symbol_info, mock_ob_settings):
             rest=mock_rest,
         )
 
-        # Ensure TradeManager mock is accessible
-        strat.trade_mgr = mock_tm_instance
-        # Force time manager to allow trading for tests
-        strat._time_mgr.can_trade = True
+        # Injected dependencies
+        strat.trade_mgr = mock_tm_class.return_value
+        strat._time_mgr = mock_time_instance
+
+        # Power-On Reset State
+        strat._state = BreakoutState.DEFAULT
+        strat._last_idx = 10
 
         return strat
