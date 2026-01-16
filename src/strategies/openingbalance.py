@@ -23,7 +23,7 @@ class Openingbalance:
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
         # initialize
         self._stopped = set()
-        self._orders = []
+        self._trades = []
         self._positions = []
 
         # from parameters
@@ -44,7 +44,6 @@ class Openingbalance:
         # objects and dependencies
         self._time_mgr = TimeManager(user_settings["rest_time"])
         self._state = BreakoutState.DEFAULT
-        self._is_breakout = False
         self.trade_mgr = TradeManager(
             Helper.api(), symbol=self._symbol, exchange=user_settings["option_exchange"]
         )
@@ -99,38 +98,46 @@ class Openingbalance:
             # --- PHASE 1: ARMING (Condition 1) ---
             if self._state == BreakoutState.DEFAULT:
                 if curr_idx > self._last_idx:
+                    # Mark this candle as "seen" regardless of price action
+                    self._last_idx = curr_idx
+
                     if self._last_price > self._stop:
                         self._state = BreakoutState.ARMED
-                        self._last_idx = curr_idx
-                return
+                        logging.info(f"ARMED: {self._symbol} at index {curr_idx}")
+                return  # Exit Phase 1
 
-            # --- PHASE 2: VALIDATION (Condition 2) ---
+            # --- PHASE 2: VALIDATION & EXECUTION ---
             if self._state == BreakoutState.ARMED:
-                # If we are still in the same candle, check for breach
+                # 1. Monitoring Phase (Same Candle)
                 if curr_idx == self._last_idx:
                     if self._last_price <= self._stop:
-                        self._state = BreakoutState.DEFAULT  # Reset if touched
+                        self._state = BreakoutState.DEFAULT
+                        logging.info(
+                            f"DISARMED: {self._symbol} - Stop breached mid-candle"
+                        )
                     return
 
-                # If index changed and we are still ARMED, it means NO BREACH happened
-                self._state = BreakoutState.DEFAULT
-                self._last_idx = curr_idx
-                # Execute trade because the previous candle survived the test
+                # 2. Execution Phase (Index has incremented)
+                # Since we are still ARMED and the index changed, Step 2 was successful.
                 is_entered = self.trade_mgr.complete_entry(
                     quantity=self._quantity, price=self._last_price + 2
                 )
+
+                # Reset state before moving to the next phase
+                self._state = BreakoutState.DEFAULT
+                self._last_idx = curr_idx
+
                 if is_entered:
                     self._fn = "place_exit_order"
                 return
 
         except Exception as e:
             logging.error(f"Logic Error: {e}")
-            print_exc()
 
     def place_exit_order(self):
         try:
             sell_order = self.trade_mgr.pending_exit(
-                stop=self._stop, orders=self._orders
+                stop=self._stop, orders=self._trades
             )
             if sell_order.order_id:
                 self._fn = "try_exiting_trade"
@@ -152,7 +159,7 @@ class Openingbalance:
             count = len(
                 [
                     order["order_id"]
-                    for order in self._orders
+                    for order in self._trades
                     if order["symbol"].startswith(self._prefix)
                 ]
             )
@@ -220,7 +227,7 @@ class Openingbalance:
             self._set_target()
 
             exit_status = self.trade_mgr.is_trade_exited(
-                self._last_price, self._orders, removable=False
+                self._last_price, self._trades, removable=False
             )
 
             if exit_status in [1, 2]:
@@ -247,7 +254,7 @@ class Openingbalance:
 
         if self._fn == "try_exiting_trade":
             status = self.trade_mgr.is_trade_exited(
-                self._last_price, self._orders, True
+                self._last_price, self._trades, True
             )
             assert status == 3
 
@@ -256,9 +263,9 @@ class Openingbalance:
                 f"REMOVING: {self._symbol} switching from waiting for breakout"
             )
 
-    def run(self, orders, ltps, positions):
+    def run(self, trades, ltps, positions):
         try:
-            self._orders = orders
+            self._trades = trades
 
             if positions and any(positions):
                 self._positions = positions
