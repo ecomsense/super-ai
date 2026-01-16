@@ -8,7 +8,7 @@ from src.constants import (
 )
 
 from src.sdk.helper import Helper
-from src.core.build import Builder, find_fno_tokens
+from src.core.build import Builder
 from src.core.strategy import StrategyMaker
 from src.core.engine import Engine
 
@@ -18,27 +18,26 @@ from traceback import print_exc
 logging = logging_func(__name__)
 
 
-def read_trade_settings():
-    lst = []
-    Flag = True
-    while Flag:
+def read_builders():
+    builders = []
+    while True:
         O_TRADESET = TradeSet().read()
-        if O_TRADESET and any(O_TRADESET):
-            trade_settings = O_TRADESET.pop("trade")
-            builder = Builder()
-            symbol_to_trade = builder.merge_settings_and_symbols(
-                user_settings=O_TRADESET, dct_sym=get_symbol_fm_factory()
-            )
-            symbol_to_trade = builder.find_expiry(symbol_to_trade)
-            item = (trade_settings, symbol_to_trade)
-            lst.append(item)
-        else:
-            Flag = False
+        if not O_TRADESET or not any(O_TRADESET):
+            break
 
-    if any(lst):
-        return lst
-    logging.info("you have exhausted all strategies to run")
-    __import__("sys").exit(1)
+        trade_settings = O_TRADESET.pop("trade")
+        builder = Builder(
+            trade_settings=trade_settings,
+            user_settings=O_TRADESET,
+            symbol_factory=get_symbol_fm_factory(),
+        )
+        builders.append(builder)
+
+    if not any(builders):
+        logging.info("you have exhausted all strategies to run")
+        __import__("sys").exit(1)
+
+    return builders
 
 
 def main():
@@ -47,34 +46,38 @@ def main():
         O_SETG = yml_to_obj(S_SETG)
         engine = Engine(O_SETG["start"], O_SETG["stop"])
 
-        merged_settings = read_trade_settings()
+        builders = read_builders()
 
         # login to broker api
         Helper.api()
 
         while not is_time_past(engine.stop):
-            for item in merged_settings[:]:
-                trade_settings, symbol_to_trade = item
+            for builder in builders[:]:
+                if builder.can_build():
+                    logging.info(f"main: building params for {builder.strategy}")
+                    tokens_for_all_trading_symbols = builder.find_fno_tokens()
+                    if tokens_for_all_trading_symbols:
+                        sgy = StrategyMaker(
+                            tokens_for_all_trading_symbols=tokens_for_all_trading_symbols,
+                            symbols_to_trade=builder.symbols_to_trade,
+                        ).create(builder.strategy, builder.stop)
 
-                if is_time_past(trade_settings["start"]):
-                    missing_token = find_fno_tokens(symbols_to_trade=symbol_to_trade)
-                    logging.debug(f"missing token: {missing_token}")
+                        engine.add_strategy(sgy)
+
+                    else:
+                        logging.error(
+                            f"main: no tokens found, skipping strategy {builder.strategy}"
+                        )
 
                     # make strategy object for each symbol selected
-                    sgy = StrategyMaker(
-                        tokens_for_all_trading_symbols=missing_token,
-                        symbols_to_trade=symbol_to_trade,
-                    ).create(trade_settings["strategy"], trade_settings["stop"])
-
-                    engine.add_strategy(sgy)
-                    merged_settings.remove(item)
+                    builders.remove(builder)
 
             engine.tick()
 
             blink()
         else:
             logging.info(
-                f"main: killing tmux because we started after stop time {engine_stop}"
+                f"main: killing tmux because we started after stop time {engine.stop}"
             )
             kill_tmux()
 
