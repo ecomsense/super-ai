@@ -22,7 +22,7 @@ class BreakoutState(IntEnum):
 class Openingbalance:
     def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
         # initialize
-        self._stopped = set()
+        self._STOPPED = set()
         self._trades = []
         self._positions = []
 
@@ -142,7 +142,7 @@ class Openingbalance:
             if sell_order and sell_order.order_id:
                 self._fn = "try_exiting_trade"
             else:
-                self._stop.add(self._prefix)
+                self._STOPPED.add(self._prefix)
                 self._removable = True
         except Exception as e:
             logging.error(f"{e} while place exit order")
@@ -236,7 +236,7 @@ class Openingbalance:
             if exit_status in [1, 2]:
                 self._fn = "wait_for_breakout"
             elif exit_status == 3:
-                self._stop.add(self._prefix)
+                self._STOPPED.add(self._prefix)
                 self._removable = True
 
             msg = f"PROGRESS: {self._symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
@@ -277,7 +277,7 @@ class Openingbalance:
             if ltp is not None:
                 self._last_price = float(ltp)
 
-            if self._prefix in self._stopped:
+            if self._prefix in self._STOPPED:
                 self.remove_me()
 
             result = getattr(self, self._fn)()
