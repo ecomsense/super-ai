@@ -78,7 +78,7 @@ class Openingbalance:
     def set_stop(self):
         try:
             self._last_idx = self._time_mgr.current_index
-            if self._stop is not None:
+            if self._stop is None:
                 intl = self._rest.history(
                     exchange=self._exchange,
                     token=self._token,
