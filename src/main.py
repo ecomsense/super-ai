@@ -8,7 +8,7 @@ from src.constants import (
 )
 
 from src.sdk.helper import Helper
-from src.core.build import Builder
+from src.core.build import Builder, merge
 from src.core.strategy import StrategyMaker
 from src.core.engine import Engine
 
@@ -20,6 +20,7 @@ logging = logging_func(__name__)
 
 def read_builders():
     builders = []
+    quote = Helper._quote
     while True:
         O_TRADESET = TradeSet().read()
         if not O_TRADESET or not any(O_TRADESET):
@@ -28,9 +29,13 @@ def read_builders():
         trade_settings = O_TRADESET.pop("trade")
         builder = Builder(
             trade_settings=trade_settings,
+        )
+        symbols_to_trade = merge(
             user_settings=O_TRADESET,
             symbol_factory=get_symbol_fm_factory(),
+            quote=quote,
         )
+        builder.set_symbols_to_trade(symbols_to_trade)
         builders.append(builder)
 
     if not any(builders):
@@ -47,10 +52,9 @@ def main():
         engine = Engine(O_SETG["start"], O_SETG["stop"])
         engine.wait_until_start()
 
-        builders = read_builders()
-
         # login to broker api
         Helper.api()
+        builders = read_builders()
 
         rest = Helper._rest
         quote = Helper._quote
@@ -58,7 +62,9 @@ def main():
             for builder in builders[:]:
                 if builder.can_build():
                     logging.info(f"main: building params for {builder.strategy}")
-                    tokens_for_all_trading_symbols = builder.find_fno_tokens()
+                    tokens_for_all_trading_symbols = builder.find_fno_tokens(
+                        quote=quote
+                    )
                     if tokens_for_all_trading_symbols:
                         sgy = StrategyMaker(
                             tokens_for_all_trading_symbols=tokens_for_all_trading_symbols,
@@ -70,12 +76,10 @@ def main():
                             rest=rest,
                         )
                         engine.add_strategy(sgy)
-
                     else:
                         logging.error(
                             f"main: no tokens found, skipping strategy {builder.strategy}"
                         )
-
                     # make strategy object for each symbol selected
                     builders.remove(builder)
 

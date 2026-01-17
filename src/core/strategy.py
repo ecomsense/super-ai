@@ -1,8 +1,6 @@
 from src.constants import logging_func
-from src.sdk.symbol import OptionSymbol, OptionData
 
 from traceback import print_exc
-from typing import Any, Literal
 from importlib import import_module
 
 
@@ -25,89 +23,6 @@ def unsubscribe_tokens_not_in_strategies(strategies: list[Any]):
         print_exc()
 
 """
-
-
-def find_tradingsymbol_by_atm(
-    ce_or_pe: Literal["CE", "PE"], user_settings, tokens_for_all_trading_symbols, quote
-) -> dict[str, Any]:
-    """
-    (Refactored from your original find_tradingsymbol_by_low)
-    output:
-        {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
-    """
-    try:
-        data = OptionData(
-            exchange=user_settings["option_exchange"],
-            base=user_settings["base"],
-            symbol=user_settings["symbol"],
-            diff=user_settings["diff"],
-            depth=user_settings["depth"],
-            expiry=user_settings["expiry"],
-        )
-        atm = user_settings["atm"]
-
-        logging.info(f"find option by distance with {data} for user settings atm:{atm}")
-        sym = OptionSymbol(data)
-
-        result = sym.find_option_by_distance(
-            atm=atm,
-            distance=user_settings["moneyness"],
-            c_or_p=ce_or_pe,
-        )
-        logging.info(f"find option by distance returned {result}")
-        symbol_info_by_distance: dict[str, Any] = quote.symbol_info(
-            user_settings["option_exchange"],
-            result["TradingSymbol"],
-            result["Token"],
-        )
-        logging.info(f"{symbol_info_by_distance=}")
-        symbol_info_by_distance["option_type"] = ce_or_pe
-        _ = quote.symbol_info(
-            user_settings["exchange"],
-            user_settings["index"],
-            user_settings["token"],
-        )
-
-        # find the tradingsymbol which is closest to the premium
-        if user_settings.get("premium", 0) > 0:
-            logging.info("premiums is going to checked")
-
-            # subscribe to symbols
-            for key, symbol in tokens_for_all_trading_symbols.items():
-                token = key.split("|")[1]
-                _ = quote.symbol_info(user_settings["option_exchange"], symbol, token)
-
-            logging.info(
-                f"premium {user_settings['premium']} to be check agains quotes for closeness ]"
-            )
-            symbol_with_closest_premium = sym.find_closest_premium(
-                quotes=quote.get_quotes(),
-                premium=user_settings["premium"],
-                contains=ce_or_pe,
-            )
-
-            logging.info(f"found {symbol_with_closest_premium=}")
-            symbol_info_by_premium = quote.symbol_info(
-                user_settings["option_exchange"], symbol_with_closest_premium
-            )
-            logging.info(f"getting {symbol_info_by_premium=}")
-            assert isinstance(
-                symbol_info_by_premium, dict
-            ), "symbol_info_by_premium is empty"
-            symbol_info_by_premium["option_type"] = ce_or_pe
-
-            # use any one result
-            symbol_info = (
-                symbol_info_by_premium
-                if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"]
-                else symbol_info_by_distance
-            )
-            return symbol_info
-        return symbol_info_by_distance
-    except Exception as e:
-        logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
-        print_exc()
-        return {}
 
 
 class StrategyMaker:
