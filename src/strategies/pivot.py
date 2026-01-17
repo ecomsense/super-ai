@@ -6,7 +6,7 @@ from src.sdk.helper import Helper
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
 from src.providers.state_manager import StateManager
-from src.providers.grid import Gridlines
+from src.providers.grid import Gridlines, Grid
 
 import pendulum as pdlm
 from traceback import print_exc
@@ -27,7 +27,6 @@ class Pivot:
         prefix: str,
         symbol_info: dict,
         user_settings: dict,
-        pivot_grids,
         rest,
     ):
         # A hard coded
@@ -52,9 +51,19 @@ class Pivot:
             last_price=symbol_info["ltp"],
             exchange=user_settings["option_exchange"],
         )
+        pivot_grids = Grid().get(
+            rst=rest,
+            exchange=user_settings["option_exchange"],
+            tradingsymbol=symbol_info["symbol"],
+            token=symbol_info["token"],
+        )
         self.lines = Gridlines(prices=pivot_grids, reverse=False)
         self._time_mgr = TimeManager(user_settings["rest_time"])
-        self.trade_mgr = TradeManager(Helper.api())
+        self.trade_mgr = TradeManager(
+            stock_broker=Helper.api(),
+            symbol=symbol_info["symbol"],
+            exchange=symbol_info["option_exchange"],
+        )
 
         # class level state management
         if self.trade.last_price is not None:

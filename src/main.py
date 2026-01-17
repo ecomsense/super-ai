@@ -1,4 +1,4 @@
-# main.py
+# src/main.py
 from src.constants import (
     logging_func,
     S_SETG,
@@ -45,12 +45,15 @@ def main():
         # read common start time and stop time
         O_SETG = yml_to_obj(S_SETG)
         engine = Engine(O_SETG["start"], O_SETG["stop"])
+        engine.wait_until_start()
 
         builders = read_builders()
 
         # login to broker api
         Helper.api()
 
+        rest = Helper._rest
+        quote = Helper._quote
         while not is_time_past(engine.stop):
             for builder in builders[:]:
                 if builder.can_build():
@@ -60,8 +63,12 @@ def main():
                         sgy = StrategyMaker(
                             tokens_for_all_trading_symbols=tokens_for_all_trading_symbols,
                             symbols_to_trade=builder.symbols_to_trade,
-                        ).create(builder.strategy, builder.stop)
-
+                        ).create(
+                            strategy_name=builder.strategy,
+                            stop_time=builder.stop,
+                            quote=quote,
+                            rest=rest,
+                        )
                         engine.add_strategy(sgy)
 
                     else:
@@ -72,7 +79,7 @@ def main():
                     # make strategy object for each symbol selected
                     builders.remove(builder)
 
-            engine.tick()
+            engine.tick(rest, quote)
 
             blink()
         else:

@@ -6,6 +6,7 @@ from src.config.interface import Trade
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
 from src.providers.state_manager import StateManager
+from src.providers.grid import Grid
 
 import pendulum as pdlm
 from traceback import print_exc
@@ -21,14 +22,26 @@ condition = {
 
 class Pivotindex:
 
-    def __init__(
-        self, prefix: str, symbol_info: dict, user_settings: dict, pivot_grids
-    ):
+    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
         # A hard coded
         self._removable = False
         self._stop = symbol_info["ltp"]
         self._low = symbol_info["ltp"]
 
+        if all(k in user_settings for k in ["intl", "inth", "intc"]):
+            logging.info(f"HLC: found in {user_settings} from settings")
+            pivot_grids = Grid().set(
+                prefix=prefix,
+                symbol_constant=user_settings,
+            )
+        else:
+            pivot_grids = Grid().get(
+                rst=rest,
+                exchange=user_settings["exchange"],
+                tradingsymbol=user_settings["index"],
+                token=user_settings["token"],
+            )
+        self.rest = rest
         # 1. Core Attributes (directly from parameters)
         self._prefix = prefix
         self._id = symbol_info["symbol"]
@@ -141,8 +154,7 @@ class Pivotindex:
 
     def low(self):
         try:
-            rst = Helper._rest
-            intl = rst.history(
+            intl = self.rest.history(
                 exchange=self.trade.exchange,
                 token=self._token,
                 loc=self._last_buy_at,
@@ -203,11 +215,6 @@ class Pivotindex:
                 )
                 if isinstance(order, dict):
                     return True
-            else:
-                logging.debug("CHECKING STOP IN PAPER MODE")
-                return Helper.api.can_move_order_to_trade(
-                    self._trade_manager.position.exit.order_id, self.trade.last_price
-                )
         except Exception as e:
             logging.error(f"{e} is stoploss hit {self.trade.symbol}")
             print_exc()

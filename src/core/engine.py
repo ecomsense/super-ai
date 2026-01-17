@@ -1,6 +1,5 @@
 from src.constants import logging_func
 from traceback import print_exc
-from src.sdk.helper import Helper
 from toolkit.kokoo import is_time_past, blink
 
 logging = logging_func(__name__)
@@ -11,33 +10,32 @@ class Engine:
     def __init__(self, start, stop):
         self.strategies = []
         self.stop = stop
+        self.start = start
+
+    def wait_until_start(self):
         logging.info(f"WAITING: till Engine start time {start}")
-        while not is_time_past(start):
+        while not is_time_past(self.start):
             blink()
 
     def add_strategy(self, new_strats):
         if new_strats:
             self.strategies.extend(new_strats)
 
-    def tick(self):
+    def tick(self, rest, quote):
         try:
             if not self.strategies:
                 return
 
-            # Get the run arguments dynamically from the builder
-            trades = Helper._rest.trades()
-            quotes = Helper._quote.get_quotes()
+            # Get the run arguments dynamically
+            trades = rest.trades()
+            quotes = quote.get_quotes()
+
+            needs_position = any(s.name == "openingbalance" for s in self.strategies)
+            positions = rest.positions() if needs_position else None
 
             for strgy in self.strategies:
-                run_args = trades, quotes
-                # Add strategy-specific run arguments that depend on loop state
-                if strgy.name == "openingbalance":
-                    strgy.run(
-                        *run_args,
-                        positions=Helper._rest.positions(),
-                    )
-                else:
-                    strgy.run(*run_args)  # Pass the dynamically generated args
+                run_args = trades, quotes, positions
+                strgy.run(*run_args)  # Pass the dynamically generated args
 
             self.strategies = [s for s in self.strategies if not s._removable]
             """

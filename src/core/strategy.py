@@ -1,6 +1,5 @@
 from src.constants import logging_func
 from src.sdk.symbol import OptionSymbol, OptionData
-from src.sdk.helper import Helper
 
 from traceback import print_exc
 from typing import Any, Literal
@@ -15,17 +14,100 @@ def unsubscribe_tokens_not_in_strategies(strategies: list[Any]):
         subscribed_tokens = [
             f"{strategy.trade.exchange}|{strategy._token}" for strategy in strategies
         ]
-        quotes = Helper._quote.get_quotes()
+        quotes = quote.get_quotes()
         tokens_to_unsubscribe = [
             token for token in quotes.keys() if token not in subscribed_tokens
         ]
         print(tokens_to_unsubscribe)
-        Helper._quote._ws.unsubscribe(tokens_to_unsubscribe)
+        quote._ws.unsubscribe(tokens_to_unsubscribe)
     except Exception as e:
         logging.error(f"{e} while unsubscribing tokens not in strategies")
         print_exc()
 
 """
+
+
+def find_tradingsymbol_by_atm(
+    ce_or_pe: Literal["CE", "PE"], user_settings, tokens_for_all_trading_symbols, quote
+) -> dict[str, Any]:
+    """
+    (Refactored from your original find_tradingsymbol_by_low)
+    output:
+        {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
+    """
+    try:
+        data = OptionData(
+            exchange=user_settings["option_exchange"],
+            base=user_settings["base"],
+            symbol=user_settings["symbol"],
+            diff=user_settings["diff"],
+            depth=user_settings["depth"],
+            expiry=user_settings["expiry"],
+        )
+        atm = user_settings["atm"]
+
+        logging.info(f"find option by distance with {data} for user settings atm:{atm}")
+        sym = OptionSymbol(data)
+
+        result = sym.find_option_by_distance(
+            atm=atm,
+            distance=user_settings["moneyness"],
+            c_or_p=ce_or_pe,
+        )
+        logging.info(f"find option by distance returned {result}")
+        symbol_info_by_distance: dict[str, Any] = quote.symbol_info(
+            user_settings["option_exchange"],
+            result["TradingSymbol"],
+            result["Token"],
+        )
+        logging.info(f"{symbol_info_by_distance=}")
+        symbol_info_by_distance["option_type"] = ce_or_pe
+        _ = quote.symbol_info(
+            user_settings["exchange"],
+            user_settings["index"],
+            user_settings["token"],
+        )
+
+        # find the tradingsymbol which is closest to the premium
+        if user_settings.get("premium", 0) > 0:
+            logging.info("premiums is going to checked")
+
+            # subscribe to symbols
+            for key, symbol in tokens_for_all_trading_symbols.items():
+                token = key.split("|")[1]
+                _ = quote.symbol_info(user_settings["option_exchange"], symbol, token)
+
+            logging.info(
+                f"premium {user_settings['premium']} to be check agains quotes for closeness ]"
+            )
+            symbol_with_closest_premium = sym.find_closest_premium(
+                quotes=quote.get_quotes(),
+                premium=user_settings["premium"],
+                contains=ce_or_pe,
+            )
+
+            logging.info(f"found {symbol_with_closest_premium=}")
+            symbol_info_by_premium = quote.symbol_info(
+                user_settings["option_exchange"], symbol_with_closest_premium
+            )
+            logging.info(f"getting {symbol_info_by_premium=}")
+            assert isinstance(
+                symbol_info_by_premium, dict
+            ), "symbol_info_by_premium is empty"
+            symbol_info_by_premium["option_type"] = ce_or_pe
+
+            # use any one result
+            symbol_info = (
+                symbol_info_by_premium
+                if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"]
+                else symbol_info_by_distance
+            )
+            return symbol_info
+        return symbol_info_by_distance
+    except Exception as e:
+        logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
+        print_exc()
+        return {}
 
 
 class StrategyMaker:
@@ -38,92 +120,7 @@ class StrategyMaker:
         self.tokens_for_all_trading_symbols = tokens_for_all_trading_symbols
         self.symbols_to_trade = symbols_to_trade
 
-    def _find_tradingsymbol_by_atm(
-        self, ce_or_pe: Literal["CE", "PE"], user_settings
-    ) -> dict[str, Any]:
-        """
-        (Refactored from your original find_tradingsymbol_by_low)
-        output:
-            {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
-        """
-        try:
-            data = OptionData(
-                exchange=user_settings["option_exchange"],
-                base=user_settings["base"],
-                symbol=user_settings["symbol"],
-                diff=user_settings["diff"],
-                depth=user_settings["depth"],
-                expiry=user_settings["expiry"],
-            )
-            atm = user_settings["atm"]
-
-            logging.info(
-                f"find option by distance with {data} for user settings atm:{atm}"
-            )
-            sym = OptionSymbol(data)
-
-            result = sym.find_option_by_distance(
-                atm=atm,
-                distance=user_settings["moneyness"],
-                c_or_p=ce_or_pe,
-            )
-            logging.info(f"find option by distance returned {result}")
-            symbol_info_by_distance: dict[str, Any] = Helper._quote.symbol_info(
-                user_settings["option_exchange"],
-                result["TradingSymbol"],
-                result["Token"],
-            )
-            logging.info(f"{symbol_info_by_distance=}")
-            symbol_info_by_distance["option_type"] = ce_or_pe
-            _ = Helper._quote.symbol_info(
-                user_settings["exchange"],
-                user_settings["index"],
-                user_settings["token"],
-            )
-
-            # find the tradingsymbol which is closest to the premium
-            if user_settings.get("premium", 0) > 0:
-                logging.info("premiums is going to checked")
-
-                # subscribe to symbols
-                for key, symbol in self.tokens_for_all_trading_symbols.items():
-                    token = key.split("|")[1]
-                    _ = Helper._quote.symbol_info(
-                        user_settings["option_exchange"], symbol, token
-                    )
-
-                quotes = Helper._quote.get_quotes()
-                logging.info(
-                    f"premium {user_settings['premium']} to be check agains quotes for closeness ]"
-                )
-                symbol_with_closest_premium = sym.find_closest_premium(
-                    quotes=quotes, premium=user_settings["premium"], contains=ce_or_pe
-                )
-
-                logging.info(f"found {symbol_with_closest_premium=}")
-                symbol_info_by_premium = Helper._quote.symbol_info(
-                    user_settings["option_exchange"], symbol_with_closest_premium
-                )
-                logging.info(f"getting {symbol_info_by_premium=}")
-                assert isinstance(
-                    symbol_info_by_premium, dict
-                ), "symbol_info_by_premium is empty"
-                symbol_info_by_premium["option_type"] = ce_or_pe
-
-                # use any one result
-                symbol_info = (
-                    symbol_info_by_premium
-                    if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"]
-                    else symbol_info_by_distance
-                )
-                return symbol_info
-            return symbol_info_by_distance
-        except Exception as e:
-            logging.error(f"{e} while finding the trading symbol in StrategyBuilder")
-            print_exc()
-            return {}
-
-    def create(self, strategy_name, stop_time):
+    def create(self, strategy_name, stop_time, quote, rest):
         """
         Creates a list of strategies based on the provided symbols_to_trade.
         """
@@ -139,50 +136,18 @@ class StrategyMaker:
                     # Prepare common arguments for strategy __init__
                     common_init_kwargs = {
                         "prefix": prefix,
-                        "symbol_info": self._find_tradingsymbol_by_atm(
-                            option_type, user_settings
+                        "symbol_info": find_tradingsymbol_by_atm(
+                            ce_or_pe=option_type,
+                            user_settings=user_settings,
+                            tokens_for_all_trading_symbols=self.tokens_for_all_trading_symbols,
+                            quote=quote,
                         ),
                         "user_settings": user_settings,
-                        "rest": Helper._rest,
+                        "rest": rest,
                     }
                     logging.info(f"common init: {common_init_kwargs}")
                     # create strategy object
-                    logging.info(f"building {strategy_name} for {option_type}")
-                    if strategy_name == "pivotindex":
-                        if all(k in user_settings for k in ["intl", "inth", "intc"]):
-                            logging.info(f"HLC: found in {user_settings} from settings")
-                            common_init_kwargs["pivot_grids"] = (
-                                import_module("src.providers.grid")
-                                .Grid()
-                                .set(
-                                    prefix=prefix,
-                                    symbol_constant=user_settings,
-                                )
-                            )
-                        else:
-                            common_init_kwargs["pivot_grids"] = (
-                                import_module("src.providers.grid")
-                                .Grid()
-                                .get(
-                                    rst=Helper._rest,
-                                    exchange=user_settings["exchange"],
-                                    tradingsymbol=user_settings["index"],
-                                    token=user_settings["token"],
-                                )
-                            )
-                    elif strategy_name == "pivot":
-                        common_init_kwargs["pivot_grids"] = (
-                            import_module("src.providers.grid")
-                            .Grid()
-                            .get(
-                                rst=Helper._rest,
-                                exchange=user_settings["option_exchange"],
-                                tradingsymbol=common_init_kwargs["symbol_info"][
-                                    "symbol"
-                                ],
-                                token=common_init_kwargs["symbol_info"]["token"],
-                            )
-                        )
+                    logging.info(f"making {strategy_name} for {option_type}")
                     strgy = Strategy(**common_init_kwargs)
                     strgy.name = strategy_name
                     strgy.stop_time = stop_time

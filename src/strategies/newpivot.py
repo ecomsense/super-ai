@@ -160,7 +160,7 @@ class Newpivot:
         self._removable = True
         logging.info(f"REMOVING: {self._symbol} switching from waiting for breakout")
 
-    def run(self, trades, ltps):
+    def run(self, trades, ltps, positions):
         try:
             self._trades = trades
 
