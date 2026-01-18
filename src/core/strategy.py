@@ -2,7 +2,7 @@ from src.constants import logging_func
 
 from traceback import print_exc
 from importlib import import_module
-
+from pprint import pprint
 
 logging = logging_func(__name__)
 
@@ -13,7 +13,7 @@ def unsubscribe_tokens_not_in_strategies(strategies: list[Any]):
             f"{strategy.trade.exchange}|{strategy._token}" for strategy in strategies
         ]
         quotes = quote.get_quotes()
-        tokens_to_unsubscribe = [
+        tokens_to_unsubscribe = [ ff
             token for token in quotes.keys() if token not in subscribed_tokens
         ]
         print(tokens_to_unsubscribe)
@@ -37,6 +37,7 @@ def create(data, meta):
         Strategy = getattr(strategy_module, strategy_name.capitalize())
         logging.info(f"creating strategy: {strategy_name}")
         for prefix, settings in data.items():
+            pprint(settings)
             lst_of_option_type = ["PE", "CE"]
             for option_type in lst_of_option_type:
                 # create strategy object

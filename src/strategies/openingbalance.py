@@ -28,13 +28,15 @@ class Openingbalance:
         self._positions = []
 
         # from parameters
+        self.name = meta["strategy"]
+        self.stop_time = meta["stop"]
         self._rest = meta["rest"]
         self._prefix = prefix
         self.option_type = option_type
         self._token = settings["token"]
         self._quantity = settings["quantity"]
         self._symbol = settings["symbol"]
-        self._last_price = settings["ltp"]
+        self._last_price = settings.get("ltp", None)
 
         self._stop = None
         self._t2 = settings.get("t2", settings["t1"])
