@@ -21,32 +21,32 @@ class BreakoutState(IntEnum):
 
 
 class Openingbalance:
-    def __init__(self, prefix: str, symbol_info: dict, user_settings: dict, rest):
+    def __init__(self, prefix: str, option_type: str, settings: dict, meta: dict):
         # initialize
         self._STOPPED = set()
         self._trades = []
         self._positions = []
 
         # from parameters
-        self._rest = rest
+        self._rest = meta["rest"]
         self._prefix = prefix
-        self.option_type = symbol_info["option_type"]
-        self._token = symbol_info["token"]
-        self._quantity = user_settings["quantity"]
-        self._symbol = symbol_info["symbol"]
-        self._last_price = symbol_info["ltp"]
+        self.option_type = option_type
+        self._token = settings["token"]
+        self._quantity = settings["quantity"]
+        self._symbol = settings["symbol"]
+        self._last_price = settings["ltp"]
 
         self._stop = None
-        self._t2 = user_settings.get("t2", user_settings["t1"])
-        self._txn = user_settings["txn"]
-        self._target = user_settings["t1"] * 2
-        self._exchange = user_settings["option_exchange"]
+        self._t2 = settings.get("t2", settings["t1"])
+        self._txn = settings["txn"]
+        self._target = settings["t1"] * 2
+        self._exchange = settings["option_exchange"]
 
         # objects and dependencies
-        self._time_mgr = TimeManager(user_settings["rest_time"])
+        self._time_mgr = TimeManager(settings["rest_time"])
         self._state = BreakoutState.DEFAULT
         self.trade_mgr = TradeManager(
-            Helper.api(), symbol=self._symbol, exchange=user_settings["option_exchange"]
+            Helper.api(), symbol=self._symbol, exchange=settings["option_exchange"]
         )
 
         # state variables

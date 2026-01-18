@@ -8,8 +8,7 @@ from src.constants import (
 )
 
 from src.sdk.helper import Helper
-from src.core.build import Builder, merge
-from src.core.strategy import StrategyMaker
+from src.core.build import Builder, create
 from src.core.engine import Engine
 
 from toolkit.kokoo import is_time_past, blink, kill_tmux
@@ -19,23 +18,29 @@ logging = logging_func(__name__)
 
 
 def read_builders():
-    builders = []
+    logging.debug("trying to login")
+    Helper.api()
     quote = Helper._quote
+    rest = Helper._rest
+
+    builders = []
     while True:
+        logging.debug("reading user trade settings")
         O_TRADESET = TradeSet().read()
         if not O_TRADESET or not any(O_TRADESET):
             break
 
         trade_settings = O_TRADESET.pop("trade")
-        builder = Builder(
-            trade_settings=trade_settings,
+        builder = (
+            Builder(
+                trade_settings=trade_settings,
+                user_settings=O_TRADESET,
+                quote=quote,
+                rest=rest,
+            )
+            .merge_settings_and_symbols(symbol_factory=get_symbol_fm_factory())
+            .find_expiry()
         )
-        symbols_to_trade = merge(
-            user_settings=O_TRADESET,
-            symbol_factory=get_symbol_fm_factory(),
-            quote=quote,
-        )
-        builder.set_symbols_to_trade(symbols_to_trade)
         builders.append(builder)
 
     if not any(builders):
@@ -53,7 +58,6 @@ def main():
         engine.wait_until_start()
 
         # login to broker api
-        Helper.api()
         builders = read_builders()
 
         rest = Helper._rest
@@ -61,10 +65,13 @@ def main():
         while not is_time_past(engine.stop):
             for builder in builders[:]:
                 if builder.can_build():
-                    logging.info(f"main: building params for {builder.strategy}")
-                    tokens_for_all_trading_symbols = builder.find_fno_tokens(
-                        quote=quote
+                    logging.info(
+                        f"main: building params for {builder._meta["strategy"]}"
                     )
+                        strategies = create(data=builder._data, meta=builder._meta)
+                        engine.add_strategy(strategies)
+
+                    """:while
                     if tokens_for_all_trading_symbols:
                         sgy = StrategyMaker(
                             tokens_for_all_trading_symbols=tokens_for_all_trading_symbols,
@@ -81,6 +88,7 @@ def main():
                             f"main: no tokens found, skipping strategy {builder.strategy}"
                         )
                     # make strategy object for each symbol selected
+                    """
                     builders.remove(builder)
 
             engine.tick(rest, quote)

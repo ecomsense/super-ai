@@ -13,7 +13,7 @@ class Engine:
         self.start = start
 
     def wait_until_start(self):
-        logging.info(f"WAITING: till Engine start time {start}")
+        logging.info(f"WAITING: till Engine start time {self.start}")
         while not is_time_past(self.start):
             blink()
 

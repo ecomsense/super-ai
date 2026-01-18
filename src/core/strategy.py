@@ -25,52 +25,37 @@ def unsubscribe_tokens_not_in_strategies(strategies: list[Any]):
 """
 
 
-class StrategyMaker:
+def create(data, meta):
+    """
+    Creates a list of strategies based on the provided symbols_to_trade.
+    """
+    try:
+        strategies = []
+        strategy_name = meta["strategy"]
+        module_path = f"src.strategies.{strategy_name}"
+        strategy_module = import_module(module_path)
+        Strategy = getattr(strategy_module, strategy_name.capitalize())
+        logging.info(f"creating strategy: {strategy_name}")
+        for prefix, settings in data.items():
+            lst_of_option_type = ["PE", "CE"]
+            for option_type in lst_of_option_type:
+                # create strategy object
+                common_init_kwargs = {
+                    "prefix": prefix,
+                    "option_type": option_type,
+                    "settings": settings,
+                    "meta": meta,
+                }
+                strgy = Strategy(**common_init_kwargs)
+                """
+                strgy.name = strategy_name
+                strgy.stop_time = stop_time
+                """
+                strategies.append(strgy)
 
-    def __init__(
-        self,
-        tokens_for_all_trading_symbols,
-        symbols_to_trade,
-    ) -> None:
-        self.tokens_for_all_trading_symbols = tokens_for_all_trading_symbols
-        self.symbols_to_trade = symbols_to_trade
-
-    def create(self, strategy_name, stop_time, quote, rest):
-        """
-        Creates a list of strategies based on the provided symbols_to_trade.
-        """
-        try:
-            module_path = f"src.strategies.{strategy_name}"
-            strategy_module = import_module(module_path)
-            Strategy = getattr(strategy_module, strategy_name.capitalize())
-            logging.info(f"creating strategy: {strategy_name}")
-            strategies = []
-            for prefix, user_settings in self.symbols_to_trade.items():
-                lst_of_option_type = ["PE", "CE"]
-                for option_type in lst_of_option_type:
-                    # Prepare common arguments for strategy __init__
-                    common_init_kwargs = {
-                        "prefix": prefix,
-                        "symbol_info": find_tradingsymbol_by_atm(
-                            ce_or_pe=option_type,
-                            user_settings=user_settings,
-                            tokens_for_all_trading_symbols=self.tokens_for_all_trading_symbols,
-                            quote=quote,
-                        ),
-                        "user_settings": user_settings,
-                        "rest": rest,
-                    }
-                    logging.info(f"common init: {common_init_kwargs}")
-                    # create strategy object
-                    logging.info(f"making {strategy_name} for {option_type}")
-                    strgy = Strategy(**common_init_kwargs)
-                    strgy.name = strategy_name
-                    strgy.stop_time = stop_time
-                    strategies.append(strgy)
-
-            # unsubscribe_tokens_not_in_strategies(strategies=strategies)
-            return strategies
-        except Exception as e:
-            logging.error(f"{e} while creating the strategies in StrategyBuilder")
-            print_exc()
-            __import__("sys").exit(1)
+        # unsubscribe_tokens_not_in_strategies(strategies=strategies)
+        return strategies
+    except Exception as e:
+        logging.error(f"{e} while creating the strategies in StrategyBuilder")
+        print_exc()
+        __import__("sys").exit(1)
