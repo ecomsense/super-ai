@@ -5,6 +5,7 @@ from toolkit.kokoo import is_time_past
 
 from typing import Any, Literal
 from src.sdk.symbol import OptionSymbol, OptionData
+from copy import deepcopy
 
 logging = logging_func(__name__)
 
@@ -85,7 +86,12 @@ class Builder:
         return False
 
 
-def find_ltp_and_atm(symbol_info, rest):
+"""
+    related to getting options symbols 
+"""
+
+
+def find_atm_fm_ltp(symbol_info, ltp_for_underlying):
     """
     get instrument tokens from broker for each symbol to trade and merge them together
     """
@@ -100,27 +106,13 @@ def find_ltp_and_atm(symbol_info, rest):
         )
         sym = OptionSymbol(data)
 
-        # get atm for the underlying
-        exchange = symbol_info["exchange"]
-        token = symbol_info["token"]
-
-        ltp_for_underlying = rest.ltp(exchange, token)
-        assert ltp_for_underlying is not None, "ltp_for_underlying is None"
-        atm = sym.get_atm(ltp_for_underlying)
-
-        # set atm for later use
-        symbol_info["atm"] = atm
-        symbol_info["underlying_ltp"] = ltp_for_underlying
-        logging.info(
-            f"atm {atm} for underlying {symbol_info['symbol']} from {ltp_for_underlying}"
-        )
-        return symbol_info
+        return sym.get_atm(ltp_for_underlying)
     except Exception as e:
         logging.error(f"{e} while finding ltp and atm in builder")
         print_exc()
 
 
-def find_fno_tokens(symbol_info):
+def find_tokens_from_atm(symbol_info, atm):
     """
     get instrument tokens from broker for each symbol to trade and merge them together
     """
@@ -136,13 +128,13 @@ def find_fno_tokens(symbol_info):
         sym = OptionSymbol(data)
 
         # get tokens for the option
-        return sym.get_tokens(symbol_info["atm"])
+        return sym.get_tokens(atm)
     except Exception as e:
         logging.error(f"{e} while finding fno tokens in builder")
         print_exc()
 
 
-def find_tradingsymbol_by_atm(
+def find_tradingsymbols_by_moneyness(
     ce_or_pe: Literal["CE", "PE"], param, quote
 ) -> dict[str, Any]:
     """
@@ -160,66 +152,25 @@ def find_tradingsymbol_by_atm(
             expiry=param["expiry"],
         )
         atm = param["atm"]
-
         logging.info(f"find option by distance with {data} for user settings atm:{atm}")
         sym = OptionSymbol(data)
 
+        # find option based on distance
         result = sym.find_option_by_distance(
             atm=atm,
             distance=param["moneyness"],
             c_or_p=ce_or_pe,
         )
         logging.info(f"find option by distance returned {result}")
-        symbol_info_by_distance: dict[str, Any] = quote.symbol_info(
+
+        symbol_info_by_distance = quote.symbol_info(
             param["option_exchange"],
             result["TradingSymbol"],
             result["Token"],
         )
-        logging.info(f"{symbol_info_by_distance=}")
         symbol_info_by_distance["option_type"] = ce_or_pe
-        _ = quote.symbol_info(
-            param["exchange"],
-            param["index"],
-            param["token"],
-        )
+        logging.info(f"{symbol_info_by_distance=}")
 
-        # find the tradingsymbol which is closest to the premium
-        if param.get("premium", 0) > 0:
-            logging.info("premiums is going to checked")
-
-            tokens_for_all_trading_symbols = param["fno_tokens"]
-            # subscribe to symbols
-            for key, symbol in tokens_for_all_trading_symbols.items():
-                token = key.split("|")[1]
-                _ = quote.symbol_info(param["option_exchange"], symbol, token)
-
-            logging.info(
-                f"premium {param['premium']} to be check against quotes for closeness ]"
-            )
-            symbol_with_closest_premium = sym.find_closest_premium(
-                quotes=quote.get_quotes(),
-                premium=param["premium"],
-                contains=ce_or_pe,
-            )
-
-            logging.info(f"found {symbol_with_closest_premium=}")
-            symbol_info_by_premium = quote.symbol_info(
-                param["option_exchange"],
-                symbol_with_closest_premium,
-            )
-            logging.info(f"getting {symbol_info_by_premium=}")
-            assert isinstance(
-                symbol_info_by_premium, dict
-            ), "symbol_info_by_premium is empty"
-            symbol_info_by_premium["option_type"] = ce_or_pe
-
-            # use any one result
-            symbol_info = (
-                symbol_info_by_premium
-                if symbol_info_by_premium["ltp"] > symbol_info_by_distance["ltp"]
-                else symbol_info_by_distance
-            )
-            return symbol_info
         return symbol_info_by_distance
     except Exception as e:
         logging.error(f"{e} while finding the trading symbol")
@@ -227,27 +178,113 @@ def find_tradingsymbol_by_atm(
         return {}
 
 
-def create(data, meta, ce_or_pe):
+def find_tradingsymbols_by_premium(
+    ce_or_pe: Literal["CE", "PE"], param, quote
+) -> dict[str, Any]:
+    """
+    (Refactored from your original find_tradingsymbol_by_low)
+    output:
+        {'symbol': 'NIFTY26JUN25C24750', 'key': 'NFO|62385', 'token': 12345, 'ltp': 274.85}
+    """
+    try:
+        data = OptionData(
+            exchange=param["option_exchange"],
+            base=param["base"],
+            symbol=param["symbol"],
+            diff=param["diff"],
+            depth=param["depth"],
+            expiry=param["expiry"],
+        )
+        atm = param["atm"]
+        logging.info(f"find option by distance with {data} for user settings atm:{atm}")
+        sym = OptionSymbol(data)
+
+        _ = quote.symbol_info(
+            param["exchange"],
+            param["index"],
+            param["token"],
+        )
+
+        # find the tradingsymbol which is closest to the premium
+        tokens_for_all_trading_symbols = param["fno_tokens"]
+
+        # subscribe to symbols
+        for key, symbol in tokens_for_all_trading_symbols.items():
+            token = key.split("|")[1]
+            _ = quote.symbol_info(param["option_exchange"], symbol, token)
+
+        logging.info(
+            f"premium {param['premium']} to be check against quotes for closeness ]"
+        )
+        symbol_with_closest_premium = sym.find_closest_premium(
+            quotes=quote.get_quotes(),
+            premium=param["premium"],
+            contains=ce_or_pe,
+        )
+        logging.info(f"found {symbol_with_closest_premium=}")
+
+        option_info = quote.symbol_info(
+            param["option_exchange"],
+            symbol_with_closest_premium,
+        )
+        return option_info
+
+    except Exception as e:
+        logging.error(f"{e} while finding the trading symbol")
+        print_exc()
+        return {}
+
+
+def stuff_atm(data, meta):
     try:
         for user_settings in data.values():
-            user_settings["strategy"] = meta["strategy"]
-            user_settings["stop_time"] = meta["stop"]
-            user_settings = find_ltp_and_atm(user_settings, meta["rest"])
-            user_settings["fno_tokens"] = find_fno_tokens(user_settings)
-            user_settings[ce_or_pe] = find_tradingsymbol_by_atm(
-                ce_or_pe=ce_or_pe, param=user_settings, quote=meta["quote"]
+            ltp_for_underlying = meta["rest"].ltp(
+                user_settings["exchange"], user_settings["token"]
             )
+            user_settings["atm"] = find_atm_fm_ltp(user_settings, ltp_for_underlying)
         return data
     except Exception as e:
-        logging.error(f"{e} while create in builder")
+        logging.error(f"{e} in find atm")
         print_exc()
 
 
-class SymboltoTrade:
+def stuff_tradingsymbols(data, meta):
+    try:
+        lst = []
 
-    def __init__(self, data: dict, meta: dict):
-        self._meta = meta
-        self._data = data
+        for copied in data.values():
+            moneyness_or_premium = copied.pop("method")
+            copied.update(moneyness_or_premium)
+            keys_of_user_settings = copied.keys()
+
+            option_types = ("CE", "PE")
+            for option_type in option_types:
+                user_settings = deepcopy(copied)
+                user_settings.update(**meta)
+                user_settings["option_type"] = option_type
+
+                if "moneyness" in keys_of_user_settings:
+                    option_info = find_tradingsymbols_by_moneyness(
+                        ce_or_pe=option_type, param=user_settings, quote=meta["quote"]
+                    )
+
+                elif "premium" in keys_of_user_settings:
+                    user_settings["fno_tokens"] = find_tokens_from_atm(
+                        user_settings, user_settings["atm"]
+                    )
+                    option_info = find_tradingsymbols_by_premium(
+                        ce_or_pe=option_type, param=user_settings, quote=meta["quote"]
+                    )
+
+                user_settings["tradingsymbol"] = option_info["symbol"]
+                user_settings["ltp"] = option_info["ltp"]
+                user_settings["option_token"] = option_info["token"]
+                lst.append(user_settings)
+
+        return lst
+    except Exception as e:
+        logging.error(f"{e} find fno token")
+        print_exc()
 
 
 if __name__ == "__main__":
@@ -279,34 +316,12 @@ if __name__ == "__main__":
                 .merge_settings_and_symbols(symbol_factory=get_symbol_fm_factory())
                 .find_expiry()
             )
-            print("**************************************************")
-            pprint(builder._data)
 
-            print("Creating")
-            created = create(builder._data, builder._meta, "CE")
-            pprint(created)
+            data = stuff_atm(builder._data, builder._meta)
+            print("**************************************************")
+            pprint(data)
+            lst_of_params = stuff_tradingsymbols(data, builder._meta)
+            pprint(lst_of_params)
+
     except Exception as e:
         print(e)
-
-    """
-    def create(self):
-        try:
-            # TODO
-            common_init_kwargs = {}
-            for prefix, user_settings in self._data.items():
-                lst_of_option_type = ["PE", "CE"]
-                for option_type in lst_of_option_type:
-                    common_init_kwargs[f"{strategy_name}"][option_type] = {
-                        "symbol_info": self.find_tradingsymbol_by_atm(
-                            ce_or_pe=option_type,
-                            user_settings=user_settings,
-                            tokens_for_all_trading_symbols=self.tokens_for_all_trading_symbols,
-                            quote=quote,
-                        )
-                    }
-            return common_init_kwargs
-        except Exception as e:
-            logging.error(f"{e} while creating the strategies in StrategyBuilder")
-            print_exc()
-
-    """

@@ -268,7 +268,9 @@ class RestApi:
             data_now = self._api.historical(exchange, token, fm, to)
 
             if not isinstance(data_now, list):
-                logging.debug("helper: history is not a list")
+                logging.debug(
+                    f"history: {data_now} is not a list for params{exchange} {token} {loc}{key}"
+                )
                 return None
 
             if isinstance(loc, int):

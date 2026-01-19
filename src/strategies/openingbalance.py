@@ -55,6 +55,7 @@ class Openingbalance:
         # state variables
         self._removable = False
         self._fn = "set_stop"
+        print(settings)
 
     """
     def _is_trailstopped(self, percent):

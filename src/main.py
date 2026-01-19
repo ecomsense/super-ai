@@ -8,8 +8,8 @@ from src.constants import (
 )
 
 from src.sdk.helper import Helper
-from src.core.build import Builder
-from src.core.strategy import create
+from src.core.build import Builder, stuff_atm, stuff_tradingsymbols
+from src.core.strategy import create_strategies_from_params
 from src.core.engine import Engine
 
 from toolkit.kokoo import is_time_past, blink, kill_tmux
@@ -19,7 +19,7 @@ logging = logging_func(__name__)
 
 
 def read_builders():
-    logging.debug("trying to login")
+    # login to broker api
     Helper.api()
     quote = Helper._quote
     rest = Helper._rest
@@ -28,10 +28,10 @@ def read_builders():
     while True:
         logging.debug("reading user trade settings")
         O_TRADESET = TradeSet().read()
+        trade_settings = O_TRADESET.pop("trade")
         if not O_TRADESET or not any(O_TRADESET):
             break
 
-        trade_settings = O_TRADESET.pop("trade")
         builder = (
             Builder(
                 trade_settings=trade_settings,
@@ -44,12 +44,6 @@ def read_builders():
         )
         builders.append(builder)
 
-    if not any(builders):
-        logging.info("you have exhausted all strategies to run")
-        __import__("sys").exit(1)
-
-    return builders
-
 
 def main():
     try:
@@ -58,38 +52,18 @@ def main():
         engine = Engine(O_SETG["start"], O_SETG["stop"])
         engine.wait_until_start()
 
-        # login to broker api
         builders = read_builders()
 
         rest = Helper._rest
         quote = Helper._quote
         while not is_time_past(engine.stop):
-            for builder in builders[:]:
+            for builder in builders:
                 if builder.can_build():
-                    logging.info(
-                        f'main: building params for {builder._meta["strategy"]}'
-                    )
-                    strategies = create(data=builder._data, meta=builder._meta)
+                    data = stuff_atm(builder._data, builder._meta)
+                    lst_of_params = stuff_tradingsymbols(data, builder._meta)
+                    strategies = create_strategies_from_params(lst_of_params)
                     engine.add_strategy(strategies)
 
-                    """:while
-                    if tokens_for_all_trading_symbols:
-                        sgy = StrategyMaker(
-                            tokens_for_all_trading_symbols=tokens_for_all_trading_symbols,
-                            symbols_to_trade=builder.symbols_to_trade,
-                        ).create(
-                            strategy_name=builder.strategy,
-                            stop_time=builder.stop,
-                            quote=quote,
-                            rest=rest,
-                        )
-                        engine.add_strategy(sgy)
-                    else:
-                        logging.error(
-                            f"main: no tokens found, skipping strategy {builder.strategy}"
-                        )
-                    # make strategy object for each symbol selected
-                    """
                     builders.remove(builder)
 
             engine.tick(rest, quote)
