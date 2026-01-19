@@ -25,18 +25,19 @@ class Openingbalance:
         # initialize
         self._STOPPED = set()
         self._trades = []
-        self._positions = []
+        self._positions = None
 
         # from parameters
         self.name = meta["strategy"]
         self.stop_time = meta["stop"]
         self._rest = meta["rest"]
+
         self._prefix = prefix
         self.option_type = option_type
         self._token = settings["token"]
         self._quantity = settings["quantity"]
         self._symbol = settings["symbol"]
-        self._last_price = settings.get("ltp", None)
+        self._last_price = settings.get("ltp", 0)
 
         self._stop = None
         self._t2 = settings.get("t2", settings["t1"])
@@ -154,72 +155,86 @@ class Openingbalance:
     def _set_target(self):
         try:
             # resp = self.rest.positions()
-            resp = self._positions
-            total_profit = sum(
-                item["rpnl"] + item["urmtom"]
-                for item in resp
-                if item["symbol"].startswith(self._prefix)
-            )
-            # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
-            # calculate txn cost
-            count = len(
-                [
-                    order["order_id"]
-                    for order in self._trades
-                    if order["symbol"].startswith(self._prefix)
-                ]
-            )
-            count = 1 if count == 0 else count / 2
-            count = ceil(count)
-            txn_cost = count * self._txn
-            logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
-            """
-            rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
-            logging.debug(
-                f"{rate_to_be_added=} because of negative {total_profit=} / {self.trade.quantity}q"
-            )
-            """
-            m2m = next(
-                (
-                    item["urmtom"] + item["rpnl"]
-                    for item in resp
-                    if item["symbol"] == self._symbol
-                ),
-                0,
-            )
-            other_instrument_m2m = total_profit - m2m
-            rpnl = next(
-                (item["rpnl"] for item in resp if item["symbol"] == self._symbol),
-                0,
-            )
+            if (self._positions and any(self._positions)) and (
+                self._trades and any(self._trades)
+            ):
+                total_profit = sum(
+                    item["rpnl"] + item["urmtom"]
+                    for item in self._positions
+                    if item["symbol"].startswith(self._prefix)
+                )
+                # total_profit = total_for_this_prefix - m2m if m2m > 0 else total_for_this_prefix
+                # calculate txn cost
+                count = len(
+                    [
+                        order["order_id"]
+                        for order in self._trades
+                        if order["symbol"].startswith(self._prefix)
+                    ]
+                )
+                count = 1 if count == 0 else count / 2
+                count = ceil(count)
+                txn_cost = count * self._txn
+                logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
+                """
+                rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
+                logging.debug(
+                    f"{rate_to_be_added=} because of negative {total_profit=} / {self.trade.quantity}q"
+                )
+                """
+                m2m = next(
+                    (
+                        item["urmtom"] + item["rpnl"]
+                        for item in self._positions
+                        if item["symbol"] == self._symbol
+                    ),
+                    0,
+                )
+                other_instrument_m2m = total_profit - m2m
+                rpnl = next(
+                    (
+                        item["rpnl"]
+                        for item in self._positions
+                        if item["symbol"] == self._symbol
+                    ),
+                    0,
+                )
 
-            rate_to_be_added = (other_instrument_m2m + rpnl) / self._quantity  # type: ignore
-            rate_to_be_added = -1 * rate_to_be_added
-            logging.debug(
-                f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self._quantity}q"
-            )
+                rate_to_be_added = (other_instrument_m2m + rpnl) / self._quantity  # type: ignore
+                rate_to_be_added = -1 * rate_to_be_added
+                logging.debug(
+                    f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self._quantity}q"
+                )
 
-            fill_price = self.trade_mgr.position.entry.filled_price  # type: ignore
-            target_buffer = self._target * fill_price / 100
-            target_virtual = fill_price + target_buffer + rate_to_be_added + txn_cost
-            target_progress = (
-                (target_virtual - target_buffer - self._last_price)
-                / fill_price
-                * 100
-                * -1
-            )
-            logging.debug(
-                f"target_price {target_virtual} = fill: {fill_price} + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
-            )
-            """
-            # trailing
-            if self._is_trailstopped(target_progress):
-                resp = self._modify_to_exit()
-                logging.debug(f"SELL MODIFY: {self.trade.symbol} got {resp}")
-                self._fn = "remove_me"
-                return True
-            """
-            self.trade_mgr.target(round(target_virtual / 0.05) * 0.05)
+                fill_price = self.trade_mgr.position.entry.filled_price  # type: ignore
+                target_buffer = self._target * fill_price / 100
+                target_virtual = (
+                    fill_price + target_buffer + rate_to_be_added + txn_cost
+                )
+                target_progress = (
+                    (target_virtual - target_buffer - self._last_price)
+                    / fill_price
+                    * 100
+                    * -1
+                )
+                logging.debug(
+                    f"target_price {target_virtual} = fill: {fill_price} + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
+                )
+                """
+                # trailing
+                if self._is_trailstopped(target_progress):
+                    resp = self._modify_to_exit()
+                    logging.debug(f"SELL MODIFY: {self.trade.symbol} got {resp}")
+                    self._fn = "remove_me"
+                    return True
+                """
+                self.trade_mgr.target(round(target_virtual / 0.05) * 0.05)
+            else:
+                logging.warning("no trades or positions yet detected")
+                self.trade_mgr.target(
+                    10000
+                )  # very high target if no positions/trades found
+
         except Exception as e:
             print_exc()
             logging.error(f"{e} while set target")
@@ -268,8 +283,7 @@ class Openingbalance:
         try:
             self._trades = trades
 
-            if positions and any(positions):
-                self._positions = positions
+            self._positions = positions
 
             ltp = ltps.get(self._symbol, None)
             if ltp is not None:
