@@ -81,7 +81,7 @@ class Builder:
             print_exc()
 
     def can_build(self):
-        if is_time_past(self._meta["start"]):
+        if is_time_past(self._meta["start_time"]):
             return True
         return False
 

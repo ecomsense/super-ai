@@ -11,7 +11,6 @@ import pendulum as pdlm
 from math import ceil
 from enum import IntEnum
 
-
 logging = logging_func(__name__)
 
 
@@ -21,41 +20,40 @@ class BreakoutState(IntEnum):
 
 
 class Openingbalance:
-    def __init__(self, prefix: str, option_type: str, settings: dict, meta: dict):
+    def __init__(self, **kwargs):
         # initialize
         self._STOPPED = set()
         self._trades = []
         self._positions = None
 
         # from parameters
-        self.name = meta["strategy"]
-        self.stop_time = meta["stop"]
-        self._rest = meta["rest"]
+        self.strategy = kwargs["strategy"]
+        self.stop_time = kwargs["stop_time"]
+        self._rest = kwargs["rest"]
 
-        self._prefix = prefix
-        self.option_type = option_type
-        self._token = settings["token"]
-        self._quantity = settings["quantity"]
-        self._symbol = settings["symbol"]
-        self._last_price = settings.get("ltp", 0)
+        self._prefix = kwargs["symbol"]
+        self.option_type = kwargs["option_type"]
+        self._option_token = kwargs["option_token"]
+        self._quantity = kwargs["quantity"]
+        self._tradingsymbol = kwargs["tradingsymbol"]
+        self._last_price = kwargs.get("ltp", 0)
 
         self._stop = None
-        self._t2 = settings.get("t2", settings["t1"])
-        self._txn = settings["txn"]
-        self._target = settings["t1"] * 2
-        self._exchange = settings["option_exchange"]
+        self._t2 = kwargs.get("t2", kwargs["t1"])
+        self._txn = kwargs["txn"]
+        self._target = kwargs["t1"] * 2
+        self._option_exchange = kwargs["option_exchange"]
 
         # objects and dependencies
-        self._time_mgr = TimeManager(settings["rest_time"])
+        self._time_mgr = TimeManager(kwargs["rest_time"])
         self._state = BreakoutState.DEFAULT
         self.trade_mgr = TradeManager(
-            Helper.api(), symbol=self._symbol, exchange=settings["option_exchange"]
+            Helper.api(), symbol=self._tradingsymbol, exchange=self._option_exchange
         )
 
         # state variables
         self._removable = False
         self._fn = "set_stop"
-        print(settings)
 
     """
     def _is_trailstopped(self, percent):
@@ -66,15 +64,15 @@ class Openingbalance:
 
         # if currently above stop% and below trailing target
         if self._t2 <= percent < trailing_target:
-            msg = f"#TSL 50 PERC: {self._symbol} {percent=} < {trailing_target=}"
+            msg = f"#TSL 50 PERC: {self._tradingsymbol} {percent=} < {trailing_target=}"
             logging.info(msg)
             return True
         elif percent < self._t2 < self._max_target_reached:
-            msg = f"#TSL T2 HIT: {self._symbol} {percent=} < t2={self._t2}"
+            msg = f"#TSL T2 HIT: {self._tradingsymbol} {percent=} < t2={self._t2}"
             logging.info(msg)
             return True
 
-        msg = f"#TRAIL: {self._symbol} {percent=} vs  max target reached:{self._max_target_reached}"
+        msg = f"#TRAIL: {self._tradingsymbol} {percent=} vs  max target reached:{self._max_target_reached}"
         logging.info(msg)
         return False
     """
@@ -84,8 +82,8 @@ class Openingbalance:
             self._last_idx = self._time_mgr.current_index
             if self._stop is None:
                 intl = self._rest.history(
-                    exchange=self._exchange,
-                    token=self._token,
+                    exchange=self._option_exchange,
+                    token=self._option_token,
                     loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
                     key="intl",
                 )
@@ -108,7 +106,9 @@ class Openingbalance:
 
                     if self._last_price > self._stop:
                         self._state = BreakoutState.ARMED
-                        logging.info(f"ARMED: {self._symbol} at index {curr_idx}")
+                        logging.info(
+                            f"ARMED: {self._tradingsymbol} at index {curr_idx}"
+                        )
                 return  # Exit Phase 1
 
             # --- PHASE 2: VALIDATION & EXECUTION ---
@@ -118,7 +118,7 @@ class Openingbalance:
                     if self._last_price <= self._stop:
                         self._state = BreakoutState.DEFAULT
                         logging.info(
-                            f"DISARMED: {self._symbol} - Stop breached mid-candle"
+                            f"DISARMED: {self._tradingsymbol} - Stop breached mid-candle"
                         )
                     return
 
@@ -187,7 +187,7 @@ class Openingbalance:
                     (
                         item["urmtom"] + item["rpnl"]
                         for item in self._positions
-                        if item["symbol"] == self._symbol
+                        if item["symbol"] == self._tradingsymbol
                     ),
                     0,
                 )
@@ -196,7 +196,7 @@ class Openingbalance:
                     (
                         item["rpnl"]
                         for item in self._positions
-                        if item["symbol"] == self._symbol
+                        if item["symbol"] == self._tradingsymbol
                     ),
                     0,
                 )
@@ -258,7 +258,7 @@ class Openingbalance:
                 self._STOPPED.add(self._prefix)
                 self._removable = True
 
-            msg = f"PROGRESS: {self._symbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
+            msg = f"PROGRESS: {self._tradingsymbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
             logging.info(msg)
 
         except Exception as e:
@@ -278,7 +278,9 @@ class Openingbalance:
             self._fn = "wait_for_breakout"
 
         self._removable = True
-        logging.info(f"REMOVING: {self._symbol} switching from waiting for breakout")
+        logging.info(
+            f"REMOVING: {self._tradingsymbol} switching from waiting for breakout"
+        )
 
     def run(self, trades, ltps, positions):
         try:
@@ -286,7 +288,7 @@ class Openingbalance:
 
             self._positions = positions
 
-            ltp = ltps.get(self._symbol, None)
+            ltp = ltps.get(self._tradingsymbol, None)
             if ltp is not None:
                 self._last_price = float(ltp)
 
@@ -299,5 +301,5 @@ class Openingbalance:
             table(self)
             return result
         except Exception as e:
-            logging.error(f"{e} in running {self._symbol}")
+            logging.error(f"{e} in running {self._tradingsymbol}")
             print_exc()

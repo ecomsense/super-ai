@@ -30,7 +30,9 @@ class Engine:
             trades = rest.trades()
             quotes = quote.get_quotes()
 
-            needs_position = any(s.name == "openingbalance" for s in self.strategies)
+            needs_position = any(
+                s.strategy == "openingbalance" for s in self.strategies
+            )
             positions = rest.positions() if needs_position else None
 
             for strgy in self.strategies:

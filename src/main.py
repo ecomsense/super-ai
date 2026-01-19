@@ -28,10 +28,10 @@ def read_builders():
     while True:
         logging.debug("reading user trade settings")
         O_TRADESET = TradeSet().read()
-        trade_settings = O_TRADESET.pop("trade")
         if not O_TRADESET or not any(O_TRADESET):
             break
 
+        trade_settings = O_TRADESET.pop("trade")
         builder = (
             Builder(
                 trade_settings=trade_settings,
@@ -43,6 +43,7 @@ def read_builders():
             .find_expiry()
         )
         builders.append(builder)
+    return builders
 
 
 def main():
