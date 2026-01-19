@@ -67,7 +67,7 @@ def main():
             for builder in builders[:]:
                 if builder.can_build():
                     logging.info(
-                        f"main: building params for {builder._meta["strategy"]}"
+                        f'main: building params for {builder._meta["strategy"]}'
                     )
                     strategies = create(data=builder._data, meta=builder._meta)
                     engine.add_strategy(strategies)
