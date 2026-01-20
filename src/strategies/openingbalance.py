@@ -208,29 +208,34 @@ class Openingbalance:
                 )
 
                 fill_price = self.trade_mgr.position.entry.filled_price  # type: ignore
-                target_buffer = self._target * fill_price / 100
-                target_virtual = (
-                    fill_price + target_buffer + rate_to_be_added + txn_cost
-                )
-                target_progress = (
-                    (target_virtual - target_buffer - self._last_price)
-                    / fill_price
-                    * 100
-                    * -1
-                )
-                logging.debug(
-                    f"target_price {target_virtual} = fill: {fill_price} + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
-                )
-                """
-                # trailing
-                if self._is_trailstopped(target_progress):
-                    resp = self._modify_to_exit()
-                    logging.debug(f"SELL MODIFY: {self.trade.symbol} got {resp}")
-                    self._fn = "remove_me"
-                    return True
-                """
-                self.trade_mgr.target(round(target_virtual / 0.05) * 0.05)
-            else:
+                if fill_price:
+                    target_buffer = self._target * fill_price / 100
+                    target_virtual = (
+                        fill_price + target_buffer + rate_to_be_added + txn_cost
+                    )
+                    target_progress = (
+                        (target_virtual - target_buffer - self._last_price)
+                        / fill_price
+                        * 100
+                        * -1
+                    )
+                    logging.debug(
+                        f"target_price {target_virtual} = fill: {fill_price} + {target_buffer=} + {rate_to_be_added=} + {txn_cost=} {target_progress=}"
+                    )
+                    """
+                    # trailing
+                    if self._is_trailstopped(target_progress):
+                        resp = self._modify_to_exit()
+                        logging.debug(f"SELL MODIFY: {self.trade.symbol} got {resp}")
+                        self._fn = "remove_me"
+                        return True
+                    """
+                    self.trade_mgr.target(round(target_virtual / 0.05) * 0.05)
+                    return
+
+                else:
+                    logging.warning(f"trade manager fill price is {fill_price}")
+
                 logging.warning("no trades or positions yet detected")
                 self.trade_mgr.target(
                     10000
