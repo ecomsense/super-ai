@@ -28,7 +28,6 @@ class Engine:
 
             # Get the run arguments dynamically
             trades = rest.trades()
-            print(trades)
             quotes = quote.get_quotes()
 
             needs_position = any(
