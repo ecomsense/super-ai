@@ -207,7 +207,7 @@ class Openingbalance:
                     f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self._quantity}q"
                 )
 
-                fill_price = self.trade_mgr.position.entry.filled_price  # type: ignore
+                fill_price = self.trade_mgr.position.average_price  # type: ignore
                 if fill_price is not None:
                     target_buffer = self._target * fill_price / 100
                     target_virtual = (
