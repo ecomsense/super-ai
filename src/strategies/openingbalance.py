@@ -24,7 +24,7 @@ class Openingbalance:
         # initialize
         self._STOPPED = set()
         self._trades = []
-        self._positions = None
+        self._positions = []
 
         # from parameters
         self.strategy = kwargs["strategy"]
@@ -287,13 +287,14 @@ class Openingbalance:
             f"REMOVING: {self._tradingsymbol} switching from waiting for breakout"
         )
 
-    def run(self, trades, ltps, positions):
+    def run(self, trades, quotes, positions):
         try:
             self._trades = trades
 
             self._positions = positions
+            print(self._positions)
 
-            ltp = ltps.get(self._tradingsymbol, None)
+            ltp = quotes.get(self._tradingsymbol, None)
             if ltp is not None:
                 self._last_price = float(ltp)
 

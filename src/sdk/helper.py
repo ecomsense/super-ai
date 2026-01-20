@@ -207,7 +207,7 @@ class QuoteApi:
 
 class RestApi:
 
-    completed_trades = []
+    completed_trades = [{}]
     _positions = [{}]
     _positions_last_updated = pdlm.now().subtract(seconds=1)
 
@@ -350,14 +350,15 @@ class RestApi:
 
     def positions(self):
         try:
-            now = pdlm.now()
-            if self._positions_last_updated < now:
-                self._positions_last_updated = now.add(seconds=4)
+            try:
                 resp = self._api.positions
                 if resp and any(resp):
                     # print(orders[0].keys())
                     self._positions = resp
-            return self._positions
+            except Exception as e:
+                logging.error(f" {e} in positions")
+            finally:
+                return self._positions
 
         except Exception as e:
             logging.warning(f"Error fetching positions: {e}")
@@ -379,7 +380,9 @@ class RestApi:
     def trades(self):
         try:
             from_api = []  # Return an empty list on failure
-            from_api = self._api.trades
+            resp = self._api.trades
+            if resp and any(resp):
+                from_api = resp
         except Exception as e:
             logging.warning(f"Error fetching trades: {e}")
             print_exc()
