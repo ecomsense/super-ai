@@ -208,7 +208,7 @@ class Openingbalance:
                 )
 
                 fill_price = self.trade_mgr.position.entry.filled_price  # type: ignore
-                if fill_price:
+                if fill_price is not None:
                     target_buffer = self._target * fill_price / 100
                     target_virtual = (
                         fill_price + target_buffer + rate_to_be_added + txn_cost
@@ -236,10 +236,12 @@ class Openingbalance:
                 else:
                     logging.warning(f"trade manager fill price is {fill_price}")
 
+            else:
                 logging.warning("no trades or positions yet detected")
-                self.trade_mgr.target(
-                    10000
-                )  # very high target if no positions/trades found
+
+            self.trade_mgr.target(
+                10000
+            )  # very high target if no positions/trades found
 
         except Exception as e:
             print_exc()
@@ -292,7 +294,6 @@ class Openingbalance:
             self._trades = trades
 
             self._positions = positions
-            print(self._positions)
 
             ltp = quotes.get(self._tradingsymbol, None)
             if ltp is not None:

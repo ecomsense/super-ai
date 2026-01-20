@@ -45,9 +45,6 @@ class TradeManager:
             self.position.target_price = target_price
         return self.position.target_price
 
-    def update_fill_price(self, trade: Trade, filled_price):
-        trade.filled_price = filled_price
-
     def _reset_trade(self):
         self.trade.filled_price = None
         self.trade.status = None
@@ -69,7 +66,7 @@ class TradeManager:
 
         order = find_order_if_exists(self.position.entry.order_id, orders)
         if isinstance(order, dict):
-            self.update_fill_price(self.position.entry, float(order["fill_price"]))
+            self.position.entry.filled_price = float(order["fill_price"])
 
             # place sell order only if buy order is filled
             self.trade.side = "S"
