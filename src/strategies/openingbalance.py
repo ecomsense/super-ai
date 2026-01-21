@@ -39,9 +39,8 @@ class Openingbalance:
         self._last_price = kwargs.get("ltp", 0)
 
         self._stop = None
-        self._t2 = kwargs.get("t2", kwargs["t1"])
         self._txn = kwargs["txn"]
-        self._target = kwargs["t1"] * 2
+        self._target = kwargs["t1"]
         self._option_exchange = kwargs["option_exchange"]
 
         # objects and dependencies

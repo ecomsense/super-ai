@@ -58,10 +58,12 @@ def main():
         rest = Helper._rest
         quote = Helper._quote
         while not is_time_past(engine.stop):
+
             for builder in builders:
                 if builder.can_build():
                     data = stuff_atm(builder._data, builder._meta)
                     lst_of_params = stuff_tradingsymbols(data, builder._meta)
+
                     strategies = create_strategies_from_params(lst_of_params)
                     engine.add_strategy(strategies)
 
