@@ -467,16 +467,17 @@ if __name__ == "__main__":
     from src.constants import S_DATA
 
     try:
-        Helper.api()
+        api = Helper.api()
+        rest = Helper._rest
 
         def trades():
-            resp = Helper._rest.trades()
+            resp = rest.trades()
             if resp:
                 pd.DataFrame(resp).to_csv(S_DATA + "trades.csv", index=False)
                 print(pd.DataFrame(resp))
 
         def orders():
-            resp = Helper._rest.orders()
+            resp = rest.orders()
             if resp and any(resp):
                 pd.DataFrame(resp).to_csv(S_DATA + "orders.csv", index=False)
                 print(pd.DataFrame(resp))
@@ -492,20 +493,39 @@ if __name__ == "__main__":
                 "price_type": "MARKET",
                 "quantity": 25,
             }
-            resp = Helper._rest.modify_order(args)
-            print(resp)
+            resp = rest.modify_order(args)
             print(resp)
 
         def margin():
-            resp = Helper._api.margins
+            resp = api.margins
             print(resp)
 
         trades()
         orders()
-        resp = Helper._rest.pnl("rpnl")
-        print(resp)
+        resp = rest.pnl("rpnl")
+        print("rpnl: ", resp)
 
-        """
+        def download_history(exchange, symbol):
+            token = str(api.instrument_symbol(exchange, symbol))
+            print("..... token .......")
+            print(token)
+
+            fm = (
+                pdlm.now()
+                .subtract(days=5)
+                .replace(hour=0, minute=0, second=0, microsecond=0)
+                .timestamp()
+            )
+            to = pdlm.now().subtract(days=0).timestamp()
+
+            resp = api.historical(exchange, token, fm, to)
+            if resp and any(resp):
+                pd.DataFrame(resp).to_csv(S_DATA + symbol + ".csv", index=False)
+                print(pd.DataFrame(resp))
+
+        """ 
+        download_history(exchange="NFO", symbol="BANKNIFTY27JAN26P59600")
+        download_history(exchange="NFO", symbol="BANKNIFTY27JAN26C58900")
         df = Helper._rest.yesterday("NFO", "47764")
         print(df)
 

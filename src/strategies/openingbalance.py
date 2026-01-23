@@ -20,9 +20,10 @@ class BreakoutState(IntEnum):
 
 
 class Openingbalance:
+    _STOPPED = set()
+
     def __init__(self, **kwargs):
         # initialize
-        self._STOPPED = set()
         self._trades = []
         self._positions = []
 
