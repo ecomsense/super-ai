@@ -142,13 +142,15 @@ class Openingbalance:
     def place_exit_order(self):
         try:
             sell_order = self.trade_mgr.pending_exit(
-                stop=self._stop, orders=self._trades
+                stop=self._stop, orders=self._trades, last_price=self._last_price
             )
             if sell_order and sell_order.order_id:
                 self._fn = "try_exiting_trade"
+            """
             else:
                 self._STOPPED.add(self._prefix)
                 self._removable = True
+            """
         except Exception as e:
             logging.error(f"{e} while place exit order")
             print_exc()

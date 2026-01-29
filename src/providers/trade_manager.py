@@ -27,13 +27,10 @@ class TradeManager:
             logging.error(f"TradeManager: Order Place {e}")
             raise  # Re-raise the exception instead of printing the error message
 
-    def __init__(self, stock_broker, symbol, exchange):
+    def __init__(self, stock_broker, symbol, exchange, tag="unknown"):
         self.stock_broker = stock_broker
         self.position = Position()
-        self.trade = Trade(
-            symbol=symbol,
-            exchange=exchange,
-        )
+        self.trade = Trade(symbol=symbol, exchange=exchange, tag=tag)
 
     def stop(self, stop_price=None):
         if stop_price is not None:
@@ -57,12 +54,11 @@ class TradeManager:
         self.trade.price = price  # type: ignore
         self.trade.trigger_price = 0.0
         self.trade.order_type = "LMT"
-        self.trade.tag = "entry"
         self._reset_trade()
         self.position.entry = self.order_place(self.trade)
         return self.position.entry.order_id
 
-    def pending_exit(self, stop, orders):
+    def pending_exit(self, stop, orders, last_price):
 
         order = find_order_if_exists(self.position.entry.order_id, orders)
         if isinstance(order, dict):
@@ -75,15 +71,18 @@ class TradeManager:
             self.trade.price = stop - 2
             self.trade.trigger_price = stop
             self.trade.order_type = "SL-LMT"
-            self.trade.tag = "exit"
             self._reset_trade()
             self.position.exit = self.order_place(self.trade)
             self.stop(stop_price=stop)
             return self.position.exit
         else:
-            logging.warning(
-                f"{self.trade.symbol} buy order {self.position.entry.order_id} not complete, to place sell order"
-            )
+            modify_price = last_price - 2
+            resp = self._modify_to_enter(modify_price)
+            logging.debug(f"modifying entry returned {resp}")
+
+        logging.warning(
+            f"{self.trade.symbol} buy order {self.position.entry.order_id} not complete, to place sell order. retrying ..."
+        )
         return None
 
     def is_stopped(self, orders):
@@ -112,13 +111,33 @@ class TradeManager:
         except Exception as e:
             logging.error(f"Error in complete_exit {e}")
 
+    def _modify_to_enter(self, last_price):
+        try:
+            entry_order_args = dict(
+                order_id=self.position.entry.order_id,
+                symbol=self.position.entry.symbol,
+                quantity=self.position.entry.quantity,
+                disclosed_quantity=self.position.entry.disclosed_quantity,
+                product=self.position.entry.product,
+                side=self.position.entry.side,
+                exchange=self.position.entry.exchange,
+                trigger_price=0.0,
+                price=last_price,
+                order_type="LIMIT",
+                last_price=last_price,
+            )
+            logging.debug(f"modify entry args {entry_order_args}")
+            return self.stock_broker.order_modify(**entry_order_args)
+        except Exception as e:
+            logging.error(f"{e} Error in modify to enter")
+
     def is_trade_exited(self, last_price, orders, removable=None):
 
         order = find_order_if_exists(self.position.exit.order_id, orders)
 
         if isinstance(order, dict):
             logging.info(
-                f"STOP HIT: {self.trade.symbol} buy fill: {self.position.entry.filled_price}  stop: {self.stop()}"
+                f"STOP HIT: {self.trade.symbol} buy avg:{self.position.average_price}  stop:{self.stop()}"
             )
             return 1  # stop hit
 
@@ -130,7 +149,9 @@ class TradeManager:
                 last_price=last_price,
             )
             resp = self.complete_exit(**kwargs)
-            logging.info(f"KILLING STOP: returned {resp}")
+            logging.info(
+                f"KILLING STOP: returned {resp} cos ltp:{last_price} < stop:{self.stop()}"
+            )
             return 2
 
         elif last_price > self.target():
