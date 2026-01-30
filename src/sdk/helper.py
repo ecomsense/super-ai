@@ -286,6 +286,7 @@ class RestApi:
 
             else:
                 # "time": "18-08-2025 09:30:00"
+                copied = []
                 for d in data_now:
                     if isinstance(d, dict) and d.get("time", None):
                         str_time = d["time"]
@@ -294,9 +295,15 @@ class RestApi:
                         )
                         if t >= loc:
                             logging.debug(f"CANDLE {str_time}: {d}")
-                            return float(d[key])
+                            copied.append(d)
                         else:
                             logging.debug(f"skipping after {str_time} {d} candles")
+                            break
+
+                if copied and len(copied) > 0:
+                    last_item = copied[-1]
+                    logging.debug(f"returning {last_item}")
+                    return float(last_item[key])
 
             return None
 
