@@ -286,7 +286,6 @@ class RestApi:
 
             else:
                 # "time": "18-08-2025 09:30:00"
-                new_data = []
                 for d in data_now:
                     if isinstance(d, dict) and d.get("time", None):
                         str_time = d["time"]
@@ -294,14 +293,10 @@ class RestApi:
                             str_time, "DD-MM-YYYY HH:mm:ss", tz="Asia/Kolkata"
                         )
                         if t >= loc:
-                            logging.debug(f"CANDLE {str_time}: {key}:{d[key]}")
-                            new_data.append(float(d[key]))
+                            logging.debug(f"CANDLE {str_time}: {d}")
+                            return d[key]
                         else:
-                            logging.debug(f"skipping after {str_time} candles")
-                            break
-
-                if any(new_data):
-                    return min(new_data)
+                            logging.debug(f"skipping after {str_time} {d} candles")
 
             return None
 
@@ -505,27 +500,18 @@ if __name__ == "__main__":
         resp = rest.pnl("rpnl")
         print("rpnl: ", resp)
 
-        def download_history(exchange, symbol):
-            token = str(api.instrument_symbol(exchange, symbol))
-            print("..... token .......")
-            print(token)
-
-            fm = (
-                pdlm.now()
-                .subtract(days=5)
-                .replace(hour=0, minute=0, second=0, microsecond=0)
-                .timestamp()
-            )
-            to = pdlm.now().subtract(days=0).timestamp()
-
-            resp = api.historical(exchange, token, fm, to)
-            if resp and any(resp):
-                pd.DataFrame(resp).to_csv(S_DATA + symbol + ".csv", index=False)
-                print(pd.DataFrame(resp))
-
         """ 
-        download_history(exchange="NFO", symbol="BANKNIFTY27JAN26P59600")
-        download_history(exchange="NFO", symbol="BANKNIFTY27JAN26C58900")
+        exchange = "NFO"
+        tsym = "BANKNIFTY24FEB26P59600"
+
+        intl = rest.history(
+            exchange=exchange,
+            token=api.instrument_symbol(exchange, tsym),
+            loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
+            key="intl",
+        )
+        print(intl)
+
         df = Helper._rest.yesterday("NFO", "47764")
         print(df)
 

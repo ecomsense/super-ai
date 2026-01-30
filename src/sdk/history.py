@@ -30,11 +30,6 @@ try:
         else:
             print(f"sorry! unable to get history for {symbol} and {exchange}")
 
-    # download_history(exchange="NFO", symbol="BANKNIFTY24FEB26P59600")
-    # download_history(exchange="NFO", symbol="BANKNIFTY24FEB26C58900")
-
-except KeyboardInterrupt:
-    print("ctrl c pressed")
 except Exception as e:
     print(e)
     print_exc()
