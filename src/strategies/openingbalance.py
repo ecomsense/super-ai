@@ -48,7 +48,10 @@ class Openingbalance:
         self._time_mgr = TimeManager(kwargs["rest_time"])
         self._state = BreakoutState.DEFAULT
         self.trade_mgr = TradeManager(
-            Helper.api(), symbol=self._tradingsymbol, exchange=self._option_exchange
+            Helper.api(),
+            symbol=self._tradingsymbol,
+            exchange=self._option_exchange,
+            tag=self.strategy,
         )
 
         # state variables

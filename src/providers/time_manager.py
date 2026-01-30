@@ -172,3 +172,11 @@ class SimpleBucket:
         if self._next_bucket and pdlm.now("Asia/Kolkata") > self._next_bucket:
             return True
         return False
+
+
+if __name__ == "__main__":
+    tm = TimeManager({"seconds": 1})
+    while True:
+        print(tm.current_index)
+        print(pdlm.now())
+        __import__("time").sleep(0.5)

@@ -119,15 +119,23 @@ def pivot_to_stop_and_target(pivots: list):
 if __name__ == "__main__":
     from src.sdk.helper import Helper
 
+    """
     Helper.api()
     rst = Helper._rest
     sym = {}
     resp = Grid().get(rst=rst, exchange="NSE", tradingsymbol="NIFTY 50", token="26000")
     print("begin", resp, "end")
-
+    """
     try:
         pivots = [25, 30, 5, -2]
         resp = pivot_to_stop_and_target(pivots)
         assert resp == [(5, 25), (25, 30)], "not sorted"
+        print(resp)
+        prices = [0, 100, 200, 300, 400, 500]
+        gl = Gridlines(prices=prices, reverse=False)
+        curr = gl.find_current_grid(24)
+        print(curr)
+        curr = gl.find_current_grid(126)
+        print(curr)
     except Exception as e:
         print(e)
