@@ -294,7 +294,7 @@ class RestApi:
                         )
                         if t >= loc:
                             logging.debug(f"CANDLE {str_time}: {d}")
-                            return d[key]
+                            return float(d[key])
                         else:
                             logging.debug(f"skipping after {str_time} {d} candles")
 

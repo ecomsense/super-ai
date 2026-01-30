@@ -84,7 +84,7 @@ class Openingbalance:
                 intl = self._rest.history(
                     exchange=self._option_exchange,
                     token=self._option_token,
-                    loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
+                    loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=15, seconds=59),
                     key="intl",
                 )
                 if intl is not None:
