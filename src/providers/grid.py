@@ -94,13 +94,13 @@ class Gridlines:
         self.lines = list(zip(levels[:-1], levels[1:]))
         logging.info(f"gridlines {self.lines}")
 
-    def find_current_grid(self, ltp: float) -> int:
+    def find_current_grid(self, ltp: float):
         idx = -1
         for idx, (a, b) in enumerate(self.lines):
             lowest, highest = min(a, b), max(a, b)
             if lowest <= ltp < highest:
-                return idx
-        return idx
+                return idx, lowest, highest
+        return idx, None, None
 
 
 def pivot_to_stop_and_target(pivots: list):
@@ -133,9 +133,9 @@ if __name__ == "__main__":
         print(resp)
         prices = [0, 100, 200, 300, 400, 500]
         gl = Gridlines(prices=prices, reverse=False)
-        curr = gl.find_current_grid(24)
+        curr, lowest, highest = gl.find_current_grid(24)
         print(curr)
-        curr = gl.find_current_grid(126)
+        curr, lowest, highest = gl.find_current_grid(126)
         print(curr)
     except Exception as e:
         print(e)

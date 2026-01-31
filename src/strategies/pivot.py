@@ -36,6 +36,7 @@ class Pivot:
         self._price_idx = 100
         self._is_breakout = False
         self._stop = None
+        self._target = None
 
         self.time_mgr = TimeManager({"minutes": 1})
         self._time_idx = self.time_mgr.current_index
@@ -47,7 +48,7 @@ class Pivot:
             quantity=self._quantity,
             tag=self.strategy,
         )
-
+        self._count = 1
         # state variables
         self._removable = False
         self._fn = "is_breakout"
@@ -56,23 +57,39 @@ class Pivot:
         try:
 
             if self._is_breakout:
-                # 3. place entry
-                order_id = self.trade_mgr.complete_entry(price=self._last_price + 2)
-                if order_id:
-                    self._fn = "place_exit_order"
-                    return
+
+                self._count += 1
+
+                if self._count % 2 == 0:
+                    # 3. place entry
+                    order_id = self.trade_mgr.complete_entry(price=self._last_price)
+                    if order_id:
+                        self._fn = "place_exit_order"
+                        return
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()
+
+    def _set_new_stop(self):
+        stop = self._stop
+        fill = self.trade_mgr.position.average_price
+        buffer = (fill - stop) / 2
+        new_stop = fill + buffer
+        self.trade_mgr.stop(new_stop)
 
     def place_exit_order(self):
         try:
             sell_order = self.trade_mgr.pending_exit(
                 stop=self._stop, orders=self._trades, last_price=self._last_price
             )
-            if sell_order.order_id:
+
+            if sell_order and sell_order.order_id:
+
                 self.trade_mgr.target(target_price=self._target)
+
+                self._set_new_stop()
+
                 self._fn = "try_exiting_trade"
         except Exception as e:
             logging.error(f"{e} while place exit order")
@@ -86,7 +103,7 @@ class Pivot:
                 self._fn = "is_breakout"
             else:
                 logging.debug(
-                    f"Progress: {self._tradingsymbol} stop:{self._stop} < ltp:{self._last_price} < target:{self._target}"
+                    f"Progress: {self._tradingsymbol} stop:{self.trade_mgr.stop()} < ltp:{self._last_price} < target:{self._target}"
                 )
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -128,8 +145,14 @@ class Pivot:
             if ltp is not None:
                 self._last_price = float(ltp)
 
-            curr_price = self.gridlines.find_current_grid(self._last_price)
+            curr_price, stop, target = self.gridlines.find_current_grid(
+                self._last_price
+            )
             self._is_breakout = curr_price > self._price_idx
+            if self._is_breakout:
+                self._stop = stop
+                self._target = target
+
             self._price_idx = curr_price
 
             self._trades = trades
