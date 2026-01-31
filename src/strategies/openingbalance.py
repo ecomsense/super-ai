@@ -51,6 +51,7 @@ class Openingbalance:
             Helper.api(),
             symbol=self._tradingsymbol,
             exchange=self._option_exchange,
+            quantity=self._quantity,
             tag=self.strategy,
         )
 
@@ -127,9 +128,7 @@ class Openingbalance:
 
                 # 2. Execution Phase (Index has incremented)
                 # Since we are still ARMED and the index changed, Step 2 was successful.
-                is_entered = self.trade_mgr.complete_entry(
-                    quantity=self._quantity, price=self._last_price + 2
-                )
+                is_entered = self.trade_mgr.complete_entry(price=self._last_price)
 
                 # Reset state before moving to the next phase
                 self._state = BreakoutState.DEFAULT
@@ -257,7 +256,6 @@ class Openingbalance:
             # TODO
             self._last_idx = self._time_mgr.current_index
 
-            # if trail stopped return prefix
             self._set_target()
 
             exit_status = self.trade_mgr.is_trade_exited(

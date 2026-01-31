@@ -38,7 +38,8 @@ class Position:
     average_price: Optional[float] = None
     stop_price: Optional[float] = None
     target_price: Optional[float] = None
-    is_position: bool = True
+    state: str = "idle"
+    slippage: float = 0.0
 
 
 @dataclass(slots=True)

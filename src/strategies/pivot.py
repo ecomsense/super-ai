@@ -41,9 +41,10 @@ class Pivot:
         self._time_idx = self.time_mgr.current_index
         # objects and dependencies
         self.trade_mgr = TradeManager(
-            Helper.api(),
+            stock_broker=Helper.api(),
             symbol=self._tradingsymbol,
             exchange=self._option_exchange,
+            quantity=self._quantity,
             tag=self.strategy,
         )
 
@@ -56,9 +57,7 @@ class Pivot:
 
             if self._is_breakout:
                 # 3. place entry
-                order_id = self.trade_mgr.complete_entry(
-                    quantity=self._quantity, price=self._last_price + 2
-                )
+                order_id = self.trade_mgr.complete_entry(price=self._last_price + 2)
                 if order_id:
                     self._fn = "place_exit_order"
                     return
@@ -113,6 +112,7 @@ class Pivot:
     def run(self, trades, quotes, positions):
         try:
 
+            # time
             is_removable = is_time_past(self.stop_time)
             if is_removable:
                 if self.remove_me():
@@ -123,6 +123,7 @@ class Pivot:
                 return
             self._time_idx = curr
 
+            # price
             ltp = quotes.get(self._tradingsymbol, None)
             if ltp is not None:
                 self._last_price = float(ltp)
