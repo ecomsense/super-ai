@@ -237,15 +237,11 @@ class Openingbalance:
                     self.trade_mgr.target(round(target_virtual / 0.05) * 0.05)
                     return
 
-                else:
-                    logging.warning(f"trade manager fill price is {fill_price}")
-
             else:
                 logging.warning("no trades or positions yet detected")
 
-            self.trade_mgr.target(
-                10000
-            )  # very high target if no positions/trades found
+            # very high target if no positions/trades found
+            self.trade_mgr.target(10000)
 
         except Exception as e:
             print_exc()
@@ -253,7 +249,6 @@ class Openingbalance:
 
     def try_exiting_trade(self):
         try:
-            # TODO
             self._last_idx = self._time_mgr.current_index
 
             self._set_target()
@@ -262,14 +257,12 @@ class Openingbalance:
                 self._last_price, self._trades, removable=False
             )
 
-            if exit_status in [1, 2]:
+            if exit_status == 1:
                 self._fn = "wait_for_breakout"
-            elif exit_status == 3:
+
+            elif exit_status == 2:
                 self._STOPPED.add(self._prefix)
                 self._removable = True
-
-            msg = f"PROGRESS: {self._tradingsymbol} target {self.trade_mgr.position.target_price} < {self._last_price} > sl {self._stop} "
-            logging.info(msg)
 
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -284,13 +277,10 @@ class Openingbalance:
             status = self.trade_mgr.is_trade_exited(
                 self._last_price, self._trades, True
             )
-            assert status == 3
-            self._fn = "wait_for_breakout"
+            if status > 0:
+                self._fn = "wait_for_breakout"
 
         self._removable = True
-        logging.info(
-            f"REMOVING: {self._tradingsymbol} switching from waiting for breakout"
-        )
 
     def run(self, trades, quotes, positions):
         try:
@@ -304,8 +294,11 @@ class Openingbalance:
 
             is_removable = is_time_past(self.stop_time)
             if is_removable or self._prefix in self._STOPPED:
-                if self.remove_me():
-                    return
+                self.remove_me()
+                logging.info(
+                    f"REMOVING: {self._tradingsymbol} switching from waiting for breakout"
+                )
+                return
 
             table(self)
             return getattr(self, self._fn)()

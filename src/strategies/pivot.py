@@ -2,6 +2,7 @@ from src.constants import logging_func
 
 from toolkit.kokoo import is_time_past
 from src.sdk.helper import Helper
+from src.sdk.utils import round_down_to_tick
 
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
@@ -67,8 +68,10 @@ class Pivot:
                     if order_id:
                         self._fn = "place_exit_order"
                         return
-
-            logging.debug(f"sym:{self._tradingsymbol} {self._last_price}")
+                else:
+                    logging.debug(
+                        f"SKIPPING TRADE# {self._count-2}: ltp:{self._last_price} pivot:{self._stop}"
+                    )
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
@@ -79,8 +82,8 @@ class Pivot:
         fill = self.trade_mgr.position.average_price
         buffer = (fill - stop) / 2
         new_stop = fill + buffer
-
-        self.trade_mgr.stop(new_stop)
+        rounded_ltp = round_down_to_tick(last_price=new_stop)
+        self.trade_mgr.stop(stop_price=rounded_ltp)
 
     def place_exit_order(self):
         try:
@@ -101,14 +104,8 @@ class Pivot:
 
     def try_exiting_trade(self):
         try:
-            if self.trade_mgr.is_trade_exited(
-                self._last_price, self._trades, self._removable
-            ):
+            if self.trade_mgr.is_trade_exited(self._last_price, self._trades):
                 self._fn = "is_breakout"
-            else:
-                logging.debug(
-                    f"Progress: {self._tradingsymbol} stop:{self.trade_mgr.stop()} < ltp:{self._last_price} < target:{self._target}"
-                )
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
@@ -122,45 +119,46 @@ class Pivot:
             status = self.trade_mgr.is_trade_exited(
                 self._last_price, self._trades, True
             )
-            assert status == 3
-            self._fn = "wait_for_breakout"
+            if status > 0:
+                self._fn = "remove_me"
+            return
 
         self._removable = True
-        logging.info(
-            f"REMOVING: {self._tradingsymbol} switching from waiting for breakout"
-        )
 
     def run(self, trades, quotes, positions):
         try:
 
-            # time
-            is_removable = is_time_past(self.stop_time)
-            if is_removable:
-                if self.remove_me():
-                    return
+            """needed for removing the object"""
 
-            curr = self.time_mgr.current_index
-            if curr == self._time_idx and self._fn == "is_breakout":
-                return
-            self._time_idx = curr
+            self._trades = trades
 
-            # price
             ltp = quotes.get(self._tradingsymbol, None)
             if ltp is not None:
                 self._last_price = float(ltp)
 
-            curr_price, stop, target = self.gridlines.find_current_grid(
-                self._last_price
-            )
-            self._is_breakout = curr_price > self._price_idx
+            if is_time_past(self.stop_time):
+                logging.info(f"REMOVING: {self._tradingsymbol} .. ")
+                self.remove_me()
+                return
+
+            curr = self.time_mgr.current_index
+            if self._fn == "is_breakout":
+                if curr == self._time_idx:
+                    return
+                else:
+                    logging.debug(f"New Candle: {ltp}")
+            self._time_idx = curr
+
+            """ update truth of indices if there is a breakout """
+            price_idx, stop, target = self.gridlines.find_current_grid(self._last_price)
+
+            self._is_breakout = price_idx > self._price_idx
             if self._is_breakout:
                 self._stop = stop
                 self._target = target
-                logging.info(f"updating temp stop{self._stop} target:{self._target}")
+                logging.debug(f"Breakout: temp {stop=} < {ltp=} < {target=} ")
+            self._price_idx = price_idx
 
-            self._price_idx = curr_price
-
-            self._trades = trades
             table(self)
             return getattr(self, self._fn)()
         except Exception as e:

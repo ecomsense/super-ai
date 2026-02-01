@@ -31,11 +31,13 @@ class TradeManager:
     def stop(self, stop_price=None):
         if stop_price is not None:
             self.position.stop_price = stop_price
+            logging.debug(f"setting new {stop_price=}")
         return self.position.stop_price
 
     def target(self, target_price=None):
         if target_price is not None:
             self.position.target_price = target_price
+            logging.debug(f"setting new {target_price=}")
         return self.position.target_price
 
     """
@@ -122,6 +124,7 @@ class TradeManager:
                 order_type="LIMIT",
                 last_price=last_price,
             )
+
             logging.debug(f"modify entry args {entry_order_args}")
             return self.stock_broker.order_modify(**entry_order_args)
         except Exception as e:
@@ -166,7 +169,7 @@ class TradeManager:
             logging.info(
                 f"KILLING STOP: returned {resp} cos ltp:{last_price} < stop:{self.stop()}"
             )
-            return 2
+            return 1
 
         elif last_price > self.target():
             kwargs = dict(
@@ -176,8 +179,11 @@ class TradeManager:
             )
             resp = self._modify_to_exit(**kwargs)
             logging.info(f"TARGET REACHED: returned {resp}")
-            return 3
+            return 2
 
+        logging.debug(
+            f"Progress: {self.position.exit.symbol} stop:{self.stop} < ltp:{last_price} < target:{self.target()}"
+        )
         return 0
 
     def run(self, orders, last_price, removable=None):
