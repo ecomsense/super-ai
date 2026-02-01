@@ -307,9 +307,8 @@ class Openingbalance:
                 if self.remove_me():
                     return
 
-            result = getattr(self, self._fn)()
             table(self)
-            return result
+            return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._tradingsymbol}")
             print_exc()

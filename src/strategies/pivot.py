@@ -6,6 +6,7 @@ from src.sdk.helper import Helper
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
 from src.providers.grid import Gridlines
+from src.providers.utils import table
 
 from traceback import print_exc
 
@@ -39,7 +40,7 @@ class Pivot:
         self._target = None
 
         self.time_mgr = TimeManager({"minutes": 1})
-        self._time_idx = self.time_mgr.current_index
+        self._time_idx = 0
         # objects and dependencies
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
@@ -67,6 +68,8 @@ class Pivot:
                         self._fn = "place_exit_order"
                         return
 
+            logging.debug(f"sym:{self._tradingsymbol} {self._last_price}")
+
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
             print_exc()
@@ -76,6 +79,7 @@ class Pivot:
         fill = self.trade_mgr.position.average_price
         buffer = (fill - stop) / 2
         new_stop = fill + buffer
+
         self.trade_mgr.stop(new_stop)
 
     def place_exit_order(self):
@@ -136,7 +140,7 @@ class Pivot:
                     return
 
             curr = self.time_mgr.current_index
-            if curr == self._time_idx:
+            if curr == self._time_idx and self._fn == "is_breakout":
                 return
             self._time_idx = curr
 
@@ -152,11 +156,12 @@ class Pivot:
             if self._is_breakout:
                 self._stop = stop
                 self._target = target
+                logging.info(f"updating temp stop{self._stop} target:{self._target}")
 
             self._price_idx = curr_price
 
             self._trades = trades
-
+            table(self)
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._tradingsymbol}")
