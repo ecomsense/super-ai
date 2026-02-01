@@ -1,0 +1,11 @@
+trade:
+  strategy: pivot
+  start: "9:15"
+  stop: "15:20"
+  live: 1 # 0 for paper 1 for live
+NIFTY:
+  base: NIFTY
+  option_exchange: NFO
+  method:
+    moneyness: -2
+  quantity: 65
