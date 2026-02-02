@@ -120,7 +120,7 @@ class Pivot:
     def place_exit_order(self):
         try:
             sell_order = self.trade_mgr.pending_exit(
-                stop=self._stop, orders=self._trades, last_price=self._last_price
+                stop=self._stop - 100, orders=self._trades, last_price=self._last_price
             )
 
             if sell_order and sell_order.order_id:
