@@ -180,7 +180,7 @@ class Openingbalance:
                 count = 1 if count == 0 else count / 2
                 count = ceil(count)
                 txn_cost = count * self._txn
-                logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
+                # logging.debug(f"{txn_cost=} for {count} trades * txn_rate:{self._txn}")
                 """
                 rate_to_be_added = abs(total_profit) / self.trade.quantity  # type: ignore
                 logging.debug(
@@ -207,9 +207,11 @@ class Openingbalance:
 
                 rate_to_be_added = (other_instrument_m2m + rpnl) / self._quantity  # type: ignore
                 rate_to_be_added = -1 * rate_to_be_added
+                """
                 logging.debug(
                     f"{rate_to_be_added=}  = {other_instrument_m2m=} + {rpnl=} / {self._quantity}q"
                 )
+                """
 
                 fill_price = self.trade_mgr.position.average_price  # type: ignore
                 if fill_price is not None:

@@ -182,7 +182,7 @@ class TradeManager:
             return 2
 
         logging.debug(
-            f"Progress: {self.position.exit.symbol} stop:{self.stop} < ltp:{last_price} < target:{self.target()}"
+            f"Progress: {self.position.exit.symbol} stop:{self.stop()} < ltp:{last_price} < target:{self.target()}"
         )
         return 0
 

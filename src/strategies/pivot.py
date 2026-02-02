@@ -33,7 +33,25 @@ class Pivot:
 
         self._last_price = kwargs.get("ltp", 10000)
 
-        prices = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+        prices = [
+            0,
+            100,
+            200,
+            300,
+            400,
+            500,
+            600,
+            700,
+            800,
+            900,
+            1000,
+            1100,
+            1200,
+            1300,
+            1400,
+            1500,
+            1600,
+        ]
         self.gridlines = Gridlines(prices=prices, reverse=False)
         self._price_idx = 100
         self._is_breakout = False
@@ -55,6 +73,7 @@ class Pivot:
         self._removable = False
         self._fn = "is_breakout"
 
+    """
     def is_breakout(self):
         try:
 
@@ -72,6 +91,19 @@ class Pivot:
                     logging.debug(
                         f"SKIPPING TRADE# {self._count-2}: ltp:{self._last_price} pivot:{self._stop}"
                     )
+
+        except Exception as e:
+            logging.error(f"{e} while waiting for breakout")
+            print_exc()
+    """
+
+    def is_breakout(self):
+        try:
+            if self._is_breakout:
+                order_id = self.trade_mgr.complete_entry(price=self._last_price)
+                if order_id:
+                    self._fn = "place_exit_order"
+                    return
 
         except Exception as e:
             logging.error(f"{e} while waiting for breakout")
