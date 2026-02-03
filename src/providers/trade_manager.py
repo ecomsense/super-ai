@@ -70,7 +70,7 @@ class TradeManager:
         self.position.entry.order_type = "LMT"
 
         self.order_place(self.position.entry)
-        logging.info(f"New entry:{position.entry.symbol} @{price}")
+        logging.info(f"New entry:{self.position.entry.symbol} @{price}")
 
         self.position.state = "entry_pending"
 
