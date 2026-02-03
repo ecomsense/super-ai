@@ -11,7 +11,14 @@ from src.providers.utils import table
 
 from traceback import print_exc
 
+from enum import IntEnum
+
 logging = logging_func(__name__)
+
+
+class BreakoutState(IntEnum):
+    DEFAULT = 0  # waiting fore new candle + breakout
+    ARMED = 1  # breakout detected, monitoring for Condition 2
 
 
 class Pivot:
@@ -53,13 +60,13 @@ class Pivot:
             1600,
         ]
         self.gridlines = Gridlines(prices=prices, reverse=False)
-        self._price_idx = 100
+        self._state = BreakoutState.DEFAULT
         self._is_breakout = False
         self._stop = None
         self._target = None
 
-        self.time_mgr = TimeManager({"minutes": 1})
-        self._time_idx = 0
+        self._time_mgr = TimeManager({"minutes": 1})
+        self._last_idx = 0
         # objects and dependencies
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
@@ -97,17 +104,54 @@ class Pivot:
             print_exc()
     """
 
-    def is_breakout(self):
+    def _set_stop(self):
+        _, stop, target = self.gridlines.find_current_grid(self._last_price)
+        self._stop = stop
+        self._target = target
+        return self._stop
+
+    def wait_for_breakout(self):
         try:
-            if self._is_breakout:
-                order_id = self.trade_mgr.complete_entry(price=self._last_price)
-                if order_id:
-                    self._fn = "place_exit_order"
+            curr_idx = self._time_mgr.current_index
+
+            # --- PHASE 1: ARMING (Condition 1) ---
+            if self._state == BreakoutState.DEFAULT:
+                if curr_idx > self._last_idx:
+                    # Mark this candle as "seen" regardless of price action
+                    self._last_idx = curr_idx
+
+                    if self._last_price > self._set_stop():  # ignore
+                        self._state = BreakoutState.ARMED
+                        logging.info(
+                            f"ARMED: {self._tradingsymbol} at index {curr_idx}"
+                        )
+                return  # Exit Phase 1
+
+            # --- PHASE 2: VALIDATION & EXECUTION ---
+            if self._state == BreakoutState.ARMED:
+                # 1. Monitoring Phase (Same Candle)
+                if curr_idx == self._last_idx:
+                    if self._last_price <= self._stop:
+                        self._state = BreakoutState.DEFAULT
+                        logging.info(
+                            f"DISARMED: {self._tradingsymbol} - Stop breached mid-candle"
+                        )
                     return
 
+                # 2. Execution Phase (Index has incremented)
+                # Since we are still ARMED and the index changed, Step 2 was successful.
+                is_entered = self.trade_mgr.complete_entry(price=self._last_price)
+
+                # Reset state before moving to the next phase
+                self._state = BreakoutState.DEFAULT
+                self._last_idx = curr_idx
+
+                if is_entered:
+                    self._fn = "place_exit_order"
+                return
+
         except Exception as e:
-            logging.error(f"{e} while waiting for breakout")
-            print_exc()
+            logging.error(f"Logic Error: {e}")
 
     def _set_new_stop(self):
         stop = self._stop
@@ -136,6 +180,7 @@ class Pivot:
 
     def try_exiting_trade(self):
         try:
+            self._last_idx = self._time_mgr.current_index
             if self.trade_mgr.is_trade_exited(self._last_price, self._trades):
                 self._fn = "is_breakout"
         except Exception as e:
@@ -172,24 +217,6 @@ class Pivot:
                 logging.info(f"REMOVING: {self._tradingsymbol} .. ")
                 self.remove_me()
                 return
-
-            curr = self.time_mgr.current_index
-            if self._fn == "is_breakout":
-                if curr == self._time_idx:
-                    return
-                else:
-                    logging.debug(f"New Candle: {ltp}")
-            self._time_idx = curr
-
-            """ update truth of indices if there is a breakout """
-            price_idx, stop, target = self.gridlines.find_current_grid(self._last_price)
-
-            self._is_breakout = price_idx > self._price_idx
-            if self._is_breakout:
-                self._stop = stop
-                self._target = target
-                logging.debug(f"Breakout: temp {stop=} < {ltp=} < {target=} ")
-            self._price_idx = price_idx
 
             table(self)
             return getattr(self, self._fn)()
