@@ -70,6 +70,7 @@ class TradeManager:
         self.position.entry.order_type = "LMT"
 
         self.order_place(self.position.entry)
+        logging.info(f"New entry:{position.entry.symbol} @{price}")
 
         self.position.state = "entry_pending"
 
@@ -89,7 +90,7 @@ class TradeManager:
             self.position.exit.price = stop - self.position.slippage
             self.position.exit.trigger_price = stop
             self.position.exit.order_type = "SL-LMT"
-
+            logging.info(f"Stop Loss: {self.position.exit.symbol} @{stop}")
             self.order_place(self.position.exit)
 
             self.stop(stop_price=stop)
