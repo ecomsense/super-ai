@@ -7,11 +7,12 @@ from src.sdk.utils import round_down_to_tick
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
 from src.providers.grid import Gridlines
-from src.providers.utils import table
+from src.providers.ui import pingpong, clear_screen
 
 from traceback import print_exc
 
 from enum import IntEnum
+from collections import deque
 
 logging = logging_func(__name__)
 
@@ -39,6 +40,9 @@ class Pivot:
         self._tradingsymbol = kwargs["tradingsymbol"]
 
         self._last_price = kwargs.get("ltp", 10000)
+        self._period_low = float("inf")
+        self._prev_period_low = float("inf")
+        self._traded_pivots = []
 
         prices = [
             0,
@@ -65,7 +69,7 @@ class Pivot:
         self._target = None
 
         self._time_mgr = TimeManager({"minutes": 1})
-        self._last_idx = self._time_mgr.current_index
+        self._last_idx = self._time_mgr.current_index + 1
         # objects and dependencies
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
@@ -78,6 +82,8 @@ class Pivot:
         # state variables
         self._removable = False
         self._fn = "wait_for_breakout"
+        self._path = deque(maxlen=20)
+        clear_screen()
 
     """
     def is_breakout(self):
@@ -112,36 +118,46 @@ class Pivot:
     def wait_for_breakout(self):
         try:
             curr_idx = self._time_mgr.current_index
+            stop_level = self._set_stop()  # Get the 100, 200, etc. line
 
-            # --- PHASE 1: ARMING (Condition 1) ---
+            if self._stop in self._traded_pivots:
+                logging.info(f"Ignoring: This pivot {self._stop} is already traded")
+                return
+            # --- PHASE 1: ARMING ---
             if self._state == BreakoutState.DEFAULT:
                 if curr_idx > self._last_idx:
-                    # Mark this candle as "seen" regardless of price action
-                    self._last_idx = curr_idx
-
-                    if self._last_price > self._set_stop():  # ignore
+                    # We now use the guaranteed Low of the previous minute
+                    if (
+                        self._prev_period_low <= stop_level
+                        and self._last_price > stop_level
+                    ):
                         self._state = BreakoutState.ARMED
                         logging.info(
-                            f"ARMED: {self._tradingsymbol} @{self._last_price} > {self._stop}"
+                            f"ARMED: {self._tradingsymbol} broke {stop_level} (Prev Low: {self._prev_period_low})"
                         )
-                return  # Exit Phase 1
+
+                    self._last_idx = curr_idx
+                return
 
             # --- PHASE 2: VALIDATION & EXECUTION ---
             if self._state == BreakoutState.ARMED:
                 # 1. Monitoring Phase (Same Candle)
                 if curr_idx == self._last_idx:
-                    if self._last_price <= self._stop:
+                    # If price drops back below the breakout line within the same candle, DISARM
+                    if (
+                        self._last_price <= self._stop
+                        or self._last_price > self._target
+                    ):
                         self._state = BreakoutState.DEFAULT
                         logging.info(
-                            f"DISARMED: {self._tradingsymbol} - Stop {self._stop} breached @{self._last_price}"
+                            f"DISARMED: Price {self._last_price} < {self._stop} or > {self._target}"
                         )
                     return
 
                 # 2. Execution Phase (Index has incremented)
-                # Since we are still ARMED and the index changed, Step 2 was successful.
+                # Success! Price stayed above the line for the duration of the 'Arming' candle.
                 is_entered = self.trade_mgr.complete_entry(price=self._last_price)
 
-                # Reset state before moving to the next phase
                 self._state = BreakoutState.DEFAULT
                 self._last_idx = curr_idx
 
@@ -180,8 +196,11 @@ class Pivot:
     def try_exiting_trade(self):
         try:
             self._last_idx = self._time_mgr.current_index
-            if self.trade_mgr.is_trade_exited(self._last_price, self._trades):
+            status = self.trade_mgr.is_trade_exited(self._last_price, self._trades):
+            if status > 0:
                 self._fn = "wait_for_breakout"
+            if status == 2:
+                self._traded_pivots.append(self._stop)
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
@@ -212,12 +231,23 @@ class Pivot:
             if ltp is not None:
                 self._last_price = float(ltp)
 
+            # Reset logic for new minute
+            curr_idx = self._time_mgr.current_index
+            if curr_idx > self._last_idx:
+                self._prev_period_low = self._period_low
+                self._period_low = self._last_price  # Reset for new candle
+            else:
+                self._period_low = min(self._period_low, self._last_price)
+
             if is_time_past(self.stop_time):
                 logging.info(f"REMOVING: {self._tradingsymbol} .. ")
                 self.remove_me()
                 return
 
-            table(self)
+            self._path.append((self._time_mgr.current_index, self._last_price))
+            print("\033[H", end="")
+
+            pingpong(self)
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._tradingsymbol}")

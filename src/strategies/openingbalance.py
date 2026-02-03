@@ -3,7 +3,7 @@ from src.sdk.helper import Helper
 
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
-from src.providers.utils import table
+from src.providers.ui import table
 from toolkit.kokoo import is_time_past
 
 from traceback import print_exc
