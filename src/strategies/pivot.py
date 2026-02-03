@@ -78,7 +78,7 @@ class Pivot:
         self._count = 1
         # state variables
         self._removable = False
-        self._fn = "is_breakout"
+        self._fn = "wait_for_breakout"
 
     """
     def is_breakout(self):
