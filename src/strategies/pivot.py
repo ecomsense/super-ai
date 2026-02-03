@@ -65,7 +65,7 @@ class Pivot:
         self._target = None
 
         self._time_mgr = TimeManager({"minutes": 1})
-        self._last_idx = 0
+        self._last_idx = self._time_mgr.current_index
         # objects and dependencies
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
@@ -122,7 +122,7 @@ class Pivot:
                     if self._last_price > self._set_stop():  # ignore
                         self._state = BreakoutState.ARMED
                         logging.info(
-                            f"ARMED: {self._tradingsymbol} at index {curr_idx}"
+                            f"ARMED: {self._tradingsymbol} @{self._last_price} > {self._stop}"
                         )
                 return  # Exit Phase 1
 
@@ -133,7 +133,7 @@ class Pivot:
                     if self._last_price <= self._stop:
                         self._state = BreakoutState.DEFAULT
                         logging.info(
-                            f"DISARMED: {self._tradingsymbol} - Stop breached mid-candle"
+                            f"DISARMED: {self._tradingsymbol} - Stop {self._stop} breached @{self._last_price}"
                         )
                     return
 
