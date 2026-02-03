@@ -61,7 +61,6 @@ class Pivot:
         ]
         self.gridlines = Gridlines(prices=prices, reverse=False)
         self._state = BreakoutState.DEFAULT
-        self._is_breakout = False
         self._stop = None
         self._target = None
 
@@ -182,7 +181,7 @@ class Pivot:
         try:
             self._last_idx = self._time_mgr.current_index
             if self.trade_mgr.is_trade_exited(self._last_price, self._trades):
-                self._fn = "is_breakout"
+                self._fn = "wait_for_breakout"
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
