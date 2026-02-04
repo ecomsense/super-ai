@@ -85,29 +85,6 @@ class Pivot:
         self._path = deque(maxlen=20)
         clear_screen()
 
-    """
-    def is_breakout(self):
-        try:
-
-            if self._is_breakout:
-
-                self._count += 1
-
-                if self._count % 2 == 0:
-                    # 3. place entry
-                    order_id = self.trade_mgr.complete_entry(price=self._last_price)
-                    if order_id:
-                        self._fn = "place_exit_order"
-                        return
-                else:
-                    logging.debug(
-                        f"SKIPPING TRADE# {self._count-2}: ltp:{self._last_price} pivot:{self._stop}"
-                    )
-
-        except Exception as e:
-            logging.error(f"{e} while waiting for breakout")
-            print_exc()
-    """
 
     def _set_stop(self):
         _, stop, target = self.gridlines.find_current_grid(self._last_price)
@@ -196,7 +173,7 @@ class Pivot:
     def try_exiting_trade(self):
         try:
             self._last_idx = self._time_mgr.current_index
-            status = self.trade_mgr.is_trade_exited(self._last_price, self._trades):
+            status = self.trade_mgr.is_trade_exited(self._last_price, self._trades)
             if status > 0:
                 self._fn = "wait_for_breakout"
             if status == 2:
