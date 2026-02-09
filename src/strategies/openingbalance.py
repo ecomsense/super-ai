@@ -1,15 +1,15 @@
-from src.constants import logging_func
-from src.sdk.helper import Helper
+from enum import IntEnum
+from math import ceil
+from traceback import print_exc
 
-from src.providers.trade_manager import TradeManager
-from src.providers.time_manager import TimeManager
-from src.providers.ui import table
+import pendulum as pdlm
 from toolkit.kokoo import is_time_past
 
-from traceback import print_exc
-import pendulum as pdlm
-from math import ceil
-from enum import IntEnum
+from src.constants import logging_func
+from src.providers.time_manager import TimeManager
+from src.providers.trade_manager import TradeManager
+from src.providers.ui import table
+from src.sdk.helper import Helper
 
 logging = logging_func(__name__)
 
@@ -43,6 +43,9 @@ class Openingbalance:
         self._txn = kwargs["txn"]
         self._target = kwargs["t1"]
         self._option_exchange = kwargs["option_exchange"]
+        default_time = {"hour": 9, "minute": 14, "second": 59}
+        self._low_candle_time = kwargs.get("low_candle_time", default_time)
+        logging.debug(f"checking low after {self._low_candle_time}")
 
         # objects and dependencies
         self._time_mgr = TimeManager(kwargs["rest_time"])
@@ -58,6 +61,7 @@ class Openingbalance:
         # state variables
         self._removable = False
         self._fn = "set_stop"
+        self.set_stop()
 
     """
     def _is_trailstopped(self, percent):
@@ -88,7 +92,7 @@ class Openingbalance:
                 intl = self._rest.history(
                     exchange=self._option_exchange,
                     token=self._option_token,
-                    loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=15, second=59),
+                    loc=pdlm.now("Asia/Kolkata").replace(**self._low_candle_time),
                     key="intl",
                 )
                 if intl is not None:

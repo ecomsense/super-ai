@@ -1,18 +1,16 @@
-from src.constants import logging_func
-
-from toolkit.kokoo import is_time_past
-from src.sdk.helper import Helper
-from src.sdk.utils import round_down_to_tick
-
-from src.providers.trade_manager import TradeManager
-from src.providers.time_manager import TimeManager
-from src.providers.grid import Gridlines
-from src.providers.ui import pingpong, clear_screen
-
+from collections import deque
+from enum import IntEnum
 from traceback import print_exc
 
-from enum import IntEnum
-from collections import deque
+from toolkit.kokoo import is_time_past
+
+from src.constants import logging_func
+from src.providers.grid import Gridlines
+from src.providers.time_manager import TimeManager
+from src.providers.trade_manager import TradeManager
+from src.providers.ui import clear_screen, pingpong
+from src.sdk.helper import Helper
+from src.sdk.utils import round_down_to_tick
 
 logging = logging_func(__name__)
 
@@ -23,7 +21,6 @@ class BreakoutState(IntEnum):
 
 
 class Pivot:
-
     def __init__(self, **kwargs):
         # initialize
         self._trades = []
@@ -70,6 +67,7 @@ class Pivot:
 
         self._time_mgr = TimeManager({"minutes": 1})
         self._last_idx = self._time_mgr.current_index + 1
+
         # objects and dependencies
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
@@ -79,12 +77,12 @@ class Pivot:
             tag=self.strategy,
         )
         self._count = 1
+
         # state variables
         self._removable = False
         self._fn = "wait_for_breakout"
         self._path = deque(maxlen=20)
         clear_screen()
-
 
     def _set_stop(self):
         _, stop, target = self.gridlines.find_current_grid(self._last_price)
@@ -100,6 +98,7 @@ class Pivot:
             if self._stop in self._traded_pivots:
                 logging.info(f"Ignoring: This pivot {self._stop} is already traded")
                 return
+
             # --- PHASE 1: ARMING ---
             if self._state == BreakoutState.DEFAULT:
                 if curr_idx > self._last_idx:
@@ -160,7 +159,6 @@ class Pivot:
             )
 
             if sell_order and sell_order.order_id:
-
                 self.trade_mgr.target(target_price=self._target)
 
                 self._set_new_stop()
@@ -173,33 +171,39 @@ class Pivot:
     def try_exiting_trade(self):
         try:
             self._last_idx = self._time_mgr.current_index
+
             status = self.trade_mgr.is_trade_exited(self._last_price, self._trades)
+
             if status > 0:
                 self._fn = "wait_for_breakout"
             if status == 2:
                 self._traded_pivots.append(self._stop)
+
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
 
     def remove_me(self):
-        if self._fn == "place_exit_order":
-            self.place_exit_order()
-            return
+        try:
+            if self._fn == "place_exit_order":
+                self.place_exit_order()
+                return
 
-        if self._fn == "try_exiting_trade":
-            status = self.trade_mgr.is_trade_exited(
-                self._last_price, self._trades, True
-            )
-            if status > 0:
-                self._fn = "remove_me"
-            return
+            if self._fn == "try_exiting_trade":
+                status = self.trade_mgr.is_trade_exited(
+                    self._last_price, self._trades, True
+                )
+                if status > 0:
+                    self._fn = "remove_me"
+                return
 
-        self._removable = True
+            self._removable = True
+        except Exception as e:
+            logging.error(f"{e} in remove me")
+            print_exc()
 
     def run(self, trades, quotes, positions):
         try:
-
             """needed for removing the object"""
 
             self._trades = trades

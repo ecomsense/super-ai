@@ -1,25 +1,20 @@
 trade:
   strategy: openingbalance
-  start_time: "0:16"
-  stop_time: "23:59"
+  start_time: "9:18"
+  stop_time: "23:00"
   live: 1      # 0 for paper 1 for live
-NIFTY:
-  base: NIFTY
-  option_exchange: NFO
-  method:
-    premium: 250
-  quantity: 65
-  t1: 10 #target if everything goes well        
-  txn: 1             # points for each losing trade
-  rest_time: 
-    minutes: 1
 BANKNIFTY:
   base: BANKNIFTY
   option_exchange: NFO
   method:
-    premium: 500
-  quantity: 20
-  t1: 10 #target if everything goes well        
-  txn: 1             # points for each losing trade
+    premium: 800
+  quantity: 30
+  t1: 5 #target if everything goes well        
+  t2: 5  #alternative target for sideways
+  txn: 2             # points for each losing trade
   rest_time: 
     minutes: 1
+  low_candle_time:
+    hour: 9
+    minute: 15
+    second: 59
