@@ -1,140 +1,163 @@
-from src.constants import logging_func
-
-from toolkit.kokoo import is_time_past
-from src.sdk.helper import Helper
-
-from src.providers.time_manager import Bucket
-from src.providers.trade_manager import TradeManager
-
+from collections import deque
+from enum import IntEnum
 from traceback import print_exc
+
+import pendulum as pdlm
+from toolkit.kokoo import is_time_past
+
+from src.constants import logging_func
+from src.providers.grid import Gridlines
+from src.providers.time_manager import TimeManager
+from src.providers.trade_manager import TradeManager
+from src.providers.ui import clear_screen, pingpong
+from src.sdk.helper import Helper
+from src.sdk.utils import calc_highest_target, round_down_to_tick
 
 logging = logging_func(__name__)
 
 
-def calc_highest_target(high, target):
-    """
-    calculate the target price from percentage or fixed value
-    """
-    if isinstance(target, str) and target.endswith("%"):
-        target = target.split("%")[0].strip()
-        return high + (high * float(target) / 100)
-    return high + float(target)
+class BreakoutState(IntEnum):
+    DEFAULT = 0  # waiting fore new candle + breakout
+    ARMED = 1  # breakout detected, monitoring for Condition 2
 
 
 class Hilo:
+    def __init__(self, **kwargs):
 
-    def __init__(
-        self,
-        prefix: str,
-        symbol_info: dict,
-        user_settings: dict,
-        rest,
-    ):
-        # A hard coded
-        self._removable = False
+        # from parameters
+        self.strategy = kwargs["strategy"]
+        self.stop_time = kwargs["stop_time"]
+        self._rest = kwargs["rest"]
 
-        # 1. Core Attributes (directly from parameters)
-        self._rest = rest
-        self._prefix = prefix
-        self._option_type = symbol_info["option_type"]
-        self._token = symbol_info["token"]
-        self._quantity = user_settings["quantity"]
+        self.option_type = kwargs["option_type"]
 
-        # 3. Dependencies and Helper Objects
-        self._symbol = symbol_info["symbol"]
-        self._last_price = symbol_info["ltp"]
-
-        # new
-        self._prev_price = self._last_price
-        self._small_bucket = Bucket(user_settings["rest_time"], 1)
-        self._big_bucket = Bucket(
-            period=user_settings["time_bucket"],
-            max_trades=user_settings["max_trade_in_bucket"],
-        )
-
-        self.trade_mgr = TradeManager(
-            stock_broker=Helper.api(),
-            symbol=self._symbol,
-            exchange=user_settings["option_exchange"],
-        )
-        loc = user_settings.get("candle_number", -1)
-        self._high = self._rest.history(
-            exchange=user_settings["option_exchange"],
-            token=symbol_info["token"],
-            loc=loc,
-            key="inth",
-        )
-
-        self._low = self._rest.history(
-            exchange=user_settings["option_exchange"],
-            token=symbol_info["token"],
-            loc=loc,
+        default_time = {"hour": 9, "minute": 14, "second": 59}
+        low = self._rest.history(
+            token=kwargs["option_token"],
+            exchange=kwargs["option_exchange"],
+            loc=pdlm.now("Asia/Kolkata").replace(**default_time),
             key="intl",
         )
-        self._stop = self._low
+        high = self._rest.history(
+            token=kwargs["option_token"],
+            exchange=kwargs["option_exchange"],
+            loc=pdlm.now("Asia/Kolkata").replace(**default_time),
+            key="inth",
+        )
+        self._tradingsymbol = kwargs["tradingsymbol"]
+        self._target_set_by_user = kwargs.get("target", "50%")
+        self._last_price = kwargs.get("ltp", 10000)
 
-        self._target = self._high
+        self._period_low = float("inf")
+        self._prev_period_low = float("inf")
+        self._traded_pivots = []
+        self._stop = None
+        self._target = None
 
-        self._target_set_by_user = user_settings.get("target", "50%")
-        """
-        initial trade low condition
-        """
-        self._fn = "is_breakout"
+        # todo
+        highest = high + 100
+        prices = [0, low, high, highest, highest]
+        self.gridlines = Gridlines(prices=prices, reverse=False)
+        self._state = BreakoutState.DEFAULT
 
-    def is_breakout(self):
+        self._time_mgr = TimeManager({"minutes": 1})
+        self._last_idx = self._time_mgr.current_index + 1
+
+        # objects and dependencies
+        self.trade_mgr = TradeManager(
+            stock_broker=Helper.api(),
+            symbol=self._tradingsymbol,
+            exchange=kwargs["option_exchange"],
+            quantity=kwargs["quantity"],
+            tag=self.strategy,
+        )
+        self._count = 1
+
+        # state variables
+        self._removable = False
+        self._path = deque(maxlen=20)
+        self._fn = "wait_for_breakout"
+        clear_screen()
+
+    def _set_stop(self):
+        _, stop, target = self.gridlines.find_current_grid(self._last_price)
+        self._stop = stop
+        self._target = target
+        return self._stop
+
+    def wait_for_breakout(self):
         try:
+            curr_idx = self._time_mgr.current_index
+            stop_level = self._set_stop()  # Get the 100, 200, etc. line
 
-            for self._stop in [self._low, self._high]:
+            if self._stop in self._traded_pivots:
+                logging.info(f"Ignoring: This pivot {self._stop} is already traded")
+                return
 
-                # 1.1 check actual breakout condition
-                if self._last_price > self._stop and self._prev_price <= self._stop:
-                    # 2. are we with the trade limits of time buckets
-                    if not self._small_bucket.can_allow():
-                        logging.debug(
-                            f"small BUCKET full: {self._symbol} skipping trading"
+            # --- PHASE 1: ARMING ---
+            if self._state == BreakoutState.DEFAULT:
+                if curr_idx > self._last_idx:
+                    # We now use the guaranteed Low of the previous minute
+                    if (
+                        self._prev_period_low <= stop_level
+                        and self._last_price > stop_level
+                    ):
+                        self._state = BreakoutState.ARMED
+                        logging.info(
+                            f"ARMED: {self._tradingsymbol} broke {stop_level} (Prev Low: {self._prev_period_low})"
                         )
-                        return
-                    if not self._big_bucket.can_allow():
-                        logging.debug(
-                            f"BIG BUCKET FULL: {self._symbol} skipping trading"
+
+                    self._last_idx = curr_idx
+                return
+
+            # --- PHASE 2: VALIDATION & EXECUTION ---
+            if self._state == BreakoutState.ARMED:
+                # 1. Monitoring Phase (Same Candle)
+                if curr_idx == self._last_idx:
+                    # If price drops back below the breakout line within the same candle, DISARM
+                    if (
+                        self._last_price <= self._stop
+                        or self._last_price > self._target
+                    ):
+                        self._state = BreakoutState.DEFAULT
+                        logging.info(
+                            f"DISARMED: Price {self._last_price} < {self._stop} or > {self._target}"
                         )
-                        return
+                    return
 
-                    # 3. calculate target price
-                    self._target = (
-                        self._high
-                        if self._stop == self._low
-                        else calc_highest_target(self._high, self._target_set_by_user)
-                    )
-                    # 4. place entry
-                    order_id = self.trade_mgr.complete_entry(
-                        quantity=self._quantity, price=self._last_price + 2
-                    )
-                    if order_id:
-                        # 5. consume tokens
-                        self._small_bucket.allow()
-                        self._big_bucket.allow()
-                        self._fn = "place_exit_order"
-                        return
-                    else:
-                        logging.warning(f"{self._symbol} without order id")
+                # 2. Execution Phase (Index has incremented)
+                # Success! Price stayed above the line for the duration of the 'Arming' candle.
+                is_entered = self.trade_mgr.complete_entry(price=self._last_price)
 
-                # 1.2. check actual breakout condition
-                logging.debug(
-                    f"No Breakout: {self._symbol} {self._prev_price} is not less than  {self._low} {self._high} or  {self._last_price} is not greater "
-                )
+                self._state = BreakoutState.DEFAULT
+                self._last_idx = curr_idx
+
+                if is_entered:
+                    self._fn = "place_exit_order"
+                return
 
         except Exception as e:
-            logging.error(f"{e} while waiting for breakout")
-            print_exc()
+            logging.error(f"Logic Error: {e}")
+
+    def _set_new_stop(self):
+        stop = self._stop
+        fill = self.trade_mgr.position.average_price
+        buffer = (fill - stop) / 2
+        new_stop = fill - buffer
+        rounded_ltp = round_down_to_tick(last_price=new_stop)
+        self.trade_mgr.stop(stop_price=rounded_ltp)
 
     def place_exit_order(self):
         try:
             sell_order = self.trade_mgr.pending_exit(
-                stop=self._stop, orders=self._trades
+                stop=self._stop - 100, orders=self._trades, last_price=self._last_price
             )
-            if sell_order.order_id:
+
+            if sell_order and sell_order.order_id:
                 self.trade_mgr.target(target_price=self._target)
+
+                self._set_new_stop()
+
                 self._fn = "try_exiting_trade"
         except Exception as e:
             logging.error(f"{e} while place exit order")
@@ -142,47 +165,66 @@ class Hilo:
 
     def try_exiting_trade(self):
         try:
-            if self.trade_mgr.is_trade_exited(
-                self._last_price, self._trades, removable=False
-            ):
-                self._fn = "is_breakout"
-            else:
-                logging.debug(
-                    f"Progress: {self._symbol} stop:{self._stop} < ltp:{self._last_price} < target:{self._target}"
-                )
+            self._last_idx = self._time_mgr.current_index
+
+            status = self.trade_mgr.is_trade_exited(self._last_price, self._trades)
+
+            if status > 0:
+                self._fn = "wait_for_breakout"
+            if status == 2:
+                self._traded_pivots.append(self._stop)
+
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
 
     def remove_me(self):
-        if self._fn == "place_exit_order":
-            self.place_exit_order()
-            return
-
-        if self._fn == "try_exiting_trade":
-            status = self.trade_mgr.is_trade_exited(
-                self._last_price, self._trades, True
-            )
-            assert status == 3
-            self._fn = "wait_for_breakout"
-
-        self._removable = True
-        logging.info(f"REMOVING: {self._symbol} switching from waiting for breakout")
-
-    def run(self, trades, ltps, positions):
         try:
+            if self._fn == "place_exit_order":
+                self.place_exit_order()
+                return
+
+            if self._fn == "try_exiting_trade":
+                status = self.trade_mgr.is_trade_exited(
+                    self._last_price, self._trades, True
+                )
+                if status > 0:
+                    self._fn = "remove_me"
+                return
+
+            self._removable = True
+        except Exception as e:
+            logging.error(f"{e} in remove me")
+            print_exc()
+
+    def run(self, trades, quotes, positions):
+        try:
+            """needed for removing the object"""
+
             self._trades = trades
 
-            ltp = ltps.get(self._symbol, None)
+            ltp = quotes.get(self._tradingsymbol, None)
             if ltp is not None:
-                self._prev_price = self._last_price
+                self._last_price = float(ltp)
 
-            is_removable = is_time_past(self.stop_time)
-            if is_removable:
-                if self.remove_me():
-                    return
+            # Reset logic for new minute
+            curr_idx = self._time_mgr.current_index
+            if curr_idx > self._last_idx:
+                self._prev_period_low = self._period_low
+                self._period_low = self._last_price  # Reset for new candle
+            else:
+                self._period_low = min(self._period_low, self._last_price)
 
+            if is_time_past(self.stop_time):
+                logging.info(f"REMOVING: {self._tradingsymbol} .. ")
+                self.remove_me()
+                return
+
+            self._path.append((self._time_mgr.current_index, self._last_price))
+            print("\033[H", end="")
+
+            pingpong(self)
             return getattr(self, self._fn)()
         except Exception as e:
-            logging.error(f"{e} in running {self._symbol}")
+            logging.error(f"{e} in running {self._tradingsymbol}")
             print_exc()

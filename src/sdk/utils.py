@@ -1,10 +1,23 @@
-from src.constants import S_DATA
 import random
 import string
 from functools import wraps
 from traceback import print_exc
+from typing import Optional
+
 import pendulum as plum
 from toolkit.fileutils import Fileutils
+
+from src.constants import S_DATA
+
+
+def calc_highest_target(high, target: Optional[Optional[float | int] | str]):
+    """
+    calculate the target price from percentage or fixed value
+    """
+    if isinstance(target, str) and target.endswith("%"):
+        target = target.split("%")[0].strip()
+        return high + (high * float(target) / 100)
+    return high + float(target)
 
 
 def dict_from_yml(key_to_search, value_to_match):

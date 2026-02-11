@@ -43,7 +43,7 @@ class Openingbalance:
         self._txn = kwargs["txn"]
         self._target = kwargs["t1"]
         self._option_exchange = kwargs["option_exchange"]
-        default_time = {"hour": 9, "minute": 14, "second": 59}
+        default_time = {"hour": 9, "minute": 15, "second": 59}
         self._low_candle_time = kwargs.get("low_candle_time", default_time)
         logging.debug(f"checking low after {self._low_candle_time}")
 
