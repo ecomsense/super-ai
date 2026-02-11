@@ -55,29 +55,35 @@ class Hilo:
         self._target = None
 
         # todo
-        highest = high + 100
-        prices = [0, low, high, highest, highest]
-        self.gridlines = Gridlines(prices=prices, reverse=False)
-        self._state = BreakoutState.DEFAULT
+        if high is not None:
+            highest = high + 100
+            prices = [0, low, high, highest, highest]
+            self.gridlines = Gridlines(prices=prices, reverse=False)
+            self._state = BreakoutState.DEFAULT
 
-        self._time_mgr = TimeManager({"minutes": 1})
-        self._last_idx = self._time_mgr.current_index + 1
+            self._time_mgr = TimeManager({"minutes": 1})
+            self._last_idx = self._time_mgr.current_index + 1
 
-        # objects and dependencies
-        self.trade_mgr = TradeManager(
-            stock_broker=Helper.api(),
-            symbol=self._tradingsymbol,
-            exchange=kwargs["option_exchange"],
-            quantity=kwargs["quantity"],
-            tag=self.strategy,
-        )
-        self._count = 1
+            # objects and dependencies
+            self.trade_mgr = TradeManager(
+                stock_broker=Helper.api(),
+                symbol=self._tradingsymbol,
+                exchange=kwargs["option_exchange"],
+                quantity=kwargs["quantity"],
+                tag=self.strategy,
+            )
+            self._count = 1
 
-        # state variables
-        self._removable = False
-        self._path = deque(maxlen=20)
-        self._fn = "wait_for_breakout"
-        clear_screen()
+            # state variables
+            self._removable = False
+            self._path = deque(maxlen=20)
+            self._fn = "wait_for_breakout"
+            clear_screen()
+        else:
+            msg = "sorry could not calculate high"
+            print(msg)
+            logging.error("msg")
+            __import__("sys").exit(1)
 
     def _set_stop(self):
         _, stop, target = self.gridlines.find_current_grid(self._last_price)
