@@ -45,7 +45,7 @@ class Hilo:
             key="inth",
         )
         self._tradingsymbol = kwargs["tradingsymbol"]
-        self._target_set_by_user = kwargs.get("target", "50%")
+        target_set_by_user = kwargs.get("target", "50%")
         self._last_price = kwargs.get("ltp", 10000)
 
         self._period_low = float("inf")
@@ -56,8 +56,9 @@ class Hilo:
 
         # todo
         if high is not None:
-            highest = high + 100
+            highest = calc_highest_target(high, target_set_by_user)
             prices = [0, low, high, highest, highest]
+            logging.info(f"grid we are going to trade today {prices}")
             self.gridlines = Gridlines(prices=prices, reverse=False)
             self._state = BreakoutState.DEFAULT
 
