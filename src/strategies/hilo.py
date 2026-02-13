@@ -57,7 +57,8 @@ class Hilo:
         # todo
         if high is not None:
             highest = calc_highest_target(high, target_set_by_user)
-            prices = [0, low, high, highest, highest]
+            virtual_lowest = low - int(low / 2)
+            prices = [virtual_lowest, low, high, highest, highest]
             logging.info(f"grid we are going to trade today {prices}")
             self.gridlines = Gridlines(prices=prices, reverse=False)
             self._state = BreakoutState.DEFAULT
