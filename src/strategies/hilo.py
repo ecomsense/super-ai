@@ -174,7 +174,7 @@ class Hilo:
         stop = self._stop
         fill = self.trade_mgr.position.average_price
         buffer = (fill - stop) / 2
-        new_stop = fill - buffer
+        new_stop = fill - abs(buffer)
         rounded_ltp = round_down_to_tick(last_price=new_stop)
         self.trade_mgr.stop(stop_price=rounded_ltp)
 

@@ -25,25 +25,26 @@ def get_settings(strategy_name):
 def test_hilo_arming_logic(strategy_factory, global_mocks):
     # Instance creation uses the mocked TimeManager automatically
     strat = strategy_factory(Hilo, get_settings("hilo"))
-    # Assertions for Arming
+
+    # verify initialization
     assert strat._state == BreakoutState.DEFAULT, "initial state is not DEFAULT"
+
     # 1. override initial settings
-    strat._stop = 100
-    strat._target = 150
     strat._last_idx = 10
     strat._prev_period_low = 90
     strat._last_price = 110
-
-    # 2. Simulate a new candle by updating the return_value of our PropertyMock
     global_mocks["time_idx"].return_value = 11
+
+    # run the method
     strat.wait_for_breakout()
 
-    # Assertions for Arming
+    # verify the state of properties after running
     assert strat._state == BreakoutState.ARMED, (
         "not curr idx > stored or prev_low < stop < last_price"
     )
     assert strat._last_idx == 11, "stored time idx is not 11"
-    assert strat._stop == 100, "Should be locked at pivot 100"
+    assert strat._stop == 100, "Should be locked at low 100"
+    assert strat._target == 150, "Should be locked at high 100"
 
     # --- PHASE 2: PIVOT LOCKING (The fix for Stop > Entry) ---
     # Simulate price jumping to a much higher grid (e.g., 210) within the SAME candle
@@ -53,7 +54,7 @@ def test_hilo_arming_logic(strategy_factory, global_mocks):
 
     assert strat._state == BreakoutState.ARMED, "Should stay ARMED"
     assert strat._stop == 100, (
-        "CRITICAL: Stop drifted! Pivot must stay locked during ARMED state."
+        "CRITICAL: Stop drifted! stop must stay locked during ARMED state."
     )
 
     # --- PHASE 3: EXECUTION ---
