@@ -3,7 +3,7 @@ from enum import IntEnum
 from traceback import print_exc
 
 import pendulum as pdlm
-from toolkit.kokoo import is_time_past
+from toolkit.kokoo import is_time_past, timer
 
 from src.constants import logging_func
 from src.providers.grid import Gridlines
@@ -30,18 +30,21 @@ class Hilo:
         self._rest = kwargs["rest"]
 
         self.option_type = kwargs["option_type"]
-
-        default_time = {"hour": 9, "minute": 14, "second": 59}
-        low = self._rest.history(
-            token=kwargs["option_token"],
-            exchange=kwargs["option_exchange"],
-            loc=pdlm.now("Asia/Kolkata").replace(**default_time),
-            key="intl",
-        )
+        default_time = {"hour": 9, "minute": 15, "second": 59}
+        low_candle_time = kwargs.get("low_candle_time", default_time)
+        low = None
+        while low is not None:
+            low = self._rest.history(
+                token=kwargs["option_token"],
+                exchange=kwargs["option_exchange"],
+                loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
+                key="intl",
+            )
+            timer(1)
         high = self._rest.history(
             token=kwargs["option_token"],
             exchange=kwargs["option_exchange"],
-            loc=pdlm.now("Asia/Kolkata").replace(**default_time),
+            loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
             key="inth",
         )
         self._tradingsymbol = kwargs["tradingsymbol"]
@@ -55,37 +58,31 @@ class Hilo:
         self._target = None
 
         # todo
-        if high is not None:
-            highest = calc_highest_target(high, target_set_by_user)
-            virtual_lowest = low - int(low / 2)
-            prices = [virtual_lowest, low, high, highest, highest]
-            logging.info(f"grid we are going to trade today {prices}")
-            self.gridlines = Gridlines(prices=prices, reverse=False)
-            self._state = BreakoutState.DEFAULT
+        highest = calc_highest_target(high, target_set_by_user)
+        virtual_lowest = low - int(low / 2)
+        prices = [virtual_lowest, low, high, highest, highest]
+        logging.info(f"grid we are going to trade today {prices}")
+        self.gridlines = Gridlines(prices=prices, reverse=False)
+        self._state = BreakoutState.DEFAULT
 
-            self._time_mgr = TimeManager({"minutes": 1})
-            self._last_idx = self._time_mgr.current_index + 1
+        self._time_mgr = TimeManager({"minutes": 1})
+        self._last_idx = self._time_mgr.current_index + 1
 
-            # objects and dependencies
-            self.trade_mgr = TradeManager(
-                stock_broker=Helper.api(),
-                symbol=self._tradingsymbol,
-                exchange=kwargs["option_exchange"],
-                quantity=kwargs["quantity"],
-                tag=self.strategy,
-            )
-            self._count = 1
+        # objects and dependencies
+        self.trade_mgr = TradeManager(
+            stock_broker=Helper.api(),
+            symbol=self._tradingsymbol,
+            exchange=kwargs["option_exchange"],
+            quantity=kwargs["quantity"],
+            tag=self.strategy,
+        )
+        self._count = 1
 
-            # state variables
-            self._removable = False
-            self._path = deque(maxlen=20)
-            self._fn = "wait_for_breakout"
-            clear_screen()
-        else:
-            msg = "sorry could not calculate high"
-            print(msg)
-            logging.error("msg")
-            __import__("sys").exit(1)
+        # state variables
+        self._removable = False
+        self._path = deque(maxlen=20)
+        self._fn = "wait_for_breakout"
+        clear_screen()
 
     def _set_stop(self):
         _, stop, target = self.gridlines.find_current_grid(self._last_price)
