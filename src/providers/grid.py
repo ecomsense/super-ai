@@ -1,7 +1,8 @@
+from traceback import print_exc
+from typing import Any, Dict
+
 from src.constants import logging_func
 from src.sdk.utils import round_down_to_tick
-from traceback import print_exc
-from typing import Dict, Any
 
 logging = logging_func(__name__)
 
@@ -131,11 +132,12 @@ if __name__ == "__main__":
         resp = pivot_to_stop_and_target(pivots)
         assert resp == [(5, 25), (25, 30)], "not sorted"
         print(resp)
-        prices = [0, 100, 200, 300, 400, 500]
-        gl = Gridlines(prices=prices, reverse=False)
-        curr, lowest, highest = gl.find_current_grid(24)
-        print(curr)
-        curr, lowest, highest = gl.find_current_grid(126)
-        print(curr)
+        pivots = [0, 5, 25, 25]
+        print(pivots)
+        gl = Gridlines(prices=pivots, reverse=False)
+        curr, lowest, highest = gl.find_current_grid(4.05)
+        assert curr == 0, "idx is not 0"
+        assert lowest == 0, "lowest is not 0"
+        assert highest == 5.0, "highest is not 5"
     except Exception as e:
         print(e)

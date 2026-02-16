@@ -33,7 +33,7 @@ class Hilo:
         default_time = {"hour": 9, "minute": 15, "second": 59}
         low_candle_time = kwargs.get("low_candle_time", default_time)
         low = None
-        while low is not None:
+        while low is None:
             low = self._rest.history(
                 token=kwargs["option_token"],
                 exchange=kwargs["option_exchange"],
@@ -59,8 +59,7 @@ class Hilo:
 
         # todo
         highest = calc_highest_target(high, target_set_by_user)
-        virtual_lowest = low - int(low / 2)
-        prices = [virtual_lowest, low, high, highest, highest]
+        prices = [0, low, high, highest, highest]
         logging.info(f"grid we are going to trade today {prices}")
         self.gridlines = Gridlines(prices=prices, reverse=False)
         self._state = BreakoutState.DEFAULT
@@ -93,68 +92,70 @@ class Hilo:
     def wait_for_breakout(self):
         try:
             curr_idx = self._time_mgr.current_index
-            stop_level = self._set_stop()  # Get the 100, 200, etc. line
 
-            if self._stop in self._traded_pivots:
-                logging.info(f"Ignoring: This pivot {self._stop} is already traded")
-                return
-
-            # --- PHASE 1: ARMING ---
+            # --- PHASE 1: SEARCHING (DEFAULT STATE) ---
             if self._state == BreakoutState.DEFAULT:
+                # We only look for a NEW grid level when we aren't already tracking one
+                stop_level = self._set_stop()
+
+                if self._stop in self._traded_pivots:
+                    return  # Skip logged info to avoid spamming every tick
+
                 if curr_idx > self._last_idx:
-                    # We now use the guaranteed Low of the previous minute
+                    # Check if the previous minute's price action crossed the CURRENT stop_level
                     if (
                         self._prev_period_low <= stop_level
                         and self._last_price > stop_level
                     ):
                         self._state = BreakoutState.ARMED
                         logging.info(
-                            f"ARMED: {self._tradingsymbol} broke {stop_level} (Prev Low: {self._prev_period_low})"
+                            f"ARMED: {self._tradingsymbol} locked at {stop_level}. "
+                            f"Validating for candle index {curr_idx}..."
                         )
-
                     self._last_idx = curr_idx
                 return
 
-            # --- PHASE 2: VALIDATION & EXECUTION ---
+            # --- PHASE 2: VALIDATION (ARMED STATE) ---
             if self._state == BreakoutState.ARMED:
-                # 1. Monitoring Phase (Same Candle)
+                # NOTICE: We DO NOT call _set_stop() here.
+                # self._stop remains the level that triggered the ARMING.
+
+                # 1. Monitoring Phase (Within the arming candle)
                 if curr_idx == self._last_idx:
-                    # If price drops back below the breakout line within the same candle, DISARM
+                    # If price fails the breakout line or hits the next target TOO FAST
                     if (
                         self._last_price <= self._stop
                         or self._last_price > self._target
                     ):
-                        self._state = BreakoutState.DEFAULT
                         logging.info(
-                            f"DISARMED: Price {self._last_price} < {self._stop} or > {self._target}"
+                            f"DISARMED: Price {self._last_price} violated locked levels "
+                            f"(Stop: {self._stop}, Target: {self._target})"
                         )
+                        self._state = BreakoutState.DEFAULT
                     return
 
-                # 2. Execution Phase (Index has incremented)
-                # Success! Price stayed above the line for the duration of the 'Arming' candle.
+                # 2. Execution Phase (Candle has closed, index has incremented)
+                logging.info(
+                    f"SUCCESS: {self._tradingsymbol} held above {self._stop}. Entering Trade."
+                )
+
+                # We use self._stop as the reference for the entry
                 is_entered = self.trade_mgr.complete_entry(price=self._last_price)
 
+                if is_entered:
+                    self._traded_pivots.append(self._stop)  # Prevent immediate re-entry
+                    self._fn = "place_exit_order"
+
+                # Reset state for next cycle
                 self._state = BreakoutState.DEFAULT
                 self._last_idx = curr_idx
-
-                if is_entered:
-                    self._fn = "place_exit_order"
-                return
 
         except Exception as e:
             logging.error(f"Logic Error: {e}")
 
-    def _set_new_stop(self):
-        stop = self._stop
-        fill = self.trade_mgr.position.average_price
-        buffer = (fill - stop) / 2
-        new_stop = fill - buffer
-        rounded_ltp = round_down_to_tick(last_price=new_stop)
-        self.trade_mgr.stop(stop_price=rounded_ltp)
-
     def place_exit_order(self):
         try:
-            stop = self._stop + int(self._stop / 2)
+            stop = self._stop - int(self._stop / 2)
             sell_order = self.trade_mgr.pending_exit(
                 stop=stop, orders=self._trades, last_price=self._last_price
             )
@@ -168,6 +169,14 @@ class Hilo:
         except Exception as e:
             logging.error(f"{e} while place exit order")
             print_exc()
+
+    def _set_new_stop(self):
+        stop = self._stop
+        fill = self.trade_mgr.position.average_price
+        buffer = (fill - stop) / 2
+        new_stop = fill - buffer
+        rounded_ltp = round_down_to_tick(last_price=new_stop)
+        self.trade_mgr.stop(stop_price=rounded_ltp)
 
     def try_exiting_trade(self):
         try:

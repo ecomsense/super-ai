@@ -1,5 +1,5 @@
-import pytest
 import pandas as pd
+
 from src.sdk.helper import compress_candles
 
 

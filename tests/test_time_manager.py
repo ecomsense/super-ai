@@ -1,7 +1,7 @@
 # File: tests/test_breakout.py
 
 # Assuming your concrete class is named Breakout
-# and is located in src/priveders/breakout.py
+# and is located in src/providors/breakout.py
 
 from src.providers.time_manager import SimpleBucket
 
