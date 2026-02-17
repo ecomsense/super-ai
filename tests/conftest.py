@@ -38,11 +38,19 @@ def global_mocks():
         # 2. Tell the TradeManager instance to return this order by default
         mock_hilo_tm.return_value.pending_exit.return_value = mock_order
 
+        mock_position = MagicMock()
+        mock_position.averge_price = 110
+        mock_hilo_tm.return_value.position.return_value = mock_position
+
+        mock_instance = MagicMock()
+
         yield {
             "time_idx": time_idx_mock,  # Access this to change the index in tests
             "tm_hilo": mock_hilo_tm,
             "tm_ob": mock_ob_tm,
             "order": mock_order,
+            "mock": mock_instance,
+            "position": mock_position,
         }
 
 

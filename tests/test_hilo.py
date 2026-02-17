@@ -1,30 +1,10 @@
 from src.strategies.hilo import BreakoutState, Hilo
-from toolkit.fileutils import Fileutils
-
-
-def flatten_no_rename(d, result=None):
-    if result is None:
-        result = {}
-
-    for k, v in d.items():
-        if isinstance(v, dict):
-            # Recurse into the dictionary
-            flatten_no_rename(v, result)
-        else:
-            # Assign the value to the flat result
-            result[k] = v
-    return result
-
-
-def get_settings(strategy_name):
-    return flatten_no_rename(
-        Fileutils().read_file("./factory/" + strategy_name + ".yml")
-    )
+from tests.factory_settings import Factory
 
 
 def test_hilo_breakout_succeeds(strategy_factory, global_mocks):
     # Instance creation uses the mocked TimeManager automatically
-    strat = strategy_factory(Hilo, get_settings("hilo"))
+    strat = strategy_factory(Hilo, Factory.settings("hilo"))
     # verify initialization
     assert strat._state == BreakoutState.DEFAULT, "initial state is not DEFAULT"
     assert strat._last_idx == 10, "not initialized to 9 + 1 in config + strategy"
@@ -73,7 +53,7 @@ def test_hilo_breakout_fails_on_low_breach(strategy_factory, global_mocks):
     Verifies that if price drops back below the breakout line
     during the arming candle, it returns to DEFAULT.
     """
-    strat = strategy_factory(Hilo, get_settings("hilo"))
+    strat = strategy_factory(Hilo, Factory.settings("hilo"))
 
     # Manually force ARMED state
     strat._state = BreakoutState.ARMED
@@ -94,7 +74,7 @@ def test_hilo_breakout_fails_on_target_breach(strategy_factory, global_mocks):
     Verifies that if price drops back below the breakout line
     during the arming candle, it returns to DEFAULT.
     """
-    strat = strategy_factory(Hilo, get_settings("hilo"))
+    strat = strategy_factory(Hilo, Factory.settings("hilo"))
 
     # Manually force ARMED state
     strat._state = BreakoutState.ARMED
@@ -110,24 +90,36 @@ def test_hilo_breakout_fails_on_target_breach(strategy_factory, global_mocks):
     assert strat._state == BreakoutState.DEFAULT
     assert strat._fn == "wait_for_breakout"
 
- def test_hilo_place_exit_order_flow(strategy_factory, global_mocks):
-     strat = strategy_factory(Hilo, get_settings("hilo"))
 
-     # 1. Setup specific values for this test
-     strat._stop = 100
-     strat._target = 150
-     strat._last_price = 110
+def test_hilo_place_exit_order_flow(strategy_factory, global_mocks):
+    strat = strategy_factory(Hilo, Factory.settings("hilo"))
 
-     # 2. Just run it! The TradeManager is already primed in conftest.
-     strat.place_exit_order()
+    # 1. Setup specific values for this test
+    strat._stop = 100
+    strat._target = 150
+    strat._last_price = 110
+    strat._trades = ["trade1"]
+    strat.set_new_stop = global_mocks["mock"]
 
-     # 3. Verify the result
-     # We check if the strategy correctly moved to the next function
-     assert strat._fn == "try_exiting_trade"
+    # 2. Just run it! The TradeManager is already primed in conftest.
+    strat.place_exit_order()
 
-     # We can still verify the math was correct
-     strat.trade_mgr.pending_exit.assert_called_once_with(
-         stop=50,
-         orders=strat._trades,
-         last_price=110
-     )
+    # 3. Verify the result
+    # We check if the strategy correctly moved to the next function
+    assert strat._fn == "try_exiting_trade"
+
+    # We can still verify the math was correct
+    strat.trade_mgr.pending_exit.assert_called_once_with(
+        stop=50, orders=strat._trades, last_price=110
+    )
+
+    strat.trade_mgr.target.assert_called_once_with(target_price=strat._target)
+
+
+def test_hilo_set_new_stop(strategy_factory, global_mocks):
+    strat = strategy_factory(Hilo, Factory.settings("hilo"))
+    strat._stop = 100
+    strat.trade_mgr.position = global_mocks["position"]
+    # average_price or fill price is 110
+    strat._set_new_stop()
+    strat.trade_mgr.stop.asset_called_once_with(stop_price=105)
