@@ -22,15 +22,14 @@ def get_settings(strategy_name):
     )
 
 
-def test_hilo_arming_logic(strategy_factory, global_mocks):
+def test_hilo_breakout_succeeds(strategy_factory, global_mocks):
     # Instance creation uses the mocked TimeManager automatically
     strat = strategy_factory(Hilo, get_settings("hilo"))
-
     # verify initialization
     assert strat._state == BreakoutState.DEFAULT, "initial state is not DEFAULT"
+    assert strat._last_idx == 10, "not initialized to 9 + 1 in config + strategy"
 
-    # 1. override initial settings
-    strat._last_idx = 10
+    # 1. attach values that may be set at Hilo.run()
     strat._prev_period_low = 90
     strat._last_price = 110
     global_mocks["time_idx"].return_value = 11
@@ -69,7 +68,7 @@ def test_hilo_arming_logic(strategy_factory, global_mocks):
     strat.trade_mgr.complete_entry.assert_called_once_with(price=149)
 
 
-def test_hilo_disarm_on_price_fail(strategy_factory, global_mocks):
+def test_hilo_breakout_fails_on_low_breach(strategy_factory, global_mocks):
     """
     Verifies that if price drops back below the breakout line
     during the arming candle, it returns to DEFAULT.
@@ -84,6 +83,28 @@ def test_hilo_disarm_on_price_fail(strategy_factory, global_mocks):
 
     # Price drops to 99 (below the 100 breakout line)
     strat._last_price = 99
+    strat.wait_for_breakout()
+
+    assert strat._state == BreakoutState.DEFAULT
+    assert strat._fn == "wait_for_breakout"
+
+
+def test_hilo_breakout_fails_on_target_breach(strategy_factory, global_mocks):
+    """
+    Verifies that if price drops back below the breakout line
+    during the arming candle, it returns to DEFAULT.
+    """
+    strat = strategy_factory(Hilo, get_settings("hilo"))
+
+    # Manually force ARMED state
+    strat._state = BreakoutState.ARMED
+    strat._target = 150
+    strat._stop = 100
+    strat._last_idx = 11
+    global_mocks["time_idx"].return_value = 11
+
+    # Price drops to 99 (below the 100 breakout line)
+    strat._last_price = 151
     strat.wait_for_breakout()
 
     assert strat._state == BreakoutState.DEFAULT

@@ -10,20 +10,23 @@ def global_mocks():
     Patches dependencies where they are IMPORTED in the strategy files.
     """
     # Create a single PropertyMock instance to control the time index
-    time_idx_mock = PropertyMock(return_value=10)
+    time_idx_mock = PropertyMock(return_value=9)
 
     with (
+        # dummies
         patch("src.sdk.helper.Helper.api"),
-        patch("src.strategies.hilo.TradeManager") as mock_hilo_tm,
-        patch("src.strategies.openingbalance.TradeManager") as mock_ob_tm,
-        # Patch TimeManager in BOTH strategy locations to ensure the mock "sticks"
-        patch("src.strategies.hilo.TimeManager") as mock_hilo_time,
-        patch("src.strategies.openingbalance.TimeManager") as mock_ob_time,
         patch("toolkit.kokoo.timer"),
-        patch("toolkit.kokoo.is_time_past", return_value=False),
         patch("src.providers.ui.clear_screen"),
         patch("src.providers.ui.pingpong"),
         patch("src.providers.ui.table"),
+        # patch with return value
+        patch("toolkit.kokoo.is_time_past", return_value=False),
+        # opening balance
+        patch("src.strategies.openingbalance.TradeManager") as mock_ob_tm,
+        patch("src.strategies.openingbalance.TimeManager") as mock_ob_time,
+        # hilo
+        patch("src.strategies.hilo.TradeManager") as mock_hilo_tm,
+        patch("src.strategies.hilo.TimeManager") as mock_hilo_time,
     ):
         # Attach the PropertyMock to the return_value (the instance) of the mocked classes
         type(mock_hilo_time.return_value).current_index = time_idx_mock
@@ -52,7 +55,7 @@ def mock_rest():
             return 150.0  # Previous Period High
 
     mock.history.side_effect = history_side_effect
-    mock.ltp.return_value = 105.0
+    # mock.ltp.return_value = 105.0
     return mock
 
 
@@ -67,8 +70,8 @@ def common_symbol_info():
         "option_token": "12345",
         "option_exchange": "NFO",
         "option_type": "CE",
-        "quantity": 15,
-        "ltp": 100.0,
+        # "quantity": 15,
+        # "ltp": 100.0,
     }
 
 

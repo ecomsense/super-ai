@@ -99,7 +99,7 @@ class TradeManager:
         else:
             resp = self._modify_to_enter(last_price)
 
-            logging.debug(f"modifying entry returned {resp}")
+            logging.debug(f"modifying exit returned {resp}")
 
         logging.warning(
             f"{self.position.entry.symbol} buy order {self.position.entry.order_id} not complete, to place sell order. retrying ..."

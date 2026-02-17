@@ -1,16 +1,18 @@
 trade:
-    strategy: hilo
-    start_time: "9:15"
-    stop_time: "15:20"
-    live: 1 # 0 for paper 1 for live
+  strategy: hilo
+  start_time: "9:15"
+  stop_time: "15:20"
+  live: 1 # 0 for paper 1 for live
 NIFTY:
-    base: NIFTY
-    option_exchange: NFO
-    quantity: 65
-    target: 50% # high + target can be in points or percentage
-    method:
-        moneyness: -2
-    low_candle_time:
-        hour: 9
-        minute: 15
-        second": 59
+  base: NIFTY
+  option_exchange: NFO
+  quantity: 65
+  target: 50% # high + target can be in points or percentage
+  rest_time: 
+    minutes: 1
+  method:
+    moneyness: -2
+  low_candle_time:
+    hour: 9
+    minute: 15
+    second": 59

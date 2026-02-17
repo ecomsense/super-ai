@@ -37,7 +37,7 @@ class Openingbalance:
         self._option_token = kwargs["option_token"]
         self._quantity = kwargs["quantity"]
         self._tradingsymbol = kwargs["tradingsymbol"]
-        self._last_price = kwargs.get("ltp", 0)
+        self._last_price = kwargs.get("ltp", 10000)
 
         self._stop = None
         self._txn = kwargs["txn"]
@@ -48,7 +48,8 @@ class Openingbalance:
         logging.debug(f"checking low after {self._low_candle_time}")
 
         # objects and dependencies
-        self._time_mgr = TimeManager(kwargs["rest_time"])
+        rest_time = kwargs.get("rest_time", {"minutes": 1})
+        self._time_mgr = TimeManager(rest_time)
         self._state = BreakoutState.DEFAULT
         self.trade_mgr = TradeManager(
             Helper.api(),

@@ -63,8 +63,8 @@ class Hilo:
         logging.info(f"grid we are going to trade today {prices}")
         self.gridlines = Gridlines(prices=prices, reverse=False)
         self._state = BreakoutState.DEFAULT
-
-        self._time_mgr = TimeManager({"minutes": 1})
+        rest_time = kwargs.get("rest_time", {"minutes": 1})
+        self._time_mgr = TimeManager(rest_time)
         self._last_idx = self._time_mgr.current_index + 1
 
         # objects and dependencies
