@@ -119,7 +119,9 @@ def test_hilo_place_exit_order_flow(strategy_factory, global_mocks):
 def test_hilo_set_new_stop(strategy_factory, global_mocks):
     strat = strategy_factory(Hilo, Factory.settings("hilo"))
     strat._stop = 100
+
+    global_mocks["position"].average_price = 90
     strat.trade_mgr.position = global_mocks["position"]
     # average_price or fill price is 110
     strat._set_new_stop()
-    strat.trade_mgr.stop.asset_called_once_with(stop_price=105)
+    strat.trade_mgr.stop.asset_called_once_with(stop_price=85)
