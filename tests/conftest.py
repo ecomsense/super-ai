@@ -32,10 +32,17 @@ def global_mocks():
         type(mock_hilo_time.return_value).current_index = time_idx_mock
         type(mock_ob_time.return_value).current_index = time_idx_mock
 
+        mock_order = MagicMock()
+        mock_order.order_id = "ORD_12345"
+
+        # 2. Tell the TradeManager instance to return this order by default
+        mock_hilo_tm.return_value.pending_exit.return_value = mock_order
+
         yield {
             "time_idx": time_idx_mock,  # Access this to change the index in tests
             "tm_hilo": mock_hilo_tm,
             "tm_ob": mock_ob_tm,
+            "order": mock_order,
         }
 
 

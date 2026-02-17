@@ -103,9 +103,31 @@ def test_hilo_breakout_fails_on_target_breach(strategy_factory, global_mocks):
     strat._last_idx = 11
     global_mocks["time_idx"].return_value = 11
 
-    # Price drops to 99 (below the 100 breakout line)
+    # Price breaches target
     strat._last_price = 151
     strat.wait_for_breakout()
 
     assert strat._state == BreakoutState.DEFAULT
     assert strat._fn == "wait_for_breakout"
+
+ def test_hilo_place_exit_order_flow(strategy_factory, global_mocks):
+     strat = strategy_factory(Hilo, get_settings("hilo"))
+
+     # 1. Setup specific values for this test
+     strat._stop = 100
+     strat._target = 150
+     strat._last_price = 110
+
+     # 2. Just run it! The TradeManager is already primed in conftest.
+     strat.place_exit_order()
+
+     # 3. Verify the result
+     # We check if the strategy correctly moved to the next function
+     assert strat._fn == "try_exiting_trade"
+
+     # We can still verify the math was correct
+     strat.trade_mgr.pending_exit.assert_called_once_with(
+         stop=50,
+         orders=strat._trades,
+         last_price=110
+     )
