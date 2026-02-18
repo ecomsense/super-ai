@@ -1,6 +1,7 @@
-from src.constants import logging_func
 from dataclasses import asdict, replace
+
 from src.config.interface import Position, Trade
+from src.constants import logging_func
 from src.sdk.utils import round_down_to_tick
 
 logging = logging_func(__name__)
@@ -16,7 +17,6 @@ def find_order_if_exists(needle, order_hay):
 
 
 class TradeManager:
-
     def __init__(self, stock_broker, symbol, exchange, quantity=None, tag="unknown"):
         self.stock_broker = stock_broker
         self.position = Position(slippage=2)
@@ -25,13 +25,14 @@ class TradeManager:
         )
 
     """
-    setters and getters 
+    setters and getters
     """
 
-    def stop(self, stop_price=None):
+    def stop(self, stop_price=None, quiet=False):
         if stop_price is not None:
             self.position.stop_price = stop_price
-            logging.debug(f"setting new {stop_price=}")
+            if not quiet:
+                logging.debug(f"setting new {stop_price=}")
         return self.position.stop_price
 
     def target(self, target_price=None):
@@ -41,7 +42,7 @@ class TradeManager:
         return self.position.target_price
 
     """
-        order entries 
+        order entries
     """
 
     def order_place(self, trade: Trade):
@@ -93,7 +94,7 @@ class TradeManager:
             logging.info(f"Stop Loss: {self.position.exit.symbol} @{stop}")
             self.order_place(self.position.exit)
 
-            self.stop(stop_price=stop)
+            self.stop(stop_price=stop, quiet=True)
 
             return self.position.exit
         else:
@@ -107,7 +108,7 @@ class TradeManager:
         return None
 
     """
-        order modifiers 
+        order modifiers
     """
 
     def _modify_to_enter(self, last_price):
