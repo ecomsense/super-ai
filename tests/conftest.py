@@ -4,6 +4,31 @@ import pendulum as pdlm
 import pytest
 
 
+# consumed by trade manager
+@pytest.fixture
+def mock_broker():
+    """Mocks the stock broker API."""
+    broker = MagicMock()
+    broker.order_place.return_value = "ORD_12345"
+    broker.order_modify.return_value = "MOD_12345"
+    return broker
+
+
+@pytest.fixture
+def tm(mock_broker, common_symbol_info):
+    """Provides a pre-configured TradeManager instance."""
+    from src.providers.trade_manager import TradeManager
+
+    return TradeManager(
+        stock_broker=mock_broker,
+        symbol=common_symbol_info["symbol"],
+        exchange=common_symbol_info["option_exchange"],
+        quantity=15,
+        tag="test_tag",
+    )
+
+
+# consumed by strategies
 @pytest.fixture(autouse=True)
 def global_mocks():
     """
