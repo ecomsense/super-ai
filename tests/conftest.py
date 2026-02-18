@@ -4,10 +4,10 @@ import pendulum as pdlm
 import pytest
 
 
-# consumed by trade manager
+# 1. Added mock_broker (kept from previous discussion)
 @pytest.fixture
 def mock_broker():
-    """Mocks the stock broker API."""
+    """Mocks the low-level stock broker API (e.g., Finvasia)."""
     broker = MagicMock()
     broker.order_place.return_value = "ORD_12345"
     broker.order_modify.return_value = "MOD_12345"
@@ -16,7 +16,7 @@ def mock_broker():
 
 @pytest.fixture
 def tm(mock_broker, common_symbol_info):
-    """Provides a pre-configured TradeManager instance."""
+    """Provides a pre-configured REAL TradeManager instance for integration tests."""
     from src.providers.trade_manager import TradeManager
 
     return TradeManager(
@@ -28,101 +28,104 @@ def tm(mock_broker, common_symbol_info):
     )
 
 
-# consumed by strategies
 @pytest.fixture(autouse=True)
-def global_mocks():
+def global_mocks(request):
     """
-    Patches dependencies where they are IMPORTED in the strategy files.
+    Patches dependencies. If a test is marked @pytest.mark.integration,
+    it skips patching TradeManager to allow real component interaction.
     """
-    # Create a single PropertyMock instance to control the time index
+    # Check if 'integration' marker is present on the test
+    is_integration = request.node.get_closest_marker("integration") is not None
+
     time_idx_mock = PropertyMock(return_value=9)
 
-    with (
-        # dummies
+    # Define common dummies that are always patched
+    dummies = [
         patch("src.sdk.helper.Helper.api"),
         patch("toolkit.kokoo.timer"),
         patch("src.providers.ui.clear_screen"),
         patch("src.providers.ui.pingpong"),
         patch("src.providers.ui.table"),
-        # patch with return value
         patch("toolkit.kokoo.is_time_past", return_value=False),
-        # opening balance
-        patch("src.strategies.openingbalance.TradeManager") as mock_ob_tm,
-        patch("src.strategies.openingbalance.TimeManager") as mock_ob_time,
-        # hilo
-        patch("src.strategies.hilo.TradeManager") as mock_hilo_tm,
-        patch("src.strategies.hilo.TimeManager") as mock_hilo_time,
-    ):
-        # Attach the PropertyMock to the return_value (the instance) of the mocked classes
-        type(mock_hilo_time.return_value).current_index = time_idx_mock
-        type(mock_ob_time.return_value).current_index = time_idx_mock
+    ]
 
-        mock_order = MagicMock()
-        mock_order.order_id = "ORD_12345"
+    # Start the common patches
+    for p in dummies:
+        p.start()
 
-        # 2. Tell the TradeManager instance to return this order by default
-        mock_hilo_tm.return_value.pending_exit.return_value = mock_order
+    # Conditional Patching Logic
+    if is_integration:
+        # In integration mode, we only patch TimeManager, NOT TradeManager
+        with (
+            patch("src.strategies.openingbalance.TimeManager") as mock_ob_time,
+            patch("src.strategies.hilo.TimeManager") as mock_hilo_time,
+        ):
+            type(mock_hilo_time.return_value).current_index = time_idx_mock
+            type(mock_ob_time.return_value).current_index = time_idx_mock
 
-        mock_position = MagicMock()
-        mock_position.averge_price = 110
-        mock_hilo_tm.return_value.position.return_value = mock_position
+            yield {"time_idx": time_idx_mock}
+    else:
+        # Standard Unit Test Mode: Patch everything
+        with (
+            patch("src.strategies.openingbalance.TradeManager") as mock_ob_tm,
+            patch("src.strategies.openingbalance.TimeManager") as mock_ob_time,
+            patch("src.strategies.hilo.TradeManager") as mock_hilo_tm,
+            patch("src.strategies.hilo.TimeManager") as mock_hilo_time,
+        ):
+            type(mock_hilo_time.return_value).current_index = time_idx_mock
+            type(mock_ob_time.return_value).current_index = time_idx_mock
 
-        mock_instance = MagicMock()
+            mock_order = MagicMock()
+            mock_order.order_id = "ORD_12345"
+            mock_hilo_tm.return_value.pending_exit.return_value = mock_order
 
-        yield {
-            "time_idx": time_idx_mock,  # Access this to change the index in tests
-            "tm_hilo": mock_hilo_tm,
-            "tm_ob": mock_ob_tm,
-            "order": mock_order,
-            "mock": mock_instance,
-            "position": mock_position,
-        }
+            mock_position = MagicMock()
+            mock_position.average_price = 110  # Fixed typo from 'averge_price'
+            mock_hilo_tm.return_value.position = mock_position
+
+            mock_instance = MagicMock()
+
+            yield {
+                "time_idx": time_idx_mock,
+                "tm_hilo": mock_hilo_tm,
+                "tm_ob": mock_ob_tm,
+                "order": mock_order,
+                "position": mock_position,
+                "mock": mock_instance,
+            }
+
+    patch.stopall()
 
 
 @pytest.fixture
 def mock_rest():
-    """
-    Mocks the SDK/Rest provider with distinct High and Low values.
-    """
     mock = MagicMock()
 
     def history_side_effect(*args, **kwargs):
-        # Check the 'key' argument to decide what to return
         key = kwargs.get("key")
         if key == "intl":
-            return 100.0  # Previous Period Low
+            return 100.0
         elif key == "inth":
-            return 150.0  # Previous Period High
+            return 150.0
 
     mock.history.side_effect = history_side_effect
-    # mock.ltp.return_value = 105.0
     return mock
 
 
 @pytest.fixture
 def common_symbol_info():
-    """
-    Common keys found in symbol_info that both strategies use.
-    """
     return {
-        "symbol": "BANKNIFTY",  # Used by Openingbalance as prefix
-        "tradingsymbol": "BANKNIFTY-OPT",  # Used by both
+        "symbol": "BANKNIFTY",
+        "tradingsymbol": "BANKNIFTY-OPT",
         "option_token": "12345",
         "option_exchange": "NFO",
         "option_type": "CE",
-        # "quantity": 15,
-        # "ltp": 100.0,
     }
 
 
 @pytest.fixture
 def strategy_factory(mock_rest, common_symbol_info):
-    """
-    Instantiates a strategy by merging common info with specific settings.
-    """
-
     def _create(strategy_class, user_settings):
-        # Merge all data into one kwargs dict
         kwargs = {
             **common_symbol_info,
             **user_settings,

@@ -1,3 +1,5 @@
+# tests/integration/test_hilo_flow.py
+
 import pytest
 from src.providers.trade_manager import TradeManager
 from src.strategies.hilo import Hilo
@@ -10,7 +12,7 @@ def test_hilo_real_trade_flow(strategy_factory, mock_broker, global_mocks):
     """
     # 1. Setup Strategy with REAL TradeManager
     # Because of the 'integration' marker, TradeManager is NOT a mock here.
-    settings = {"symbol": "BANKNIFTY", "quantity": 15}
+    settings = {"symbol": "BANKNIFTY", "quantity": 15, "strategy": "hilo"}
     strat = strategy_factory(Hilo, settings)
 
     # Inject real TM with the mock_broker from conftest
