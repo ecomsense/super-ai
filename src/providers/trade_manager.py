@@ -180,7 +180,7 @@ class TradeManager:
                 last_price=last_price,
             )
             resp = self._modify_to_exit(**kwargs)
-            logging.info(f"TARGET REACHED: returned {resp}")
+            logging.info(f"TARGET REACHED: {self.position.exit.symbol} returned {resp}")
             return 2
 
         logging.debug(

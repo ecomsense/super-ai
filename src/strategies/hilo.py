@@ -9,7 +9,7 @@ from src.constants import logging_func
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
 from src.providers.grid import StopAndTarget
-from src.providers.ui import clear_screen, pingpong
+from src.providers.ui import clear_screen, table
 from src.sdk.helper import Helper
 from src.sdk.utils import round_down_to_tick, calc_highest_target
 
@@ -286,7 +286,7 @@ class Hilo:
             self._path.append((self._time_mgr.current_index, self._last_price))
             print("\033[H", end="")
 
-            pingpong(self)
+            table(self)
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._tradingsymbol}")
