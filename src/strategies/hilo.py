@@ -50,7 +50,7 @@ class Hilo:
         low = None
         while low is None:
             low = kwargs["rest"].history(
-                token=self.option_type,
+                token=kwargs["option_token"],
                 exchange=kwargs["option_exchange"],
                 loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
                 key="intl",
