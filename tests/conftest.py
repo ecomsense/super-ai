@@ -1,10 +1,8 @@
 from unittest.mock import MagicMock, PropertyMock, patch
 
-import pendulum as pdlm
 import pytest
 
 
-# 1. Added mock_broker (kept from previous discussion)
 @pytest.fixture
 def mock_broker():
     """Mocks the low-level stock broker API (e.g., Finvasia)."""
@@ -13,6 +11,16 @@ def mock_broker():
     broker.order_modify.return_value = "MOD_12345"
     return broker
 
+
+@pytest.fixture
+def common_symbol_info():
+    return {
+        "symbol": "BANKNIFTY",
+        "tradingsymbol": "BANKNIFTY-OPT",
+        "option_token": "12345",
+        "option_exchange": "NFO",
+        "option_type": "CE",
+    }
 
 @pytest.fixture
 def tm(mock_broker, common_symbol_info):
@@ -27,6 +35,34 @@ def tm(mock_broker, common_symbol_info):
         tag="test_tag",
     )
 
+
+@pytest.fixture
+def mock_rest():
+    mock = MagicMock()
+
+    def history_side_effect(*args, **kwargs):
+        key = kwargs.get("key")
+        if key == "intl":
+            return 100.0
+        elif key == "inth":
+            return 150.0
+
+    mock.history.side_effect = history_side_effect
+    return mock
+
+
+@pytest.fixture
+def strategy_factory(mock_rest, common_symbol_info):
+    def _create(strategy_class, user_settings):
+        kwargs = {
+            **common_symbol_info,
+            **user_settings,
+            "rest": mock_rest,
+            "stop_time": "15:30:00",
+        }
+        return strategy_class(**kwargs)
+
+    return _create
 
 @pytest.fixture(autouse=True)
 def global_mocks(request):
@@ -97,41 +133,3 @@ def global_mocks(request):
     patch.stopall()
 
 
-@pytest.fixture
-def mock_rest():
-    mock = MagicMock()
-
-    def history_side_effect(*args, **kwargs):
-        key = kwargs.get("key")
-        if key == "intl":
-            return 100.0
-        elif key == "inth":
-            return 150.0
-
-    mock.history.side_effect = history_side_effect
-    return mock
-
-
-@pytest.fixture
-def common_symbol_info():
-    return {
-        "symbol": "BANKNIFTY",
-        "tradingsymbol": "BANKNIFTY-OPT",
-        "option_token": "12345",
-        "option_exchange": "NFO",
-        "option_type": "CE",
-    }
-
-
-@pytest.fixture
-def strategy_factory(mock_rest, common_symbol_info):
-    def _create(strategy_class, user_settings):
-        kwargs = {
-            **common_symbol_info,
-            **user_settings,
-            "rest": mock_rest,
-            "stop_time": "15:30:00",
-        }
-        return strategy_class(**kwargs)
-
-    return _create

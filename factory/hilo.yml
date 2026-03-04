@@ -1,3 +1,4 @@
+#optional = can be removed
 trade:
   strategy: hilo
   start_time: "9:15"
@@ -7,12 +8,14 @@ NIFTY:
   base: NIFTY
   option_exchange: NFO
   quantity: 65
-  target: 50% # high + target can be in points or percentage
-  rest_time: 
-    minutes: 1
-  method:
-    moneyness: -2
+  method:   # needs premium or moneyness
+    moneyness: -3
   low_candle_time:
     hour: 9
-    minute: 15
+    minute: 14
     second": 59
+  rest_time: 
+    minutes: 1
+  target: 50  #points or percentage%
+  trail: 50%  #optional 
+  reentry: odd  #optional odd | even

@@ -1,10 +1,11 @@
+from ast import Tuple
 from traceback import print_exc
 from typing import Any, Dict
 
 from src.constants import logging_func
 from src.sdk.utils import round_down_to_tick
 
-logging = logging_func(__name__)
+log = logging_func(__name__)
 
 
 def compute(ohlc_prefix):
@@ -15,33 +16,33 @@ def compute(ohlc_prefix):
             float(ohlc_prefix["intc"]),
         )
         pivot = (high + low + close) / 3.0
-        logging.info(f"{pivot=}")
+        log.info(f"{pivot=}")
         R5 = (pivot * 4) + high - (4 * low)
-        logging.info(f"{R5=}")
+        log.info(f"{R5=}")
         R4 = (pivot * 3) + high - (3 * low)
-        logging.info(f"{R4=}")
+        log.info(f"{R4=}")
         R3 = high + (2 * (pivot - low))
-        logging.info(f"{R3=}")
+        log.info(f"{R3=}")
         R2 = pivot + (high - low)
-        logging.info(f"{R2=}")
+        log.info(f"{R2=}")
         R1 = (2 * pivot) - low
-        logging.info(f"{R1=}")
+        log.info(f"{R1=}")
         S1 = (2 * pivot) - high
-        logging.info(f"{S1=}")
+        log.info(f"{S1=}")
         S2 = pivot - (high - low)
-        logging.info(f"{S2=}")
+        log.info(f"{S2=}")
         S3 = low - (2 * (high - pivot))
-        logging.info(f"{S3=}")
+        log.info(f"{S3=}")
         S4 = (pivot * 3) - (high * 3 - low)
-        logging.info(f"{S4=}")
+        log.info(f"{S4=}")
         S5 = (pivot * 4) - (high * 4 - low)
-        logging.info(f"{S5=}")
+        log.info(f"{S5=}")
         lst = [R5, R4, R3, R2, R1, pivot, S1, S2, S3, S4, S5]
         # lst = [int(item) for item in lst]
-        logging.info(f"computed pivots {lst}")
+        log.info(f"computed pivots {lst}")
         return lst
     except Exception as e:
-        logging.error(f"{e} while computing grid")
+        log.error(f"{e} while computing grid")
         print_exc()
 
 
@@ -55,7 +56,7 @@ class Grid:
                 cls.grid[prefix] = compute(symbol_constant)
             return cls.grid[prefix]
         except Exception as e:
-            logging.error(f"{e} while set grid")
+            log.error(f"{e} while set grid")
             print_exc()
 
     @classmethod
@@ -71,7 +72,7 @@ class Grid:
         Returns:
             A list of 11 integers representing the grid levels.
         """
-        logging.info(f"Grid running: for {exchange} {tradingsymbol}")
+        log.info(f"Grid running: for {exchange} {tradingsymbol}")
         try:
             if cls.grid.get(tradingsymbol, None) is None:
                 symbol_constant = rst.daily(
@@ -79,21 +80,21 @@ class Grid:
                 )
                 if symbol_constant is None:
                     symbol_constant = rst.yesterday(exchange=exchange, token=token)
-                logging.info(f"OHLC: {symbol_constant}")
+                log.info(f"OHLC: {symbol_constant}")
                 cls.grid[tradingsymbol] = compute(symbol_constant)
             return cls.grid[tradingsymbol]
         except Exception as e:
             print_exc()
-            logging.error(f"{e} while computing grid")
+            log.error(f"{e} while computing grid")
             __import__("sys").exit(1)
 
 
 class Gridlines:
     def __init__(self, prices: list, reverse: bool):
-        logging.info(f"prices {prices}")
+        log.info(f"prices {prices}")
         levels = sorted(prices, reverse=reverse)
         self.lines = list(zip(levels[:-1], levels[1:]))
-        logging.info(f"gridlines {self.lines}")
+        log.info(f"gridlines {self.lines}")
 
     def find_current_grid(self, ltp: float):
         idx = -1
@@ -106,7 +107,7 @@ class Gridlines:
 
 def pivot_to_stop_and_target(pivots: list):
     lst_of_tuples = None
-    logging.info(f"{pivots}")
+    log.info(f"{pivots}")
     level = sorted(pivots, reverse=False)
     level = [item for item in level if item > 0]
     new_lst = []
@@ -115,6 +116,38 @@ def pivot_to_stop_and_target(pivots: list):
         new_lst.append(resp)
     lst_of_tuples = list(zip(new_lst, new_lst[1:]))
     return lst_of_tuples
+
+class StopAndTarget:
+
+    def __init__(self, stops_and_targets: list[tuple]) -> None:
+        # 1. Validate Type
+        if not isinstance(stops_and_targets, list):
+            msg = f"Expected list for stops_and_targets, got {type(stops_and_targets).__name__}" 
+            log.error(msg)
+            raise TypeError(msg)
+
+        # 2. Validate Contents
+        if not all(isinstance(item, tuple) for item in stops_and_targets):
+            msg = "All items in stops_and_targets must be Tuples"
+            log.error(msg)
+            raise ValueError(msg)
+
+        self._stops_and_targets = stops_and_targets
+        log.info("Successfully initialized stops_and_targets.")
+
+    def calc(self, last_price):
+        if not isinstance(last_price, (int,float)):
+            msg =f"last price is not of expected type {last_price}"
+            log.error(msg)
+            raise ValueError(msg)
+
+        for stop_and_target in self._stops_and_targets:
+            stop, target = stop_and_target
+            if stop < last_price < target:
+                return stop, target
+        
+        return None, None
+
 
 
 if __name__ == "__main__":
@@ -141,3 +174,5 @@ if __name__ == "__main__":
         assert highest == 5.0, "highest is not 5"
     except Exception as e:
         print(e)
+
+

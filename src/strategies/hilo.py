@@ -6,15 +6,16 @@ import pendulum as pdlm
 from toolkit.kokoo import is_time_past, timer
 
 from src.constants import logging_func
-from src.providers.grid import Gridlines
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
+from src.providers.grid import StopAndTarget
 from src.providers.ui import clear_screen, pingpong
 from src.sdk.helper import Helper
-from src.sdk.utils import calc_highest_target, round_down_to_tick
+from src.sdk.utils import round_down_to_tick, calc_highest_target
 
 logging = logging_func(__name__)
 
+def always_true(): return True
 
 class BreakoutState(IntEnum):
     DEFAULT = 0  # waiting fore new candle + breakout
@@ -23,51 +24,62 @@ class BreakoutState(IntEnum):
 
 class Hilo:
     def __init__(self, **kwargs):
+        """
+        trail: 50%  #optional 
+        reentry: odd  #optional odd | even
+        """
+        self._removable = False
+        self._period_low = float("inf")
+        self._prev_period_low = float("inf")
+        self._stop = None
+        self._target = None
+        self._state = BreakoutState.DEFAULT
 
         # from parameters
-        self.strategy = kwargs["strategy"]
-        self.stop_time = kwargs["stop_time"]
         self._rest = kwargs["rest"]
+        self._tradingsymbol = kwargs["tradingsymbol"]
+        self._last_price = kwargs.get("ltp", float("inf"))
+        self.strategy = kwargs["strategy"]
 
+        self.stop_time = kwargs["stop_time"]
         self.option_type = kwargs["option_type"]
-        default_time = {"hour": 9, "minute": 15, "second": 59}
+
+
+        default_time = {"hour": 9, "minute": 14, "second": 59}
         low_candle_time = kwargs.get("low_candle_time", default_time)
         low = None
         while low is None:
-            low = self._rest.history(
-                token=kwargs["option_token"],
+            low = kwargs["rest"].history(
+                token=self.option_type,
                 exchange=kwargs["option_exchange"],
                 loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
                 key="intl",
             )
             timer(1)
-        high = self._rest.history(
+
+        high = kwargs["rest"].history(
             token=kwargs["option_token"],
             exchange=kwargs["option_exchange"],
             loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
             key="inth",
         )
-        self._tradingsymbol = kwargs["tradingsymbol"]
         target_set_by_user = kwargs.get("target", "50%")
-        self._last_price = kwargs.get("ltp", 10000)
 
-        self._period_low = float("inf")
-        self._prev_period_low = float("inf")
-        self._traded_pivots = []
-        self._stop = None
-        self._target = None
-
-        # todo
-        highest = calc_highest_target(high, target_set_by_user)
-        prices = [0, low, high, highest, highest]
+        # objects and dependencies
+        highest = calc_highest_target(high=high, target=target_set_by_user)
+        prices = [
+            (0, low), 
+            (low, calc_highest_target(low, target_set_by_user)), 
+            (high, highest),
+            (highest, highest)
+            ]
         logging.info(f"grid we are going to trade today {prices}")
-        self.gridlines = Gridlines(prices=prices, reverse=False)
-        self._state = BreakoutState.DEFAULT
+        self.stop_and_target = StopAndTarget(prices)
+
         rest_time = kwargs.get("rest_time", {"minutes": 1})
         self._time_mgr = TimeManager(rest_time)
         self._last_idx = self._time_mgr.current_index + 1
 
-        # objects and dependencies
         self.trade_mgr = TradeManager(
             stock_broker=Helper.api(),
             symbol=self._tradingsymbol,
@@ -75,16 +87,28 @@ class Hilo:
             quantity=kwargs["quantity"],
             tag=self.strategy,
         )
-        self._count = 1
+
+        # strategy specific and optional
+        self._trail = kwargs.get("trail", None)
+        if isinstance(self._trail, str) and self._trail.endswith("%"):
+            self._set_new_stop = self._new_stop 
+        else: 
+            self._set_new_stop = self._no_new_stop
+
+        self._reentry = kwargs.get("reentry", None)
+        if self._reentry: 
+            self._is_reentry = self._is_entry 
+            self._count = 1
+        else:
+            self._is_reentry = always_true
 
         # state variables
-        self._removable = False
         self._path = deque(maxlen=20)
         self._fn = "wait_for_breakout"
         clear_screen()
 
     def _set_stop(self):
-        _, stop, target = self.gridlines.find_current_grid(self._last_price)
+        stop, target = self.stop_and_target.calc(self._last_price)
         self._stop = stop
         self._target = target
         return self._stop
@@ -98,8 +122,8 @@ class Hilo:
                 # We only look for a NEW grid level when we aren't already tracking one
                 stop_level = self._set_stop()
 
-                if self._stop in self._traded_pivots:
-                    return  # Skip logged info to avoid spamming every tick
+                if stop_level is None:
+                    return
 
                 if curr_idx > self._last_idx:
                     # Check if the previous minute's price action crossed the CURRENT stop_level
@@ -117,9 +141,6 @@ class Hilo:
 
             # --- PHASE 2: VALIDATION (ARMED STATE) ---
             if self._state == BreakoutState.ARMED:
-                # NOTICE: We DO NOT call _set_stop() here.
-                # self._stop remains the level that triggered the ARMING.
-
                 # 1. Monitoring Phase (Within the arming candle)
                 if curr_idx == self._last_idx:
                     # If price fails the breakout line or hits the next target TOO FAST
@@ -140,11 +161,10 @@ class Hilo:
                 )
 
                 # We use self._stop as the reference for the entry
-                is_entered = self.trade_mgr.complete_entry(price=self._last_price)
-
-                if is_entered:
-                    self._traded_pivots.append(self._stop)  # Prevent immediate re-entry
-                    self._fn = "place_exit_order"
+                if self._is_reentry():
+                    is_entered = self.trade_mgr.complete_entry(price=self._last_price)
+                    if is_entered:
+                        self._fn = "place_exit_order"
 
                 # Reset state for next cycle
                 self._state = BreakoutState.DEFAULT
@@ -153,11 +173,20 @@ class Hilo:
         except Exception as e:
             logging.error(f"Logic Error: {e}")
 
+    
+    def _is_entry(self):
+        is_odd = bool(self._count  % 2)
+        self._count += 1
+        if self._reentry == "odd":
+            return is_odd
+        return not is_odd
+
+        
+
     def place_exit_order(self):
         try:
-            stop = self._stop - int(self._stop / 2)
             sell_order = self.trade_mgr.pending_exit(
-                stop=stop, orders=self._trades, last_price=self._last_price
+                stop=self._stop, orders=self._trades, last_price=self._last_price
             )
 
             if sell_order and sell_order.order_id:
@@ -170,13 +199,31 @@ class Hilo:
             logging.error(f"{e} while place exit order")
             print_exc()
 
-    def _set_new_stop(self):
+    def _new_stop(self):
+        # 1. Extract the percentage (e.g., "50%" -> 0.50)
+        # Using .strip("%") allows us to convert the user input to a math-ready float
+        trail_percent = float(str(self._trail).strip("%")) / 100
+        
         stop = self._stop
         fill = self.trade_mgr.position.average_price
-        buffer = (fill - stop) / 2
-        new_stop = fill - abs(buffer)
-        rounded_ltp = round_down_to_tick(last_price=new_stop)
-        self.trade_mgr.stop(stop_price=rounded_ltp)
+        
+        # 2. Calculate the total risk/distance
+        # total_distance represents the full 100% gap.
+        total_distance = abs(fill - stop)
+        
+        # 3. Apply the user-defined trailing factor
+        # If user sets 50%, we move the stop 50% of the way towards the fill price.
+        new_stop = stop + (total_distance * trail_percent)
+        
+        # 4. Finalize and execute
+        rounded_stop = round_down_to_tick(last_price=new_stop)
+        
+        # Only move the stop if it's actually an improvement (protection)
+        # For Buy: new_stop > old_stop
+        self.trade_mgr.stop(stop_price=rounded_stop)
+
+    def _no_new_stop(self):
+        return
 
     def try_exiting_trade(self):
         try:
@@ -187,7 +234,8 @@ class Hilo:
             if status > 0:
                 self._fn = "wait_for_breakout"
             if status == 2:
-                self._traded_pivots.append(self._stop)
+                self._removable =True
+                self._fn = "remove_me"
 
         except Exception as e:
             logging.error(f"{e} while exit order")
