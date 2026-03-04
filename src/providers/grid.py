@@ -135,18 +135,18 @@ class StopAndTarget:
         self._stops_and_targets = stops_and_targets
         log.info("Successfully initialized stops_and_targets.")
 
-    def calc(self, last_price):
+    def find_current_grid(self, last_price):
         if not isinstance(last_price, (int,float)):
             msg =f"last price is not of expected type {last_price}"
             log.error(msg)
             raise ValueError(msg)
 
-        for stop_and_target in self._stops_and_targets:
+        idx = -1
+        for idx, stop_and_target in enumerate(self._stops_and_targets):
             stop, target = stop_and_target
             if stop < last_price < target:
-                return stop, target
-        
-        return None, None
+                return idx, stop, target
+        return idx, None, None
 
 
 

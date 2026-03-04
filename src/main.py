@@ -70,7 +70,6 @@ def main():
                     builders.remove(builder)
 
             engine.tick(rest, quote)
-
             blink()
         else:
             logging.info(

@@ -28,7 +28,6 @@ class Engine:
 
             # Get the run arguments dynamically
             trades = rest.trades()
-            quotes = quote.get_quotes()
 
             needs_position = any(
                 s.strategy == "openingbalance" for s in self.strategies
@@ -36,7 +35,7 @@ class Engine:
             positions = rest.positions() if needs_position else None
 
             for strgy in self.strategies:
-                run_args = trades, quotes, positions
+                run_args = trades, quote.get_quotes(), positions
                 strgy.run(*run_args)  # Pass the dynamically generated args
 
             self.strategies = [s for s in self.strategies if not s._removable]
