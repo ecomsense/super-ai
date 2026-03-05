@@ -13,7 +13,10 @@ def generate_table(strgy)-> Table:
     # Simple logic for table color
     try:
         fill_price = strgy.trade_mgr.position.average_price
-        style = "green" if strgy._last_price > fill_price else "red"
+        if fill_price is not None:
+            style = "green" if strgy._last_price > fill_price else "red"
+        else:
+            style = "yellow"
     except AttributeError:
         style = "yellow"
 
