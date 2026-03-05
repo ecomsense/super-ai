@@ -1,6 +1,7 @@
 from src.constants import logging_func
 from traceback import print_exc
 from toolkit.kokoo import is_time_past, blink
+from src.providers.ui import generate_table
 
 logging = logging_func(__name__)
 
@@ -13,7 +14,7 @@ class Engine:
         self.start = start
 
     def wait_until_start(self):
-        logging.info(f"WAITING: till Engine start time {self.start}")
+        logging.info(f"WAITING: till Super-Ai starts at {self.start}")
         while not is_time_past(self.start):
             blink()
 
@@ -21,7 +22,7 @@ class Engine:
         if new_strats:
             self.strategies.extend(new_strats)
 
-    def tick(self, rest, quote):
+    def tick(self, rest, quote, live):
         try:
             if not self.strategies:
                 return
@@ -37,25 +38,9 @@ class Engine:
             for strgy in self.strategies:
                 run_args = trades, quote.get_quotes(), positions
                 strgy.run(*run_args)  # Pass the dynamically generated args
+                live.update(generate_table(strgy))
 
             self.strategies = [s for s in self.strategies if not s._removable]
-            """
-            else:
-                logging.info(
-                    f"main: exit initialized because we are past trade stop time {self.stop}"
-                )
-                Helper._rest.orders()
-                for item in orders:
-                    if (
-                        item.get("status", None) == "OPEN"
-                        or item.get("status", None) == "TRIGGER_PENDING"
-                    ):
-                        order_id = item.get("order_id", None)
-                        logging.info(f"cancelling open order {order_id}")
-                        Helper._rest.order_cancel(order_id)
-
-                Helper._rest.close_positions()
-            """
         except Exception as e:
             print_exc()
             logging.error(f"{e} Engine: run while tick")

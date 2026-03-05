@@ -8,12 +8,17 @@ from src.constants import (
 )
 
 from src.sdk.helper import Helper
+
 from src.core.build import Builder, stuff_atm, stuff_tradingsymbols
 from src.core.strategy import create_strategies_from_params
 from src.core.engine import Engine
 
 from toolkit.kokoo import is_time_past, blink, kill_tmux
 from traceback import print_exc
+
+from rich.console import Console
+from rich.live import Live
+from rich.table import Table
 
 logging = logging_func(__name__)
 
@@ -50,6 +55,7 @@ def main():
     try:
         # read common start time and stop time
         O_SETG = yml_to_obj(S_SETG)
+
         engine = Engine(O_SETG["start"], O_SETG["stop"])
         engine.wait_until_start()
 
@@ -57,25 +63,28 @@ def main():
 
         rest = Helper._rest
         quote = Helper._quote
-        while not is_time_past(engine.stop):
 
-            for builder in builders:
-                if builder.can_build():
-                    data = stuff_atm(builder._data, builder._meta)
-                    lst_of_params = stuff_tradingsymbols(data, builder._meta)
+        console = Console()
+        with Live(Table(title="Initializing..."), console=console, auto_refresh=True) as live:
+            while not is_time_past(engine.stop):
 
-                    strategies = create_strategies_from_params(lst_of_params)
-                    engine.add_strategy(strategies)
+                for builder in builders:
+                    if builder.can_build():
+                        data = stuff_atm(builder._data, builder._meta)
+                        lst_of_params = stuff_tradingsymbols(data, builder._meta)
 
-                    builders.remove(builder)
+                        strategies = create_strategies_from_params(lst_of_params)
+                        engine.add_strategy(strategies)
 
-            engine.tick(rest, quote)
-            blink()
-        else:
-            logging.info(
-                f"main: killing tmux because we started after stop time {engine.stop}"
-            )
-            kill_tmux()
+                        builders.remove(builder)
+
+                engine.tick(rest, quote, live)
+                blink()
+            else:
+                logging.info(
+                    f"main: killing tmux because we started after stop time {engine.stop}"
+                )
+                kill_tmux()
 
     except KeyboardInterrupt:
         __import__("sys").exit()

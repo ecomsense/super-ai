@@ -1,13 +1,36 @@
 from tabulate import tabulate
 import os
 import sys
+from rich.table import Table
 
+def generate_table(strgy)-> Table:
+    """
+    Directly accesses Strategy object properties. 
+    Raw values, no formatting, no dict iteration.
+    """
+    table = Table(title=f"Live Monitor: {strgy._tradingsymbol}")
+
+    # Simple logic for table color
+    try:
+        fill_price = strgy.trade_mgr.position.average_price
+        style = "green" if strgy._last_price > fill_price else "red"
+    except AttributeError:
+        style = "yellow"
+
+    table.add_column("Property", style=style)
+    table.add_column("Value", style=style)
+
+    for k, v in strgy.__dict__.items():
+        if isinstance(v, (float, int, str)):
+            v = str(v)
+            table.add_row(k, v)
+    return table
 
 def table(cls_obj):
     items = [
         [k, v]
         for k, v in cls_obj.__dict__.items()
-        if isinstance(v, float) or isinstance(v, int) or isinstance(v, str)
+        if isinstance(v, (float, int, str))
     ]
     print(tabulate(items, tablefmt="fancy_grid"))
 
