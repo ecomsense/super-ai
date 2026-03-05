@@ -284,7 +284,6 @@ class Hilo:
             self._path.append((self._time_mgr.current_index, self._last_price))
             print("\033[H", end="")
 
-            table(self)
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._tradingsymbol}")

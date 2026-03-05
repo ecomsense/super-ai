@@ -2,6 +2,7 @@ from src.constants import logging_func
 from traceback import print_exc
 from toolkit.kokoo import is_time_past, blink
 from src.providers.ui import generate_table
+from rich.columns import Columns 
 
 logging = logging_func(__name__)
 
@@ -34,11 +35,14 @@ class Engine:
                 s.strategy == "openingbalance" for s in self.strategies
             )
             positions = rest.positions() if needs_position else None
-
+            
+            tbl_rich = []
             for strgy in self.strategies:
                 run_args = trades, quote.get_quotes(), positions
                 strgy.run(*run_args)  # Pass the dynamically generated args
-                live.update(generate_table(strgy))
+                tbl_rich.append(generate_table(strgy))
+                
+            live.update(Columns(tbl_rich))
 
             self.strategies = [s for s in self.strategies if not s._removable]
         except Exception as e:
