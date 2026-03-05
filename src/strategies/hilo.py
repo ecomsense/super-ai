@@ -107,6 +107,10 @@ class Hilo:
         self._fn = "wait_for_breakout"
         clear_screen()
 
+        #dummies
+        self._low = low
+        self._high = high
+
     def _set_stop(self):
         _, self._stop, self._target = self.gridlines.find_current_grid(self._last_price)
         return self._stop

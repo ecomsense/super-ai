@@ -65,7 +65,7 @@ def main():
         quote = Helper._quote
 
         console = Console()
-        with Live(Table(title="Initializing..."), console=console, auto_refresh=True) as live:
+        with Live(Table(title="Initializing..."), console=console, refresh_per_second=4) as live:
             while not is_time_past(engine.stop):
 
                 for builder in builders:
