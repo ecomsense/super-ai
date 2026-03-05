@@ -108,9 +108,7 @@ class Hilo:
         clear_screen()
 
     def _set_stop(self):
-        stop, target = self.gridlines.find_current_grid(self._last_price)
-        self._stop = stop
-        self._target = target
+        _, self._stop, self._target = self.gridlines.find_current_grid(self._last_price)
         return self._stop
 
     def wait_for_breakout(self):
@@ -171,7 +169,8 @@ class Hilo:
                 self._last_idx = curr_idx
 
         except Exception as e:
-            logging.error(f"Logic Error: {e}")
+            logging.error(f"Wait for breakout: {e}")
+            print_exc()
 
     
     def _is_entry(self):
@@ -181,7 +180,6 @@ class Hilo:
             return is_odd
         return not is_odd
 
-        
 
     def place_exit_order(self):
         try:
