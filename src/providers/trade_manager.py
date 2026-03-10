@@ -56,9 +56,6 @@ class TradeManager:
 
     def complete_entry(self, price, quantity=None):
 
-        # reset average price a.k.a fill price
-        self.position.average_price = None
-
         self.position.entry = replace(self._trade_template)
 
         if quantity:
@@ -157,6 +154,7 @@ class TradeManager:
         order = find_dict_with_kv(self.position.exit.order_id, orders)
         if isinstance(order, dict):
             self.position.state = "idle"
+            self.position.average_price = None            
             return final_status_intent
 
         # 1. BFO HANDSHAKE: VERIFY CANCEL
@@ -172,12 +170,10 @@ class TradeManager:
                 order_id = self.order_place(self.position.exit)
                 logging.info(f"Exited at Market: #{order_id} ?. {self.position.exit.symbol} @{last_price}")
                 self.position.exit.order_id = order_id
-                self.position.state = "idle"
-                return final_status_intent
             
-            else: # Filled before cancel
-                 self.position.state = "idle"
-                 return final_status_intent 
+            self.position.state = "idle"
+            self.position.average_price = None            
+            return final_status_intent 
 
 
         # TARGET REACHED
