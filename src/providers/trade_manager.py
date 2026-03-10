@@ -2,16 +2,15 @@ from dataclasses import asdict, replace
 
 from src.config.interface import Position, Trade
 from src.constants import logging_func
-from src.sdk.utils import round_down_to_tick
 
 logging = logging_func(__name__)
+from typing import Any
 
-
-def find_order_if_exists(needle, order_hay):
+def find_dict_with_kv(val: str | int, lst_of_dct: list[dict[str, Any]]):
     match = None
-    for order in order_hay:
-        if needle == order["order_id"]:
-            match = order
+    for dct in lst_of_dct:
+        if val == dct["order_id"]:
+            match = dct
             break
     return match
 
@@ -48,14 +47,15 @@ class TradeManager:
     def order_place(self, trade: Trade):
         try:
             kwargs = asdict(trade)
+            _ = kwargs.pop("order_id", None)
             kwargs = {k: v for k, v in kwargs.items() if v is not None}
-            trade.order_id = self.stock_broker.order_place(**kwargs)
-            return trade
+            return self.stock_broker.order_place(**kwargs)
         except Exception as e:
             logging.error(f"TradeManager: Order Place {e}")
             raise  # Re-raise the exception instead of printing the error message
 
     def complete_entry(self, price, quantity=None):
+
         # reset average price a.k.a fill price
         self.position.average_price = None
 
@@ -70,16 +70,15 @@ class TradeManager:
         self.position.entry.trigger_price = 0.0
         self.position.entry.order_type = "LMT"
 
-        self.order_place(self.position.entry)
-        logging.info(f"New entry:{self.position.entry.symbol} @{price}")
-
+        order_id = self.order_place(self.position.entry)
+        logging.info(f"New entry#: {order_id} {self.position.entry.symbol} @{price}")
+        self.position.entry.order_id = order_id
         self.position.state = "entry_pending"
-
-        return self.position.entry.order_id
+        return order_id
 
     def pending_exit(self, stop, orders, last_price):
-        order = find_order_if_exists(self.position.entry.order_id, orders)
 
+        order = find_dict_with_kv(self.position.entry.order_id, orders)
         if isinstance(order, dict):
             self.position.entry.filled_price = float(order["fill_price"])
             self.position.average_price = float(order["fill_price"])
@@ -91,20 +90,22 @@ class TradeManager:
             self.position.exit.price = stop - self.position.slippage
             self.position.exit.trigger_price = stop
             self.position.exit.order_type = "SL-LMT"
-            logging.info(f"Stop Loss: {self.position.exit.symbol} @{stop}")
-            self.order_place(self.position.exit)
 
+            
+            order_id = self.order_place(self.position.exit)
+            logging.info(f"Exit Order#: {order_id} {self.position.exit.symbol} @{stop}")
+            self.position.exit.order_id = order_id
             self.stop(stop_price=stop, quiet=True)
+            return order_id
 
-            return self.position.exit
-        else:
+
+        # our earlier attempt to modify order failed 
+        # TODO try cancel here
+        if self.position.state == "entry_pending":
+            msg =f"{self.position.entry.symbol} buy order {self.position.entry.order_id} is {self.position.state}"
+            logging.warning(msg)
             resp = self._modify_to_enter(last_price)
-
             logging.debug(f"modifying exit returned {resp}")
-
-        logging.warning(
-            f"{self.position.entry.symbol} buy order {self.position.entry.order_id} not complete, to place sell order. retrying ..."
-        )
         return None
 
     """
@@ -126,14 +127,14 @@ class TradeManager:
                 order_type="LIMIT",
                 last_price=last_price,
             )
-
             logging.debug(f"modify entry args {entry_order_args}")
             return self.stock_broker.order_modify(**entry_order_args)
         except Exception as e:
             logging.error(f"{e} Error in modify to enter")
 
-    def _modify_to_exit(self, **kwargs):
+    def _modify_to_exit(self):
         try:
+            kwargs = dict(trigger_price=0.0, order_type="MKT", price=0.0)
             exit_order_args = dict(
                 order_id=self.position.exit.order_id,
                 symbol=self.position.exit.symbol,
@@ -148,69 +149,58 @@ class TradeManager:
             logging.debug(f"modifying args {exit_order_args}")
             return self.stock_broker.order_modify(**exit_order_args)
         except Exception as e:
-            logging.error(f"Error in complete_exit {e}")
+            logging.error(f"Error in _modify_to_exit {e}")
+
 
     def is_trade_exited(self, last_price, orders, removable=None):
-
-        order = find_order_if_exists(self.position.exit.order_id, orders)
-
+        final_status_intent = 2 if self.position.state == "target_pending" else 1
+        order = find_dict_with_kv(self.position.exit.order_id, orders)
         if isinstance(order, dict):
-            logging.info(
-                f"STOP HIT: {self.position.exit.symbol} buy avg:{self.position.average_price}  stop:{self.stop()}"
-            )
-            return 1  # stop hit
+            self.position.state = "idle"
+            return final_status_intent
 
-        elif last_price < self.stop() or removable:  # type: ignore
-            kwargs = dict(
-                trigger_price=0.0,
-                price=round_down_to_tick(last_price),
-                order_type="LIMIT",
-                last_price=last_price,
-            )
-            resp = self._modify_to_exit(**kwargs)
-            logging.info(
-                f"KILLING STOP: returned {resp} cos ltp:{last_price} < stop:{self.stop()}"
-            )
-            return 1
-
-        elif last_price > self.target():
-            kwargs = dict(
-                trigger_price=0.0,
-                order_type="LIMIT",
-                last_price=last_price,
-            )
-            resp = self._modify_to_exit(**kwargs)
-            logging.info(f"TARGET REACHED: {self.position.exit.symbol} returned {resp}")
-            return 2
-
-        logging.debug(
-            f"Progress: {self.position.exit.symbol} stop:{self.stop()} < ltp:{last_price} < target:{self.target()}"
-        )
-        return 0
-
-    def run(self, orders, last_price, removable=None):
-
-        state = self.position.state
-
-        if state == "entry_pending":
-            self.pending_exit(self.stop(), orders, last_price)
-
-        elif state == "exit_pending":
-            status = self.is_trade_exited(last_price, orders, removable)
-
-            if status:
+        # 1. BFO HANDSHAKE: VERIFY CANCEL
+        if self.position.state in ["target_pending", "stop_pending"]:
+            
+            # If NOT in tradebook, cancel successful.
+            if not order:
+                # Replace with MKT
+                self.position.exit.order_type = "MKT"
+                self.position.exit.price = 0.0
+                self.position.exit.trigger_price = 0.0
+                
+                order_id = self.order_place(self.position.exit)
+                logging.info(f"Exited at Market: #{order_id} ?. {self.position.exit.symbol} @{last_price}")
+                self.position.exit.order_id = order_id
                 self.position.state = "idle"
-                return status
+                return final_status_intent
+            
+            else: # Filled before cancel
+                 self.position.state = "idle"
+                 return final_status_intent 
+
+
+        # TARGET REACHED
+        if last_price > self.target():
+            if self.position.exit.exchange == "BFO":
+                # BFO: Must Cancel First
+                self.stock_broker.order_cancel(order_id=self.position.exit.order_id)
+                self.position.state = "target_pending"
+                return 0
+            else:
+                self._modify_to_exit()
+                return 2
+
+        # STOP HIT OR REMOVABLE
+        elif last_price < self.stop() or removable:
+            if self.position.exit.exchange == "BFO":
+                # BFO: Must Cancel First
+                self.stock_broker.order_cancel(order_id=self.position.exit.order_id)
+                self.position.state = "stop_pending"
+                return 0
+            else:
+                self._modify_to_exit()
+                return 1
 
         return 0
 
-
-"""
-    def is_stopped(self, orders):
-        flag = False
-        for order in orders:
-            if self.position.exit.order_id == order["order_id"]:
-                flag = True
-                break
-        return flag
-"""

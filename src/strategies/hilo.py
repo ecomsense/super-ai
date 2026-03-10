@@ -159,7 +159,7 @@ class Hilo:
 
                 # 2. Execution Phase (Candle has closed, index has incremented)
                 logging.info(
-                    f"SUCCESS: {self._tradingsymbol} held above {self._stop}. Entering Trade."
+                    f"SUCCESS: {self._tradingsymbol} held above {self._stop}"
                 )
 
                 # We use self._stop as the reference for the entry
@@ -167,6 +167,8 @@ class Hilo:
                     is_entered = self.trade_mgr.complete_entry(price=self._last_price)
                     if is_entered:
                         self._fn = "place_exit_order"
+                else:
+                    logging.info("SORRY: We are passing this trade due to odd/even rule")
 
                 # Reset state for next cycle
                 self._state = BreakoutState.DEFAULT
@@ -187,11 +189,10 @@ class Hilo:
 
     def place_exit_order(self):
         try:
-            sell_order = self.trade_mgr.pending_exit(
+            order_id = self.trade_mgr.pending_exit(
                 stop=self._stop, orders=self._trades, last_price=self._last_price
             )
-
-            if sell_order and sell_order.order_id:
+            if order_id:
                 self.trade_mgr.target(target_price=self._target)
 
                 self._set_new_stop()
