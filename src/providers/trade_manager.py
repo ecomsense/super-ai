@@ -6,6 +6,7 @@ from src.constants import logging_func
 logging = logging_func(__name__)
 from typing import Any
 
+
 def find_dict_with_kv(val: str | int, lst_of_dct: list[dict[str, Any]]):
     match = None
     for dct in lst_of_dct:
@@ -83,23 +84,21 @@ class TradeManager:
             # place sell order only if buy order is filled
             self.position.exit = replace(self._trade_template)
             self.position.exit.side = "S"
-            self.position.exit.disclosed_quantity = 0
+            self.position.exit.disclosed_quantity = None
             self.position.exit.price = stop - self.position.slippage
             self.position.exit.trigger_price = stop
             self.position.exit.order_type = "SL-LMT"
 
-            
             order_id = self.order_place(self.position.exit)
             logging.info(f"Exit Order#: {order_id} {self.position.exit.symbol} @{stop}")
             self.position.exit.order_id = order_id
             self.stop(stop_price=stop, quiet=True)
             return order_id
 
-
-        # our earlier attempt to modify order failed 
+        # our earlier attempt to modify order failed
         # TODO try cancel here
         if self.position.state == "entry_pending":
-            msg =f"{self.position.entry.symbol} buy order {self.position.entry.order_id} is {self.position.state}"
+            msg = f"{self.position.entry.symbol} buy order {self.position.entry.order_id} is {self.position.state}"
             logging.warning(msg)
             resp = self._modify_to_enter(last_price)
             logging.debug(f"modifying exit returned {resp}")
@@ -148,33 +147,32 @@ class TradeManager:
         except Exception as e:
             logging.error(f"Error in _modify_to_exit {e}")
 
-
     def is_trade_exited(self, last_price, orders, removable=None):
         final_status_intent = 2 if self.position.state == "target_pending" else 1
         order = find_dict_with_kv(self.position.exit.order_id, orders)
         if isinstance(order, dict):
             self.position.state = "idle"
-            self.position.average_price = None            
+            self.position.average_price = None
             return final_status_intent
 
         # 1. BFO HANDSHAKE: VERIFY CANCEL
         if self.position.state in ["target_pending", "stop_pending"]:
-            
             # If NOT in tradebook, cancel successful.
             if not order:
                 # Replace with MKT
                 self.position.exit.order_type = "MKT"
                 self.position.exit.price = 0.0
                 self.position.exit.trigger_price = 0.0
-                
-                order_id = self.order_place(self.position.exit)
-                logging.info(f"Exited at Market: #{order_id} ?. {self.position.exit.symbol} @{last_price}")
-                self.position.exit.order_id = order_id
-            
-            self.position.state = "idle"
-            self.position.average_price = None            
-            return final_status_intent 
 
+                order_id = self.order_place(self.position.exit)
+                logging.info(
+                    f"Exited at Market: #{order_id} ?. {self.position.exit.symbol} @{last_price}"
+                )
+                self.position.exit.order_id = order_id
+
+            self.position.state = "idle"
+            self.position.average_price = None
+            return final_status_intent
 
         # TARGET REACHED
         if last_price > self.target():
@@ -199,4 +197,3 @@ class TradeManager:
                 return 1
 
         return 0
-

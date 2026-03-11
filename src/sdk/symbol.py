@@ -24,7 +24,7 @@ class Symbol(Protocol):
     def get_tokens(self, strike: int) -> Dict[str, str]: ...
     def find_option_type(self, tradingsymbol: str) -> Optional[str]: ...
     def find_closest_premium(
-        self, quotes: Dict[str, float], premium: float, contains: str
+        self, quotes: Dict[str, float], premGium: float, contains: str
     ) -> Optional[str]: ...
     def find_option_by_distance(
         self, atm: int, distance: int, c_or_p: str
@@ -40,6 +40,8 @@ class OptionSymbol(Symbol):
         self._data = data
         self.csvfile = f"./data/{self._data.exchange}_symbols.csv"
         get_exchange_token_map_finvasia(self.csvfile, self._data.exchange)
+        if self._data.expiry is None:
+            self._data.expiry = self._find_expiry()
 
     def get_atm(self, ltp: float) -> int:
         current_strike = ltp - (ltp % self._data.diff)
@@ -51,30 +53,27 @@ class OptionSymbol(Symbol):
 
     def _find_expiry(self):
         """
-            find 
+        find
         """
         df = pd.read_csv(self.csvfile, usecols=["Symbol", "Expiry"])
 
-        df = df[df.Symbol==self._data.symbol]
+        df = df[df.Symbol == self._data.symbol]
 
         df = df.drop_duplicates(subset=["Expiry"])
 
-        df['Sort_Key'] = pd.to_datetime(df['Expiry'], format='%d-%b-%Y')
+        df["Sort_Key"] = pd.to_datetime(df["Expiry"], format="%d-%b-%Y")
 
-        today = pd.to_datetime('today').normalize()
+        today = pd.to_datetime("today").normalize()
 
         df = df[df["Sort_Key"] >= today]
 
-
         df = df.sort_values(by=["Sort_Key"])
 
-        print(df.head())
-        if len(df.index)>0:
-            first_row = df.iloc[0]['Expiry']
+        if len(df.index) > 0:
+            first_row = df.iloc[0]["Expiry"]
             return first_row
-        return None
-        
-
+        print(df.head())
+        raise f"cannot find no row found for this symbol {self._data.symbol}"
 
     def get_tokens(self, strike: int) -> Dict[str, str]:
         try:
@@ -149,7 +148,9 @@ class OptionSymbol(Symbol):
             )
             logging.info(f"Symbol: found strike price {find_strike}")
             df = pd.read_csv(self.csvfile)
-            logging.info(f"Symbol:{self._data.symbol} {c_or_p=} {find_strike=}")
+            logging.info(
+                f"Symbol:{self._data.symbol} {c_or_p=} {find_strike=} for expiry{self._data.expiry}"
+            )
             row = df[
                 (df["Symbol"] == self._data.symbol)
                 & (df["OptionType"] == c_or_p)
@@ -162,3 +163,19 @@ class OptionSymbol(Symbol):
         except Exception as e:
             logging.error(f"{e} Symbol: while find_option_by_distance")
             print_exc()
+
+
+if __name__ == "__main__":
+    data = OptionData(
+        exchange="BFO",
+        base="SENSEX",
+        symbol="BSXOPT",
+        diff=100,
+        depth=10,
+        expiry=None,
+        token=None,
+    )
+
+    os = OptionSymbol(data)
+    resp = os.find_option_by_distance(atm=77500, distance=3, c_or_p="CE")
+    print(resp)

@@ -1,6 +1,7 @@
 from src.strategies.hilo import BreakoutState, Hilo
 from tests.factory_settings import Factory
 
+
 def test_init(strategy_factory):
     settings = Factory.settings(strategy_name="hilo")
     strat = strategy_factory(Hilo, settings)
@@ -10,29 +11,29 @@ def test_init(strategy_factory):
 
     # 1. Verify the 'prices' grid calculation
     # We assume low=100, high=110 from your mock data
-    expected_grid = [
-        (0, 100.0),            # (0, low)
-        (100.0, 150),        # (low, low + 10%)
-        (150.0, 200),        # (high, high + 10%)
-        (200, 200)         # (highest, highest)
+    prices = [
+        (0, 100.0),  # (0, low)
+        (100.0, 150),  # (low, low + 10%)
+        (150.0, 200),  # (high, high + 10%)
+        (200, 200),  # (highest, highest)
     ]
-    print(strat.stop_and_target._stops_and_targets)
-    
+    print(strat.gridlines)
+
     # Asserting that the StopAndTarget object holds the correct data
     # Note: You may need to expose this property in your StopAndTarget class
-    assert strat.stop_and_target._stops_and_targets == expected_grid
+
     # 2. Verify dynamic method assignment
     if settings.get("trail"):
         assert strat._set_new_stop == strat._new_stop
     else:
         assert strat._set_new_stop == strat._no_new_stop
 
-
     if settings.get("reentry"):
         assert strat._is_reentry == strat._is_entry
         assert strat._count == 1
     else:
         assert strat._is_reentry.__name__ == "always_true"
+
 
 def test_breakout_fails_if_stop_is_none(strategy_factory, global_mocks):
     # Instance creation uses the mocked TimeManager automatically

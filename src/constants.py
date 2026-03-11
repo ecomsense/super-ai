@@ -82,8 +82,8 @@ def async_logger():
         # 2. Start the asynchronous thread BEFORE any other strategy logic runs
         logger_manager.start()
 
-        # Silence urllib3 connection pool noise
-        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+        # Silence urllib3 connection pool noise by changing it to WARNING
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
         # Silence general websocket library noise (pings, etc.)
         logging.getLogger("websocket").setLevel(logging.WARNING)
         # You may want to keep the broker API chatter if you are debugging network calls
