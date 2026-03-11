@@ -1,6 +1,7 @@
 from src.constants import logging_func
 
 from traceback import print_exc
+from src.sdk import symbol
 from toolkit.kokoo import is_time_past
 
 from typing import Any, Literal
@@ -48,9 +49,9 @@ class Builder:
                     underlying_future = self._meta["quote"].symbol_info(
                         symbol_item["exchange"], symbol_item["index"]
                     )
-                    assert isinstance(
-                        underlying_future, dict
-                    ), "underlying_future is not a dict"
+                    assert isinstance(underlying_future, dict), (
+                        "underlying_future is not a dict"
+                    )
                     symbol_item["token"] = underlying_future["key"].split("|")[1]
 
                 # overwrite symbol item on settings
@@ -62,6 +63,7 @@ class Builder:
     def find_expiry(self):
         try:
             for k, symbol_info in self._data.items():
+                print(symbol_info)
                 data = OptionData(
                     exchange=symbol_info["option_exchange"],
                     base=symbol_info["base"],

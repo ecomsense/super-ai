@@ -4,16 +4,16 @@ trade:
   start_time: "9:15"
   stop_time: "15:20"
   live: 1 # 0 for paper 1 for live
-NIFTY:
-  base: NIFTY
-  option_exchange: NFO
-  quantity: 65
+SENSEX:
+  symbol: BSXOPT
+  option_exchange: BFO
+  quantity: 100
   method:   # needs premium or moneyness
     moneyness: -3
   low_candle_time:
     hour: 9
     minute: 14
-    second": 59
+    second: 59
   rest_time: 
     minutes: 1
   target: 50  #points or percentage%

@@ -41,8 +41,6 @@ class OptionSymbol(Symbol):
         self.csvfile = f"./data/{self._data.exchange}_symbols.csv"
         get_exchange_token_map_finvasia(self.csvfile, self._data.exchange)
         logging.info(f"init OptionSymbol {data}")
-        if self._data.expiry is None:
-            self._data.expiry = self._find_expiry()
 
     def get_atm(self, ltp: float) -> int:
         current_strike = ltp - (ltp % self._data.diff)
