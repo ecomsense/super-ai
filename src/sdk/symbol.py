@@ -40,6 +40,7 @@ class OptionSymbol(Symbol):
         self._data = data
         self.csvfile = f"./data/{self._data.exchange}_symbols.csv"
         get_exchange_token_map_finvasia(self.csvfile, self._data.exchange)
+        logging.info(f"init OptionSymbol {data}")
         if self._data.expiry is None:
             self._data.expiry = self._find_expiry()
 
