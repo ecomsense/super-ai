@@ -8,7 +8,6 @@ from toolkit.kokoo import is_time_past
 from src.constants import logging_func
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
-from src.providers.ui import table
 from src.sdk.helper import Helper
 
 logging = logging_func(__name__)
@@ -153,11 +152,6 @@ class Openingbalance:
             )
             if sell_order and sell_order.order_id:
                 self._fn = "try_exiting_trade"
-            """
-            else:
-                self._STOPPED.add(self._prefix)
-                self._removable = True
-            """
         except Exception as e:
             logging.error(f"{e} while place exit order")
             print_exc()
@@ -276,18 +270,25 @@ class Openingbalance:
             print_exc()
 
     def remove_me(self):
-        if self._fn == "place_exit_order":
-            self.place_exit_order()
-            return
+        try:
+            logging.info(f"REMOVING: {self._tradingsymbol} .. ")
 
-        if self._fn == "try_exiting_trade":
-            status = self.trade_mgr.is_trade_exited(
-                self._last_price, self._trades, True
-            )
-            if status > 0:
-                self._fn = "wait_for_breakout"
+            if self._fn == "place_exit_order":
+                return self.place_exit_order()
 
-        self._removable = True
+            if self._fn == "try_exiting_trade":
+                if (
+                    self.trade_mgr.is_trade_exited(self._last_price, self._trades, True)
+                    > 0
+                ):
+                    self._fn = "remove_me"
+                else:
+                    return
+
+            self._removable = True
+        except Exception as e:
+            logging.error(f"{e} in remove me")
+            print_exc()
 
     def run(self, trades, quotes, positions):
         try:
@@ -301,13 +302,9 @@ class Openingbalance:
 
             is_removable = is_time_past(self.stop_time)
             if is_removable or self._prefix in self._STOPPED:
-                self.remove_me()
-                logging.info(
-                    f"REMOVING: {self._tradingsymbol} switching from waiting for breakout"
-                )
-                return
+                if self._fn != "remove_me":
+                    self.remove_me()
 
-            table(self)
             return getattr(self, self._fn)()
         except Exception as e:
             logging.error(f"{e} in running {self._tradingsymbol}")

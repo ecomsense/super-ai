@@ -1,4 +1,3 @@
-from collections import deque
 from enum import IntEnum
 from traceback import print_exc
 
@@ -9,7 +8,6 @@ from src.constants import logging_func
 from src.providers.time_manager import TimeManager
 from src.providers.trade_manager import TradeManager
 from src.providers.grid import StopAndTarget
-from src.providers.ui import clear_screen
 from src.sdk.helper import Helper
 from src.sdk.utils import round_down_to_tick, calc_highest_target
 
@@ -105,9 +103,8 @@ class Hilo:
             self._is_reentry = always_true
 
         # state variables
-        self._path = deque(maxlen=20)
+        # self._path = deque(maxlen=20)
         self._fn = "wait_for_breakout"
-        clear_screen()
 
         # dummies
         self._low = low
@@ -137,8 +134,8 @@ class Hilo:
                     ):
                         self._state = BreakoutState.ARMED
                         logging.info(
-                            f"ARMED: {self._tradingsymbol} locked at {stop_level}. "
-                            f"Validating for candle index {curr_idx}..."
+                            f"ARMED: {self._tradingsymbol} locked at {stop_level} on candle #{curr_idx} "
+                            f"and prev candle lowest is {self._prev_period_low}"
                         )
                     self._last_idx = curr_idx
                 return
@@ -246,17 +243,19 @@ class Hilo:
 
     def remove_me(self):
         try:
+            logging.info(f"REMOVING: {self._tradingsymbol} .. ")
+
             if self._fn == "place_exit_order":
-                self.place_exit_order()
-                return
+                return self.place_exit_order()
 
             if self._fn == "try_exiting_trade":
-                status = self.trade_mgr.is_trade_exited(
-                    self._last_price, self._trades, True
-                )
-                if status > 0:
+                if (
+                    self.trade_mgr.is_trade_exited(self._last_price, self._trades, True)
+                    > 0
+                ):
                     self._fn = "remove_me"
-                return
+                else:
+                    return
 
             self._removable = True
         except Exception as e:
@@ -281,13 +280,10 @@ class Hilo:
             else:
                 self._period_low = min(self._period_low, self._last_price)
 
-            if is_time_past(self.stop_time):
-                logging.info(f"REMOVING: {self._tradingsymbol} .. ")
+            if is_time_past(self.stop_time) and self._fn != "remove_me":
                 self.remove_me()
-                return
 
-            self._path.append((self._time_mgr.current_index, self._last_price))
-            print("\033[H", end="")
+            # self._path.append((self._time_mgr.current_index, self._last_price))
 
             return getattr(self, self._fn)()
         except Exception as e:
