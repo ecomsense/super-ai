@@ -61,7 +61,6 @@ class TradeManager:
             raise
 
     def complete_entry(self, price, quantity=None):
-
         self.position.entry = replace(
             self._trade_template,
             side="B",

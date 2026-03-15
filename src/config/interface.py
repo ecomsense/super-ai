@@ -1,5 +1,13 @@
+# src/config/interface
+
 from dataclasses import dataclass, field
 from typing import Optional, Any
+from random import randint
+
+
+def generate_id():
+    # Returns a 6-digit unique identifier for the trade
+    return randint(100000, 999999)
 
 
 @dataclass
@@ -32,6 +40,7 @@ class Trade:
 
 @dataclass(slots=True)
 class Position:
+    id: int = field(default_factory=generate_id)
     symbol: Optional[str] = None
     entry: Trade = field(default_factory=Trade)
     exit: Trade = field(default_factory=Trade)
@@ -40,6 +49,7 @@ class Position:
     target_price: Optional[float] = None
     state: str = "idle"
     slippage: float = 0.0
+    trail_percent: Optional[float] = None
 
 
 @dataclass(slots=True)
