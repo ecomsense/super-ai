@@ -47,7 +47,7 @@ class NewTradeManager:
         self.pos.state = "entry_pending"
         return self.pos.entry.order_id
 
-    def sync_entry(self, orders):
+    def sync_entry(self, last_price, orders):
         """Checks for fill or chases the market if pending."""
         order = next(
             (o for o in orders if o.get("order_id") == self.pos.entry.order_id), None
@@ -78,6 +78,14 @@ class NewTradeManager:
             logging.info(
                 f"Filled: {self.pos.id} @ {self.pos.average_price}. Stop: {self.pos.stop_price}"
             )
+        else:
+            # Chasing Logic: Modify entry price to match market
+            self.pos.entry.price = last_price + self.pos.slippage
+            args = self._get_order_args(self.pos.entry)
+            args.update(
+                order_id=self.pos.entry.order_id, trigger_price=0.0, order_type="LMT"
+            )
+            self.stock_broker.order_modify(**args)
 
     def monitor_exit(self, last_price, orders, removable):
         """Checks for target/stop hits and handles broker exit logic."""
@@ -180,7 +188,7 @@ class PositionManager:
         tm = self._managers.get(pos_id)
         # Lifecycle Management
         if tm.pos.state == "entry_pending":
-            tm.sync_entry(orders)
+            tm.sync_entry(last_price, orders)
             return PositionStatus.IN_POSITION
 
         if tm.pos.state in ["in_position", "target_pending", "stop_pending"]:
