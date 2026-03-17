@@ -12,140 +12,49 @@ class PositionStatus:
 
 
 class NewTradeManager:
-    """The Worker: Handles broker logic for a single Position object."""
+    """
+    The Stateless Executor:
+    Does not care about strategy or state; only knows how to talk to the broker.
+    """
 
-    def __init__(self, stock_broker, position: Position):
-        self.stock_broker = stock_broker
-        self.pos = position
-
-    def _get_order_args(self, trade_obj: Trade):
+    @staticmethod
+    def _get_args(trade: Trade):
         return {
-            k: v
-            for k, v in asdict(trade_obj).items()
-            if v is not None and k != "order_id"
+            k: v for k, v in asdict(trade).items() if v is not None and k != "order_id"
         }
 
-    def place_order(self, trade: Trade):
+    @staticmethod
+    def add_trade(broker, trade: Trade):
         try:
-            return self.stock_broker.order_place(**self._get_order_args(trade))
+            return broker.order_place(**NewTradeManager._get_args(trade))
         except Exception as e:
-            logging.error(f"TradeManager Error: Order Place {e}")
-            raise
+            logging.error(f"Broker: Add Trade Error: {e}")
+            return None
 
-    def execute_entry(self, entry_price):
-        self.pos.entry.price = entry_price + self.pos.slippage
-        self.pos.entry.side = "B"
-        self.pos.entry.order_id = self.place_order(self.pos.entry)
-        if self.pos.entry.order_id is None:
-            (
-                self.pos.entry.order_type,
-                self.pos.entry.price,
-                self.pos.entry.trigger_price,
-            ) = "MKT", 0.0, 0.0
-            self.pos.entry.order_id = self.place_order(self.pos.entry)
-        logging.info(f"Entry Placed: {self.pos.entry.order_id} @ {entry_price}")
-        self.pos.state = "entry_pending"
-        return self.pos.entry.order_id
+    @staticmethod
+    def modify_trade(broker, order_id, **kwargs):
+        try:
+            return broker.order_modify(order_id=order_id, **kwargs)
+        except Exception as e:
+            logging.error(f"Broker: Modify Trade Error {order_id}: {e}")
+            return None
 
-    def sync_entry(self, last_price, orders):
-        """Checks for fill or chases the market if pending."""
-        order = next(
-            (o for o in orders if o.get("order_id") == self.pos.entry.order_id), None
-        )
-
-        if order:
-            # Trade filled: Set up exit SL
-            self.pos.average_price = float(order["fill_price"])
-
-            # Apply auto-trail logic if specified
-            if self.pos.trail_percent is not None:
-                dist = abs(self.pos.average_price - self.pos.stop_price)
-                self.pos.stop_price = round_down_to_tick(
-                    self.pos.stop_price + (dist * self.pos.trail_percent)
-                )
-
-            # Prepare Exit Trade
-            self.pos.exit = replace(
-                self.pos.entry,
-                side="S",
-                order_type="SL-LMT",
-                trigger_price=self.pos.stop_price,
-                price=self.pos.stop_price - self.pos.slippage,
-                order_id=None,
-            )
-            self.pos.exit.order_id = self.place_order(self.pos.exit)
-            self.pos.state = "in_position"
-            logging.info(
-                f"Filled: {self.pos.id} @ {self.pos.average_price}. Stop: {self.pos.stop_price}"
-            )
-        else:
-            # Chasing Logic: Modify entry price to match market
-            self.pos.entry.price = last_price + self.pos.slippage
-            args = self._get_order_args(self.pos.entry)
-            args.update(
-                order_id=self.pos.entry.order_id, trigger_price=0.0, order_type="LMT"
-            )
-            self.stock_broker.order_modify(**args)
-
-    def monitor_exit(self, last_price, orders, removable):
-        """Checks for target/stop hits and handles broker exit logic."""
-        order = next(
-            (o for o in orders if o.get("order_id") == self.pos.exit.order_id), None
-        )
-
-        # Determine if target or stop was hit
-        is_target = last_price > self.pos.target_price
-        is_stop = last_price < self.pos.stop_price or removable
-
-        # BFO Handshake or already exited check
-        if order or self.pos.state in ["target_pending", "stop_pending"]:
-            if not order:  # Place market order if BFO cancel confirmed
-                (
-                    self.pos.exit.order_type,
-                    self.pos.exit.price,
-                    self.pos.exit.trigger_price,
-                ) = "MKT", 0.0, 0.0
-                self.place_order(self.pos.exit)
-
-            intent = (
-                PositionStatus.TARGET_REACHED
-                if self.pos.state == "target_pending"
-                else PositionStatus.STOP_HIT
-            )
-            self.pos.state = "idle"
-            return intent
-
-        if is_target or is_stop:
-            if self.pos.exit.exchange == "BFO":
-                self.stock_broker.order_cancel(order_id=self.pos.exit.order_id)
-                self.pos.state = "target_pending" if is_target else "stop_pending"
-                return PositionStatus.IN_POSITION
-            else:
-                # Standard Market Exit
-                args = self._get_order_args(self.pos.exit)
-                args.update(
-                    order_id=self.pos.exit.order_id,
-                    trigger_price=0.0,
-                    order_type="MKT",
-                    price=0.0,
-                )
-                self.stock_broker.order_modify(**args)
-                self.pos.state = "idle"
-                return (
-                    PositionStatus.TARGET_REACHED
-                    if is_target
-                    else PositionStatus.STOP_HIT
-                )
-
-        return PositionStatus.IN_POSITION
+    @staticmethod
+    def cancel_trade(broker, order_id):
+        try:
+            return broker.order_cancel(order_id=order_id)
+        except Exception as e:
+            logging.error(f"Broker: Cancel Trade Error {order_id}: {e}")
+            return None
 
 
 class PositionManager:
-    """The Coordinator: Manages the registry of NewTradeManager instances."""
+    """The State Machine: Decides which broker action to take based on trade state."""
 
     def __init__(self, stock_broker):
         self.stock_broker = stock_broker
-        self._managers: Dict[int, NewTradeManager] = {}
+        self._positions: Dict[int, Position] = {}
+        self.executor = NewTradeManager()
 
     def new(
         self,
@@ -158,25 +67,63 @@ class PositionManager:
         target=None,
         trail_percent=None,
     ) -> int | None:
-        # 1. Create Data Object
+
         pos = Position(
             symbol=symbol,
             stop_price=stop_loss,
             target_price=target,
             trail_percent=trail_percent,
+            slippage=2.0,
         )
-        pos.entry = Trade(symbol=symbol, exchange=exchange, quantity=quantity, tag=tag)
 
-        # 2. Create Worker
-        tm = NewTradeManager(self.stock_broker, pos)
-        order_id = tm.execute_entry(entry_price)
+        pos.entry = Trade(
+            symbol=symbol,
+            quantity=quantity,
+            disclosed_quantity=None,
+            side="B",
+            order_type="LMT",
+            exchange=exchange,
+            tag=tag,
+            price=entry_price + pos.slippage,
+            trigger_price=0.0,
+        )
 
-        if order_id is not None:
-            # 3. Register
-            self._managers[pos.id] = tm
+        pos.exit = Trade(
+            symbol=symbol,
+            quantity=quantity,
+            disclosed_quantity=None,
+            side="S",
+            order_type="SL-LMT",
+            exchange=exchange,
+            tag=tag,
+        )
+
+        order_id = self.executor.add_trade(self.stock_broker, pos.entry)
+
+        if order_id:
+            pos.entry.order_id = order_id
+            pos.state = "entry_pending"
+            self._positions[pos.id] = pos
+            logging.info(f"PM: [{pos.id}] New Entry {order_id} @ {entry_price}")
             return pos.id
-
         return None
+
+    def _retry(self, pos, last_price):
+
+        if pos.entry.side == "B":
+            new_price = last_price + pos.slippage
+            entry_or_exit = pos.entry
+        else:
+            new_price = last_price - pos.slippage
+            entry_or_exit = pos.exit
+
+        self.executor.modify_trade(
+            self.stock_broker,
+            entry_or_exit.order_id,
+            price=new_price,
+            order_type="LMT",
+            trigger_price=0.0,
+        )
 
     def status(
         self,
@@ -185,19 +132,96 @@ class PositionManager:
         orders: List[dict],
         removable: bool = False,
     ) -> int:
-        tm = self._managers.get(pos_id)
-        # Lifecycle Management
-        if tm.pos.state == "entry_pending":
-            tm.sync_entry(last_price, orders)
+
+        pos = self._positions.get(pos_id)
+        if not pos:
+            return PositionStatus.STOP_HIT
+
+        # --- STATE: ENTRY_PENDING ---
+        if pos.state == "entry_pending":
+            order = next(
+                (o for o in orders if o.get("order_id") == pos.entry.order_id), None
+            )
+
+            if order:
+                # 1. Fill Logic
+                pos.average_price = float(order["fill_price"])
+                if pos.trail_percent is not None:
+                    dist = abs(pos.average_price - pos.stop_price)
+                    pos.stop_price = round_down_to_tick(
+                        pos.stop_price + (dist * pos.trail_percent)
+                    )
+
+                # 2. Action: Add Exit (SL-LMT)
+                pos.exit.trigger_price = pos.stop_price
+                pos.exit.price = pos.stop_price - pos.slippage
+
+                exit_id = self.executor.add_trade(self.stock_broker, pos.exit)
+                if exit_id:
+                    pos.state = "in_position"
+                    pos.exit.order_id = exit_id
+                    logging.info(
+                        f"PM: [{pos.id}] Filled. Exit Set: {exit_id} @ {pos.stop_price}"
+                    )
+            else:
+                self._retry(pos, last_price)
+
             return PositionStatus.IN_POSITION
 
-        if tm.pos.state in ["in_position", "target_pending", "stop_pending"]:
-            res = tm.monitor_exit(last_price, orders, removable)
+        # --- STATE: ACTIVE TRADING ---
+        if pos.state in ["in_position", "target_pending", "stop_pending"]:
+            order = next(
+                (o for o in orders if o.get("order_id") == pos.exit.order_id), None
+            )
 
-            # If trade is closed, remove from registry
-            if tm.pos.state == "idle":
-                logging.info(f"PM: Removing {pos_id} from tracking.")
-                del self._managers[pos_id]
-            return res
+            is_target = last_price > pos.target_price if pos.target_price else False
+            is_stop = last_price < pos.stop_price or removable
+
+            # Handle BFO Handshake / Pending Closure
+            if order or pos.state in ["target_pending", "stop_pending"]:
+                if not order:  # Cancellation confirmed at broker
+                    # Action: Add Final Market Exit
+                    pos.exit.order_type, pos.exit.price, pos.exit.trigger_price = (
+                        "MKT",
+                        0.0,
+                        0.0,
+                    )
+                    self.executor.add_trade(self.stock_broker, pos.exit)
+
+                intent = (
+                    PositionStatus.TARGET_REACHED
+                    if pos.state == "target_pending"
+                    else PositionStatus.STOP_HIT
+                )
+                self._cleanup(pos_id)
+                return intent
+
+            # Trigger Logic
+            if is_target or is_stop:
+                if pos.exit.exchange == "BFO":
+                    # Action: Cancel Trade
+                    self.executor.cancel_trade(self.stock_broker, pos.exit.order_id)
+                    pos.state = "target_pending" if is_target else "stop_pending"
+                else:
+                    # Action: Modify to Market
+                    self.executor.modify_trade(
+                        self.stock_broker,
+                        pos.exit.order_id,
+                        order_type="MKT",
+                        price=0.0,
+                        trigger_price=0.0,
+                    )
+                    intent = (
+                        PositionStatus.TARGET_REACHED
+                        if is_target
+                        else PositionStatus.STOP_HIT
+                    )
+                    self._cleanup(pos_id)
+                    return intent
 
         return PositionStatus.IN_POSITION
+
+    def _cleanup(self, pos_id):
+        if pos_id in self._positions:
+            logging.info(f"PM: Removing tracker for position {pos_id}")
+            del self._positions[pos_id]

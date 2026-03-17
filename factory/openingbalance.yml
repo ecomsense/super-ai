@@ -4,7 +4,7 @@ trade:
   stop_time: "23:00"
   live: 1      # 0 for paper 1 for live
 BANKNIFTY:
-  base: BANKNIFTY
+  symbol: BANKNIFTY  #base is renamed to symbol
   option_exchange: NFO
   method:
     premium: 800
