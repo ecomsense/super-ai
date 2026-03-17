@@ -1,7 +1,6 @@
 from src.constants import logging_func
 
 from traceback import print_exc
-from src.sdk import symbol
 from toolkit.kokoo import is_time_past
 
 from typing import Any, Literal
@@ -320,7 +319,7 @@ if __name__ == "__main__":
             )
 
             data = stuff_atm(builder._data, builder._meta)
-            print("**************************************************")
+            print(5 * "*", "data", 5 * "*")
             pprint(data)
             lst_of_params = stuff_tradingsymbols(data, builder._meta)
             pprint(lst_of_params)

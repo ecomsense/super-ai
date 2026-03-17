@@ -2,7 +2,7 @@ from src.constants import logging_func, S_SETG, S_DATA, yml_to_obj
 from src.sdk.wserver import Wserver
 
 import pendulum as pdlm
-from toolkit.kokoo import blink
+from toolkit.kokoo import blink, timer
 import pandas as pd
 from importlib import import_module
 from traceback import print_exc
@@ -168,45 +168,77 @@ class QuoteApi:
         finally:
             return quote
 
-    def _subscribe_till_ltp(self, ws_key):
+    def _subscribe_till_ltp(self, ws_key, max_retries=5):
         try:
-            quotes = self._ws.ltp
-            ltp = quotes.get(ws_key, None)
-            while ltp is None:
+            attempts = 0
+            ltp = self._ws.ltp.get(ws_key)
+
+            while ltp is None and attempts < max_retries:
+                attempts += 1
                 self._ws.subscribe([ws_key])
-                quotes = self._ws.ltp
-                ltp = quotes.get(ws_key, None)
-                print(f"trying to get quote for {ws_key} {ltp}")
-                blink()
+                # Small blink to wait for socket buffer
+                timer(0.2)
+                ltp = self._ws.ltp.get(ws_key)
+                print(f"Attempt {attempts}: quote for {ws_key} -> {ltp}")
+
+            # Final check: if still None after 5 tries, return 0.0
+            return float(ltp) if ltp is not None else 0.0
         except Exception as e:
-            logging.error(f"{e} while get ltp")
-            print_exc()
+            logging.error(f"LTP fetch error: {e}")
+            return 0.0
 
     def symbol_info(self, exchange, symbol, token=None):
+        # Default fallback object to prevent 'NoneType' errors in other files
+        fallback = {
+            "symbol": symbol,
+            "key": f"{exchange}|None",
+            "token": None,
+            "ltp": 0.0,
+        }
+
         try:
-            if self.subscribed.get(symbol, None) is None:
+            if self.subscribed.get(symbol) is None:
                 if token is None:
                     logging.info(f"Helper: getting token for {exchange} {symbol}")
-                    token = str(self._ws.api.instrument_symbol(exchange, symbol))
-                key = exchange + "|" + str(token)
+                    token = self._ws.api.instrument_symbol(exchange, symbol)
+
+                # If API fails to get a token, return fallback early
+                if token is None:
+                    return fallback
+
+                key = f"{exchange}|{token}"
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,
                     "token": token,
                     "ltp": self._subscribe_till_ltp(key),
                 }
-            if self.subscribed.get(symbol, None) is not None:
+
+            # Update the LTP from current quotes
+            res = self.subscribed.get(symbol)
+            if res:
                 quotes = self._ws.ltp
-                ws_key = self.subscribed[symbol]["key"]
-                self.subscribed[symbol]["ltp"] = float(quotes[ws_key])
-                return self.subscribed[symbol]
+                ws_key = res["key"]
+
+                # FIX: Use .get() to prevent KeyError: 'NFO|57681'
+                # If key is missing, keep the last known LTP or 0.0
+                current_val = quotes.get(ws_key, res.get("ltp", 0.0))
+
+                try:
+                    res["ltp"] = float(current_val) if current_val is not None else 0.0
+                except (ValueError, TypeError):
+                    res["ltp"] = 0.0
+
+                return res
+
+            return fallback
+
         except Exception as e:
-            logging.error(f"{e} while symbol info")
-            print_exc()
+            logging.error(f"Critical error in symbol_info: {e}")
+            return fallback
 
 
 class RestApi:
-
     completed_trades = [{}]
     _positions = [{}]
     _positions_last_updated = pdlm.now().subtract(seconds=1)
