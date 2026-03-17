@@ -188,54 +188,39 @@ class QuoteApi:
             return 0.0
 
     def symbol_info(self, exchange, symbol, token=None):
-        # Default fallback object to prevent 'NoneType' errors in other files
-        fallback = {
-            "symbol": symbol,
-            "key": f"{exchange}|None",
-            "token": None,
-            "ltp": 0.0,
-        }
-
         try:
-            if self.subscribed.get(symbol) is None:
-                if token is None:
-                    logging.info(f"Helper: getting token for {exchange} {symbol}")
-                    token = self._ws.api.instrument_symbol(exchange, symbol)
+            # 1. Exit if no token and API fails to provide one
+            if token is None:
+                token = self._ws.api.instrument_symbol(exchange, symbol)
 
-                # If API fails to get a token, return fallback early
-                if token is None:
-                    return fallback
+            if not token or str(token).upper() == "NONE":
+                logging.warning(f"Helper: No token found for {symbol}. Skipping.")
+                return None
 
-                key = f"{exchange}|{token}"
+            key = f"{exchange}|{token}"
+
+            # 2. Try to subscribe and get initial LTP
+            if symbol not in self.subscribed:
+                ltp_val = self._subscribe_till_ltp(key)
+
+                # Exit if the websocket couldn't get a quote (it returned 0.0 or None)
+                if not ltp_val or ltp_val == 0.0:
+                    logging.warning(
+                        f"Helper: Could not get WS quote for {key}. Skipping."
+                    )
+
                 self.subscribed[symbol] = {
                     "symbol": symbol,
                     "key": key,
                     "token": token,
-                    "ltp": self._subscribe_till_ltp(key),
+                    "ltp": ltp_val,
                 }
 
-            # Update the LTP from current quotes
-            res = self.subscribed.get(symbol)
-            if res:
-                quotes = self._ws.ltp
-                ws_key = res["key"]
-
-                # FIX: Use .get() to prevent KeyError: 'NFO|57681'
-                # If key is missing, keep the last known LTP or 0.0
-                current_val = quotes.get(ws_key, res.get("ltp", 0.0))
-
-                try:
-                    res["ltp"] = float(current_val) if current_val is not None else 0.0
-                except (ValueError, TypeError):
-                    res["ltp"] = 0.0
-
-                return res
-
-            return fallback
+            return self.subscribed[symbol]
 
         except Exception as e:
-            logging.error(f"Critical error in symbol_info: {e}")
-            return fallback
+            logging.error(f"Error in symbol_info for {symbol}: {e}")
+            return None
 
 
 class RestApi:

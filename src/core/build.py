@@ -319,10 +319,9 @@ if __name__ == "__main__":
             )
 
             data = stuff_atm(builder._data, builder._meta)
-            print(5 * "*", "data", 5 * "*")
-            pprint(data)
             lst_of_params = stuff_tradingsymbols(data, builder._meta)
             pprint(lst_of_params)
 
     except Exception as e:
         print(e)
+        print_exc()
