@@ -50,6 +50,7 @@ class Position:
     state: str = "idle"
     slippage: float = 0.0
     trail_percent: Optional[float] = None
+    ex: Any = field(init=False, repr=False, default=None)
 
 
 @dataclass(slots=True)
