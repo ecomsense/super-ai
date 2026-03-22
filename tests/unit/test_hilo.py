@@ -134,3 +134,80 @@ def test_hilo_try_exit(strategy_factory, global_mocks):
     strat.pm.status.assert_called_once_with(
         pos_id=1, last_price=110, orders=strat._trades, removable=True
     )
+
+
+def test_hilo_execution_success(strategy_factory, global_mocks):
+    strat = strategy_factory(Hilo, Factory.settings("hilo"))
+
+    # Force the strategy into the ARMED state
+    strat._state = BreakoutState.ARMED
+    strat._armed_idx = global_mocks["time_idx"].return_value = 11
+
+    # Set levels so it passes the execution checks
+    strat._stop = 100
+    strat._target = 150
+    strat._period_low = 105  # Held above stop
+    strat._last_price = 110  # Hasn't hit target yet
+
+    # Mock the position manager to return a valid position ID
+    strat.pm.new.return_value = "POS_777"
+
+    # Run the breakout logic (not a new candle, evaluating current armed state)
+    strat.wait_for_breakout(is_new_candle=False)
+
+    # Verify execution
+    strat.pm.new.assert_called_once()
+    assert strat.pos_id == "POS_777", "Position ID was not set from pm.new()"
+    assert strat._state == BreakoutState.DEFAULT, (
+        "State did not reset to DEFAULT after execution"
+    )
+
+
+def test_hilo_run_candle_tracking(strategy_factory, global_mocks):
+    strat = strategy_factory(Hilo, Factory.settings("hilo"))
+
+    # Setup initial state
+    strat._last_idx = 10
+    strat._period_low = 150
+    strat.pos_id = None  # Ensure it routes to wait_for_breakout
+
+    # Scenario A: Same candle, price drops
+    global_mocks["time_idx"].return_value = 10
+    quotes = {strat._tradingsymbol: 140}
+    strat.run(trades=[], quotes=quotes, positions={})
+
+    assert strat._period_low == 140, (
+        "Period low should update to the new minimum during the same candle"
+    )
+
+    # Scenario B: New candle begins
+    global_mocks["time_idx"].return_value = 11
+    quotes = {strat._tradingsymbol: 145}
+    strat.run(trades=[], quotes=quotes, positions={})
+
+    assert strat._prev_period_low == 140, (
+        "Previous period low was not stored correctly on candle flip"
+    )
+    assert strat._period_low == 145, (
+        "Period low did not reset to the first tick of the new candle"
+    )
+    assert strat._last_idx == 11, "Last index did not update to the new candle index"
+
+
+def test_hilo_is_entry_toggle(strategy_factory):
+    # Test Odd
+    settings_odd = Factory.settings("hilo")
+    settings_odd["reentry"] = "odd"
+    strat_odd = strategy_factory(Hilo, settings_odd)
+
+    assert strat_odd._is_entry() is True  # 1st try: odd (1 % 2 != 0) -> True
+    assert strat_odd._is_entry() is False  # 2nd try: even -> False
+    assert strat_odd._is_entry() is True  # 3rd try: odd -> True
+
+    # Test Even
+    settings_even = Factory.settings("hilo")
+    settings_even["reentry"] = "even"
+    strat_even = strategy_factory(Hilo, settings_even)
+
+    assert strat_even._is_entry() is False  # 1st try: odd -> False
+    assert strat_even._is_entry() is True  # 2nd try: even -> True

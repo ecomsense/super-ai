@@ -2,6 +2,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from src.providers.position_manager import PositionManager
+
 
 @pytest.fixture
 def mock_broker():
@@ -96,6 +98,8 @@ def global_mocks(request):
             patch("src.strategies.openingbalance.TradeManager") as mock_ob_tm,
             patch("src.strategies.openingbalance.TimeManager") as mock_ob_time,
             patch("src.strategies.hilo.TimeManager") as mock_hilo_time,
+            patch("src.providers.position_manager.NFOManager") as nfo_manager,
+            patch("src.providers.position_manager.Position") as pm_position,
         ):
             type(mock_hilo_time.return_value).current_index = time_idx_mock
             type(mock_ob_time.return_value).current_index = time_idx_mock
@@ -115,6 +119,8 @@ def global_mocks(request):
                 "order": mock_order,
                 "position": mock_position,
                 "mock": mock_instance,
+                "nfo_manager": nfo_manager,
+                "pm_position": pm_position,
             }
 
     patch.stopall()

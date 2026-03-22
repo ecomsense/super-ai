@@ -42,6 +42,7 @@ class Trade:
 class Position:
     id: int = field(default_factory=generate_id)
     symbol: Optional[str] = None
+    quantity: int = 0
     entry: Trade = field(default_factory=Trade)
     exit: Trade = field(default_factory=Trade)
     average_price: Optional[float] = None
