@@ -17,16 +17,6 @@ def test_init(strategy_factory):
         (150.0, 200),  # (high, high + 10%)
         (200, 200),  # (highest, highest)
     ]
-    print(strat.gridlines)
-
-    # Asserting that the StopAndTarget object holds the correct data
-    # Note: You may need to expose this property in your StopAndTarget class
-
-    # 2. Verify dynamic method assignment
-    if settings.get("trail"):
-        assert strat._set_new_stop == strat._new_stop
-    else:
-        assert strat._set_new_stop == strat._no_new_stop
 
     if settings.get("reentry"):
         assert strat._is_reentry == strat._is_entry
@@ -46,8 +36,9 @@ def test_breakout_fails_if_stop_is_none(strategy_factory, global_mocks):
     strat._target = None
     global_mocks["time_idx"].return_value = 11
 
+    is_new_candle = True
     # run the method
-    strat.wait_for_breakout()
+    strat.wait_for_breakout(is_new_candle)
 
     # verify the state of properties after running
     assert strat._state == BreakoutState.DEFAULT, (
@@ -113,7 +104,7 @@ def test_hilo_breakout_fails_on_low_breach(strategy_factory, global_mocks):
 
     # Price drops to 99 (below the 100 breakout line)
     strat._last_price = 99
-    strat.wait_for_breakout()
+    strat.wait_for_breakout(False)
 
     assert strat._state == BreakoutState.DEFAULT
     assert strat._fn == "wait_for_breakout"

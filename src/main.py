@@ -12,6 +12,7 @@ from src.sdk.helper import Helper
 from src.core.build import Builder, stuff_atm, stuff_tradingsymbols
 from src.core.strategy import create_strategies_from_params
 from src.core.engine import Engine
+from src.providers.position_manager import PositionManager
 
 from toolkit.kokoo import is_time_past, blink, kill_tmux
 from traceback import print_exc
@@ -43,6 +44,7 @@ def read_builders():
                 user_settings=O_TRADESET,
                 quote=quote,
                 rest=rest,
+                pm=PositionManager(stock_broker=rest),
             )
             .merge_settings_and_symbols(symbol_factory=get_symbol_fm_factory())
             .find_expiry()
@@ -65,9 +67,10 @@ def main():
         quote = Helper._quote
 
         console = Console()
-        with Live(Table(title="Initializing..."), console=console, refresh_per_second=4) as live:
+        with Live(
+            Table(title="Initializing..."), console=console, refresh_per_second=4
+        ) as live:
             while not is_time_past(engine.stop):
-
                 for builder in builders:
                     if builder.can_build():
                         data = stuff_atm(builder._data, builder._meta)

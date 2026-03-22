@@ -6,10 +6,8 @@ from toolkit.kokoo import is_time_past, timer
 
 from src.constants import logging_func
 from src.providers.time_manager import TimeManager
-from src.providers.trade_manager import TradeManager
 from src.providers.grid import StopAndTarget
-from src.sdk.helper import Helper
-from src.sdk.utils import round_down_to_tick, calc_highest_target
+from src.sdk.utils import calc_highest_target
 
 logging = logging_func(__name__)
 
@@ -37,13 +35,15 @@ class Hilo:
         self._state = BreakoutState.DEFAULT
 
         # from parameters
-        self._rest = kwargs["rest"]
         self._tradingsymbol = kwargs["tradingsymbol"]
         self._last_price = kwargs.get("ltp", float("inf"))
         self.strategy = kwargs["strategy"]
 
         self.stop_time = kwargs["stop_time"]
         self.option_type = kwargs["option_type"]
+        self.pm = kwargs["pm"]
+        self._option_exchange = kwargs["option_exchange"]
+        self._quantity = kwargs["quantity"]
 
         default_time = {"hour": 9, "minute": 14, "second": 59}
         low_candle_time = kwargs.get("low_candle_time", default_time)
@@ -80,20 +80,8 @@ class Hilo:
         self._time_mgr = TimeManager(rest_time)
         self._last_idx = self._time_mgr.current_index + 1
 
-        self.trade_mgr = TradeManager(
-            stock_broker=Helper.api(),
-            symbol=self._tradingsymbol,
-            exchange=kwargs["option_exchange"],
-            quantity=kwargs["quantity"],
-            tag=self.strategy,
-        )
-
         # strategy specific and optional
         self._trail = kwargs.get("trail", None)
-        if isinstance(self._trail, str) and self._trail.endswith("%"):
-            self._set_new_stop = self._new_stop
-        else:
-            self._set_new_stop = self._no_new_stop
 
         self._reentry = kwargs.get("reentry", None)
         if self._reentry:
@@ -102,58 +90,51 @@ class Hilo:
         else:
             self._is_reentry = always_true
 
-        # state variables
-        # self._path = deque(maxlen=20)
-        self._fn = "wait_for_breakout"
-
         # dummies
         self._low = low
         self._high = high
+        self.pos_id = None
+        self._armed_idx = -1
 
     def _set_stop(self):
         _, self._stop, self._target = self.gridlines.find_current_grid(self._last_price)
         return self._stop
 
-    def wait_for_breakout(self):
+    def wait_for_breakout(self, is_new_candle):
         try:
             curr_idx = self._time_mgr.current_index
 
             # --- PHASE 1: SEARCHING (DEFAULT STATE) ---
-            if self._state == BreakoutState.DEFAULT:
+            if self._state == BreakoutState.DEFAULT and is_new_candle:
                 # We only look for a NEW grid level when we aren't already tracking one
                 stop_level = self._set_stop()
 
                 if stop_level is None:
                     return
 
-                if curr_idx > self._last_idx:
-                    # Check if the previous minute's price action crossed the CURRENT stop_level
-                    if (
-                        self._prev_period_low <= stop_level
-                        and self._last_price > stop_level
-                    ):
-                        self._state = BreakoutState.ARMED
-                        logging.info(
-                            f"ARMED: {self._tradingsymbol} locked at {stop_level} on candle #{curr_idx} "
-                            f"and prev candle lowest is {self._prev_period_low}"
-                        )
-                    self._last_idx = curr_idx
+                # Check if the previous minute's price action crossed the CURRENT stop_level
+                if (
+                    self._prev_period_low <= stop_level
+                    and self._last_price > stop_level
+                ):
+                    self._state = BreakoutState.ARMED
+                    logging.info(
+                        f"ARMED: {self._tradingsymbol} locked at {stop_level} on candle #{curr_idx} "
+                        f"and prev candle lowest is {self._prev_period_low}"
+                    )
+                self._armed_idx = curr_idx
                 return
 
             # --- PHASE 2: VALIDATION (ARMED STATE) ---
-            if self._state == BreakoutState.ARMED:
+            if self._state == BreakoutState.ARMED and self._armed_idx == curr_idx:
                 # 1. Monitoring Phase (Within the arming candle)
-                if curr_idx == self._last_idx:
-                    # If price fails the breakout line or hits the next target TOO FAST
-                    if (
-                        self._last_price <= self._stop
-                        or self._last_price > self._target
-                    ):
-                        logging.info(
-                            f"DISARMED: Price {self._last_price} violated locked levels "
-                            f"(Stop: {self._stop}, Target: {self._target})"
-                        )
-                        self._state = BreakoutState.DEFAULT
+                # If price fails the breakout line or hits the next target TOO FAST
+                if self._period_low > self._stop or self._last_price > self._target:
+                    logging.info(
+                        f"DISARMED: Low {self._period_low} violated locked levels "
+                        f"(Stop: {self._stop}, Target: {self._target})"
+                    )
+                    self._state = BreakoutState.DEFAULT
                     return
 
                 # 2. Execution Phase (Candle has closed, index has incremented)
@@ -161,9 +142,18 @@ class Hilo:
 
                 # We use self._stop as the reference for the entry
                 if self._is_reentry():
-                    is_entered = self.trade_mgr.complete_entry(price=self._last_price)
-                    if is_entered:
-                        self._fn = "place_exit_order"
+                    self.pos_id = self.pm.new(
+                        symbol=self._tradingsymbol,
+                        exchange=self._option_exchange,
+                        quantity=self._quantity,
+                        tag=self.strategy,
+                        entry_price=self._last_price,
+                        stop_loss=self._stop,
+                        target=self._target,
+                        trail_percent=self._trail,
+                    )
+                    if self.pos_id:
+                        self._fn = "try_exiting_trade"
                 else:
                     logging.info(
                         "SORRY: We are passing this trade due to odd/even rule"
@@ -184,108 +174,55 @@ class Hilo:
             return is_odd
         return not is_odd
 
-    def place_exit_order(self):
-        try:
-            order_id = self.trade_mgr.pending_exit(
-                stop=self._stop, orders=self._trades, last_price=self._last_price
-            )
-            if order_id:
-                self.trade_mgr.target(target_price=self._target)
-
-                self._set_new_stop()
-
-                self._fn = "try_exiting_trade"
-        except Exception as e:
-            logging.error(f"{e} while place exit order")
-            print_exc()
-
-    def _new_stop(self):
-        # 1. Extract the percentage (e.g., "50%" -> 0.50)
-        # Using .strip("%") allows us to convert the user input to a math-ready float
-        trail_percent = float(str(self._trail).strip("%")) / 100
-
-        stop = self._stop
-        fill = self.trade_mgr.position.average_price
-
-        # 2. Calculate the total risk/distance
-        # total_distance represents the full 100% gap.
-        total_distance = abs(fill - stop)
-
-        # 3. Apply the user-defined trailing factor
-        # If user sets 50%, we move the stop 50% of the way towards the fill price.
-        new_stop = stop + (total_distance * trail_percent)
-
-        # 4. Finalize and execute
-        rounded_stop = round_down_to_tick(last_price=new_stop)
-
-        # Only move the stop if it's actually an improvement (protection)
-        # For Buy: new_stop > old_stop
-        self.trade_mgr.stop(stop_price=rounded_stop)
-
-    def _no_new_stop(self):
-        return
-
     def try_exiting_trade(self):
         try:
-            self._last_idx = self._time_mgr.current_index
+            if self.pos_id is not None:
+                status = self.pm.status(
+                    pos_id=self.pos_id,
+                    last_price=self._last_price,
+                    orders=self._trades,
+                    removable=self._removable,
+                )
 
-            status = self.trade_mgr.is_trade_exited(self._last_price, self._trades)
-
-            if status > 0:
-                self._fn = "wait_for_breakout"
-            if status == 2:
-                self._removable = True
-                self._fn = "remove_me"
+                if status in ["stop_hit", "position_unknown"]:
+                    self.pos_id = None
+                elif status == "target_reached" or is_time_past(self.stop_time):
+                    # if target is reached there is no further trade for this symbol
+                    # TODO
+                    self._removable = True
 
         except Exception as e:
             logging.error(f"{e} while exit order")
             print_exc()
 
-    def remove_me(self):
-        try:
-            logging.info(f"REMOVING: {self._tradingsymbol} .. ")
-
-            if self._fn == "place_exit_order":
-                return self.place_exit_order()
-
-            if self._fn == "try_exiting_trade":
-                if (
-                    self.trade_mgr.is_trade_exited(self._last_price, self._trades, True)
-                    > 0
-                ):
-                    self._fn = "remove_me"
-                else:
-                    return
-
-            self._removable = True
-        except Exception as e:
-            logging.error(f"{e} in remove me")
-            print_exc()
-
     def run(self, trades, quotes, positions):
         try:
-            """needed for removing the object"""
-
             self._trades = trades
+            ltp = quotes.get(self._tradingsymbol)
+            if ltp is None:
+                return
+            self._last_price = float(ltp)
 
-            ltp = quotes.get(self._tradingsymbol, None)
-            if ltp is not None:
-                self._last_price = float(ltp)
-
-            # Reset logic for new minute
-            curr_idx = self._time_mgr.current_index
-            if curr_idx > self._last_idx:
+            # 1. Update Candle Logic (Minute Tracker)
+            is_new_candle = False
+            if self._time_mgr.current_index > self._last_idx:
+                is_new_candle = True
                 self._prev_period_low = self._period_low
-                self._period_low = self._last_price  # Reset for new candle
+                self._period_low = self._last_price
+                self._last_idx = self._time_mgr.current_index
             else:
                 self._period_low = min(self._period_low, self._last_price)
 
-            if is_time_past(self.stop_time) and self._fn != "remove_me":
-                self.remove_me()
+            # 2. Global Stop Time Check
+            if is_time_past(self.stop_time):
+                self._removable = True
 
-            # self._path.append((self._time_mgr.current_index, self._last_price))
+            # 3. Main Logic Branch (Straightforward)
+            if self.pos_id is None:
+                self.wait_for_breakout(is_new_candle)
+            else:
+                self.try_exiting_trade()
 
-            return getattr(self, self._fn)()
         except Exception as e:
-            logging.error(f"{e} in running {self._tradingsymbol}")
+            logging.error(f"Run Error {self._tradingsymbol}: {e}")
             print_exc()

@@ -9,6 +9,7 @@ def mock_broker():
     broker = MagicMock()
     broker.order_place.return_value = "ORD_12345"
     broker.order_modify.return_value = "MOD_12345"
+    broker.order_cancel.return_value = "MOD_12345"
     return broker
 
 
@@ -21,19 +22,6 @@ def common_symbol_info():
         "option_exchange": "NFO",
         "option_type": "CE",
     }
-
-@pytest.fixture
-def tm(mock_broker, common_symbol_info):
-    """Provides a pre-configured REAL TradeManager instance for integration tests."""
-    from src.providers.trade_manager import TradeManager
-
-    return TradeManager(
-        stock_broker=mock_broker,
-        symbol=common_symbol_info["symbol"],
-        exchange=common_symbol_info["option_exchange"],
-        quantity=15,
-        tag="test_tag",
-    )
 
 
 @pytest.fixture
@@ -59,10 +47,12 @@ def strategy_factory(mock_rest, common_symbol_info):
             **user_settings,
             "rest": mock_rest,
             "stop_time": "15:30:00",
+            "pm": MagicMock(),
         }
         return strategy_class(**kwargs)
 
     return _create
+
 
 @pytest.fixture(autouse=True)
 def global_mocks(request):
@@ -105,7 +95,6 @@ def global_mocks(request):
         with (
             patch("src.strategies.openingbalance.TradeManager") as mock_ob_tm,
             patch("src.strategies.openingbalance.TimeManager") as mock_ob_time,
-            patch("src.strategies.hilo.TradeManager") as mock_hilo_tm,
             patch("src.strategies.hilo.TimeManager") as mock_hilo_time,
         ):
             type(mock_hilo_time.return_value).current_index = time_idx_mock
@@ -113,17 +102,15 @@ def global_mocks(request):
 
             mock_order = MagicMock()
             mock_order.order_id = "ORD_12345"
-            mock_hilo_tm.return_value.pending_exit.return_value = mock_order
 
             mock_position = MagicMock()
             mock_position.average_price = 110  # Fixed typo from 'averge_price'
-            mock_hilo_tm.return_value.position = mock_position
 
             mock_instance = MagicMock()
 
             yield {
                 "time_idx": time_idx_mock,
-                "tm_hilo": mock_hilo_tm,
+                "tm_hilo": mock_instance,
                 "tm_ob": mock_ob_tm,
                 "order": mock_order,
                 "position": mock_position,
@@ -131,5 +118,3 @@ def global_mocks(request):
             }
 
     patch.stopall()
-
-

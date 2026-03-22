@@ -57,6 +57,7 @@ class Openingbalance:
             quantity=self._quantity,
             tag=self.strategy,
         )
+        self.pm = kwargs["pm"]
 
         # state variables
         self._removable = False

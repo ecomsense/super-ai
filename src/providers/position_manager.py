@@ -7,47 +7,6 @@ from src.config.interface import Trade, Position
 logging = logging_func(__name__)
 
 
-class PositionStatus:
-    IN_POSITION, STOP_HIT, TARGET_REACHED = 0, 1, 2
-
-
-class NewTradeManager:
-    """
-    The Stateless Executor:
-    Does not care about strategy or state; only knows how to talk to the broker.
-    """
-
-    @staticmethod
-    def _get_args(trade: Trade):
-        return {
-            k: v for k, v in asdict(trade).items() if v is not None and k != "order_id"
-        }
-
-    @staticmethod
-    def enter_trade(broker, trade: Trade):
-        try:
-            return broker.order_place(**NewTradeManager._get_args(trade))
-        except Exception as e:
-            logging.error(f"Broker: Add Trade Error: {e}")
-            return None
-
-    @staticmethod
-    def modify_trade(broker, order_id, **kwargs):
-        try:
-            return broker.order_modify(order_id=order_id, **kwargs)
-        except Exception as e:
-            logging.error(f"Broker: Modify Trade Error {order_id}: {e}")
-            return None
-
-    @staticmethod
-    def cancel_trade(broker, order_id):
-        try:
-            return broker.order_cancel(order_id=order_id)
-        except Exception as e:
-            logging.error(f"Broker: Cancel Trade Error {order_id}: {e}")
-            return None
-
-
 class BSEManager:
     def __init__(self) -> None:
         pass
@@ -73,64 +32,95 @@ class NFOManager:
             tag=tag,
             order_type="LMT",
             trigger_price=0.0,
-            side="B"
+            side="B",
         )
         self.entry_or_exit = "entry"
-        self.next_fn = "create"
+        self.next_fn = "create_entry"
 
     def create_entry(self, pos, last_price):
-        price = last_price + pos.slippage
+        try:
+            price = last_price + pos.slippage
 
-        # 2. Build the Trade using the template
-        pos.entry = replace(self.template, price=price)
-        pos.entry.order_id = self.broker.order_place(**_get_args(pos.entry))
-        if pos.entry.order_id:
-            pos.state = "entry_pending"
-            logging.info(f"{pos.state} {pos.entry.order_id} @ {last_price}")
-            self.next_fn = "create_exit"
+            # 2. Build the Trade using the template
+            pos.entry = replace(self.template, price=price)
+            pos.entry.order_id = self.broker.order_place(**_get_args(pos.entry))
+            if pos.entry.order_id:
+                pos.state = "entry_pending"
+                logging.info(f"{pos.state} {pos.entry.order_id} @ {last_price}")
+                self.next_fn = "wait_for_entry"
+        except Exception as e:
+            logging.error(f"Create Entry: {e}")
         return pos
+
+    def wait_for_entry(self, pos, last_price):
+        try:
+            if pos.average_price:
+                pos.state = "in_position"
+                pos = self.create_exit(pos, last_price)
+        except Exception as e:
+            logging.info(f"Wait for entry: {e}")
+        finally:
+            return pos
 
     def create_exit(self, pos, last_price):
-        pos.exit = replace(self.template, side="S", price=pos.stop - pos.slippage, trigger_price=pos.stop, order_type="SL-LMT")
-        pos.exit.order_id = self.broker.order_place(**_get_args(pos.exit))
-        if pos.exit.order_id:
-            pos.state = "exit_pending"
-            logging.info(f"{pos.state} {pos.exit.order_id} @ {last_price}")
-            self.next_fn = "modify"
-        return pos
+        try:
+            pos.exit = replace(
+                self.template,
+                side="S",
+                price=pos.stop_price - pos.slippage,
+                trigger_price=pos.stop_price,
+                order_type="SL-LMT",
+            )
+            pos.exit.order_id = self.broker.order_place(**_get_args(pos.exit))
+            if pos.exit.order_id:
+                pos.state = "exit_pending"
+                logging.info(f"{pos.state} {pos.exit.order_id} @ {last_price}")
+                self.next_fn = "modify"
+        except Exception as e:
+            logging.error(f"Exit Trade: {e} {pos.exit.order_id} @ {last_price}")
+        finally:
+            return pos
 
     def modify(self, pos, last_price):
         try:
-            if pos.state == "target_pending" or pos.state == "stop_pending"
+            if pos.state == "target_pending" or pos.state == "stop_pending":
+                order_id = pos.exit.order_id
                 kwargs = dict(
                     order_type="LMT",
                     trigger_price=0.0,
                 )
-                resp = self.broker.order_modify(order_id=order_id, **kwargs)
+                self.broker.order_modify(order_id=order_id, **kwargs)
                 self.next_fn = "cancel"
         except Exception as e:
-            logging.error(f"Modify Trade {order_id}: {e} in {resp} @ {last_price}")
+            logging.error(f"Modify Trade {order_id}: {e} @ {last_price}")
         finally:
             return pos
 
     def cancel(self, pos, last_price):
         try:
-            resp = broker.order_cancel(order_id=pos.exit.order_id)
+            order_id = pos.exit.order_id
+            self.broker.order_cancel(order_id=pos.exit.order_id)
             self.next_fn = "final_exit"
         except Exception as e:
-            logging.error(f"Cancel Trade {order_id}: {e} in {resp} @ {last_price}")
+            logging.error(f"Cancel Trade {order_id}: {e} @ {last_price}")
         finally:
             return pos
 
     def final_exit(self, pos, last_price):
-        price = last_price - pos.slippage
-        pos.exit = replace(self.template, price=price, side="S")
-        pos.exit.order_id = self.broker.order_place(**_get_args(pos.entry))
-        if pos.exit.order_id:
-            pos.state = "entry_pending"
-            logging.info(f"{pos.state} {pos.entry.order_id} @ {last_price}")
-            self.next_fn = "create_exit"
-        return pos
+        try:
+            price = last_price - pos.slippage
+            pos.exit = replace(self.template, price=price, side="S")
+            pos.exit.order_id = self.broker.order_place(**_get_args(pos.exit))
+            if pos.exit.order_id:
+                logging.info(f"{pos.state} {pos.entry.order_id} @ {last_price}")
+                pos.state = (
+                    "target_reached" if pos.state == "target_pending" else "stop_hit"
+                )
+                self.next_fn = "modify"
+        except Exception as e:
+            logging.error(f"Final exit: {e} order id {pos.exit.order_id}")
+        finally:
+            return pos
 
 
 executors = {"NFO": NFOManager, "BFO": BSEManager, "MCX": MCXManager}
@@ -157,17 +147,16 @@ class PositionManager:
 
         pos = Position(
             symbol=symbol,
+            quantity=quantity,
             stop_price=stop_loss,
             target_price=target,
             trail_percent=trail_percent,
             slippage=2.0,
         )
-        pos.ex = executors.get(exchange)
+        executor = executors.get(exchange, NFOManager)
 
         # init an exchange executor instance
-        pos.ex(
-            broker=self.stock_broker, pos=pos, symbol=symbol, quantity=quantity, tag=tag
-        )
+        pos.ex = executor(broker=self.stock_broker, pos=pos, tag=tag)
 
         pos = pos.ex.create_entry(pos, last_price=entry_price)
         if pos.entry.order_id:
@@ -182,51 +171,47 @@ class PositionManager:
         last_price: float,
         orders: List[dict],
         removable: bool = False,
-    ) -> int:
+    ) -> str:
 
-        if pos.state == "entry_pending":
+        pos = self._positions.get(pos_id, None)
+        if not pos:
+            return "position_unknown"
+
+        elif pos.state == "entry_pending":
             order = next(
                 (o for o in orders if o.get("order_id") == pos.entry.order_id), None
             )
 
             if order:
-                # 1. Fill Logic
                 pos.average_price = float(order["fill_price"])
+
                 if pos.trail_percent is not None:
+                    trail_percent = float(str(self.trail_percent).strip("%")) / 100
                     dist = abs(pos.average_price - pos.stop_price)
                     pos.stop_price = round_down_to_tick(
-                        pos.stop_price + (dist * pos.trail_percent)
+                        pos.stop_price + (dist * trail_percent)
                     )
 
-        elif pos.state in ["target_pending", "stop_pending"]:
-
+        elif pos.state in ["target_reached", "stop_hit"]:
             order = next(
                 (o for o in orders if o.get("order_id") == pos.exit.order_id), None
             )
             if order:
-                intent = (
-                    PositionStatus.TARGET_REACHED
-                    if pos.state == "target_pending"
-                    else PositionStatus.STOP_HIT
-                )
                 self._cleanup(pos_id)
-                return intent
-        
-        else: # exit_pending
+
+        elif pos.state == "exit_pending":  # exit_pending
             order = {}
             is_target = last_price > pos.target_price if pos.target_price else False
             is_stop = last_price < pos.stop_price or removable
             if is_target or is_stop:
                 pos.state = "target_pending" if is_target else "stop_pending"
+        else:  # target_pending or "stop_hit"
+            logging.info(f"stop:{pos.stop_price} < {last_price} < {pos.target_price}")
 
         self._positions[pos_id] = getattr(pos.ex, pos.next_fn)(pos, last_price)
-        return PositionStatus.IN_POSITION
+        return pos.state
 
     def _cleanup(self, pos_id):
         if pos_id in self._positions:
             logging.info(f"PM: Removing tracker for position {pos_id}")
             del self._positions[pos_id]
-
-
-"""
-"""

@@ -11,10 +11,10 @@ logging = logging_func(__name__)
 
 
 class Builder:
-    def __init__(self, trade_settings: dict, user_settings: dict, quote, rest):
+    def __init__(self, trade_settings: dict, user_settings: dict, quote, rest, pm):
         self._data = user_settings
         self._meta = trade_settings
-        meta = {"quote": quote, "rest": rest}
+        meta = {"quote": quote, "rest": rest, "pm": pm}
         self._meta.update(meta)
 
     def merge_settings_and_symbols(self, symbol_factory):
