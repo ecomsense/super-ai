@@ -129,7 +129,7 @@ class Hilo:
             if self._state == BreakoutState.ARMED and self._armed_idx == curr_idx:
                 # 1. Monitoring Phase (Within the arming candle)
                 # If price fails the breakout line or hits the next target TOO FAST
-                if self._period_low > self._stop or self._last_price > self._target:
+                if self._period_low < self._stop or self._last_price > self._target:
                     logging.info(
                         f"DISARMED: Low {self._period_low} violated locked levels "
                         f"(Stop: {self._stop}, Target: {self._target})"
