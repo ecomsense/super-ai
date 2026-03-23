@@ -44,7 +44,7 @@ def read_builders():
                 user_settings=O_TRADESET,
                 quote=quote,
                 rest=rest,
-                pm=PositionManager(stock_broker=rest),
+                pm=PositionManager(stock_broker=Helper.api()),
             )
             .merge_settings_and_symbols(symbol_factory=get_symbol_fm_factory())
             .find_expiry()

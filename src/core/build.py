@@ -131,7 +131,7 @@ def find_tokens_from_atm(symbol_info, atm):
         # get tokens for the option
         return sym.get_tokens(atm)
     except Exception as e:
-        logging.error(f"{e} while finding fno tokens in builder")
+        logging.error(f"{e} while finding fno tokens")
         print_exc()
 
 
@@ -313,6 +313,7 @@ if __name__ == "__main__":
                     user_settings=O_TRADESET,
                     quote=quote,
                     rest=rest,
+                    pm=Helper.api(),
                 )
                 .merge_settings_and_symbols(symbol_factory=get_symbol_fm_factory())
                 .find_expiry()
