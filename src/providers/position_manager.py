@@ -208,7 +208,7 @@ class PositionManager:
         else:  # target_pending or "stop_hit"
             logging.info(f"stop:{pos.stop_price} < {last_price} < {pos.target_price}")
 
-        self._positions[pos_id] = getattr(pos.ex, pos.next_fn)(pos, last_price)
+        self._positions[pos_id] = getattr(pos.ex, pos.ex.next_fn)(pos, last_price)
         return pos.state
 
     def _cleanup(self, pos_id):
