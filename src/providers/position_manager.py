@@ -18,7 +18,7 @@ class MCXManager:
 
 
 def _get_args(trade: Trade):
-    return {k: v for k, v in asdict(trade).items() if k != "order_id" or v is not None}
+    return {k: v for k, v in asdict(trade).items() if k != "order_id" and v is not None}
 
 
 class NFOManager:
