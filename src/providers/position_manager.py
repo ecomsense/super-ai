@@ -27,7 +27,7 @@ class NFOManager:
         self.template = Trade(
             symbol=pos.symbol,
             quantity=pos.quantity,
-            disclosed_quantity=pos.quantity,
+            disclosed_quantity=0,  # NFO expects to be 0 atleast for Sell orders
             exchange="NFO",
             tag=tag,
             order_type="LMT",
