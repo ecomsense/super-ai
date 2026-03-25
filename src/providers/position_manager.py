@@ -1,4 +1,5 @@
 from dataclasses import asdict, replace
+from re import A
 from typing import Dict, List
 from src.constants import logging_func
 from src.sdk.utils import round_down_to_tick
@@ -77,7 +78,8 @@ class MCXManager:
             order_id = pos.state
             if pos.state == "target_pending" or pos.state == "stop_pending":
                 order_id = pos.exit.order_id
-                self.broker.order_cancel(order_id=pos.exit.order_id)
+                resp = self.broker.order_cancel(order_id=pos.exit.order_id)
+                logging.info(f"Cancel Order: {resp}")
                 self.next_fn = "final_exit"
         except Exception as e:
             logging.error(f"Cancel Trade {order_id}: {e} @ {last_price}")
@@ -278,21 +280,29 @@ class PositionManager:
                         pos.stop_price + (dist * trail_percent)
                     )
 
-        elif pos.state in ["target_reached", "stop_hit"]:
+        elif pos.state in [
+            "target_reached",
+            "stop_hit",
+            "target_pending",
+            "stop_pending",
+            "exit_pending",
+        ]:
             order = next(
                 (o for o in orders if o.get("order_id") == pos.exit.order_id), None
             )
             if order:
                 self._cleanup(pos_id)
 
-        elif pos.state == "exit_pending":  # exit_pending
+        if pos.state == "exit_pending":  # exit_pending
             order = {}
             is_target = last_price > pos.target_price if pos.target_price else False
             is_stop = last_price < pos.stop_price or removable
             if is_target or is_stop:
                 pos.state = "target_pending" if is_target else "stop_pending"
-        else:  # target_pending or "stop_hit"
-            logging.info(f"stop:{pos.stop_price} < {last_price} < {pos.target_price}")
+
+        logging.info(
+            f"position - {pos.state} stop:{pos.stop_price} < {last_price=} < target:{pos.target_price}"
+        )
 
         self._positions[pos_id] = getattr(pos.ex, pos.ex.next_fn)(pos, last_price)
         return pos.state
