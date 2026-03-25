@@ -27,7 +27,7 @@ class NFOManager:
         self.template = Trade(
             symbol=pos.symbol,
             quantity=pos.quantity,
-            disclosed_quantity=None,
+            disclosed_quantity=pos.quantity,
             exchange="NFO",
             tag=tag,
             order_type="LMT",
