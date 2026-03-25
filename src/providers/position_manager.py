@@ -18,7 +18,7 @@ class MCXManager:
 
 
 def _get_args(trade: Trade):
-    return {k: v for k, v in asdict(trade).items() if k != "order_id"}
+    return {k: v for k, v in asdict(trade).items() if k != "order_id" or v is not None}
 
 
 class NFOManager:
@@ -83,13 +83,15 @@ class NFOManager:
 
     def modify(self, pos, last_price):
         try:
+            order_id = pos.state
             if pos.state == "target_pending" or pos.state == "stop_pending":
                 order_id = pos.exit.order_id
-                kwargs = dict(
+                pos.exit = replace(
+                    pos.exit,
                     order_type="LMT",
                     trigger_price=0.0,
                 )
-                self.broker.order_modify(order_id=order_id, **kwargs)
+                self.broker.order_modify(order_id=order_id, **_get_args(pos.exit))
                 self.next_fn = "cancel"
         except Exception as e:
             logging.error(f"Modify Trade {order_id}: {e} @ {last_price}")
