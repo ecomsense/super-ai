@@ -1,5 +1,4 @@
 from dataclasses import asdict, replace
-from re import A
 from typing import Dict, List
 from src.constants import logging_func
 from src.sdk.utils import round_down_to_tick
@@ -47,7 +46,6 @@ class MCXManager:
     def wait_for_entry(self, pos, last_price):
         try:
             if pos.average_price:
-                pos.state = "in_position"
                 pos = self.create_exit(pos, last_price)
         except Exception as e:
             logging.info(f"Wait for entry: {e}")
@@ -96,11 +94,17 @@ class MCXManager:
                 pos.state = (
                     "target_reached" if pos.state == "target_pending" else "stop_hit"
                 )
-                self.next_fn = "cancel"
+                self.next_fn = "do_nothing"
         except Exception as e:
             logging.error(f"Final exit: {e} order id {pos.exit.order_id}")
         finally:
             return pos
+
+    def do_nothing(self, pos, last_price):
+        logging.info(
+            f"{pos.symbol} with status: {pos.state} @{last_price=} waiting for cleanup"
+        )
+        return pos
 
 
 def _get_args(trade: Trade):
@@ -141,7 +145,6 @@ class NFOManager:
     def wait_for_entry(self, pos, last_price):
         try:
             if pos.average_price:
-                pos.state = "in_position"
                 pos = self.create_exit(pos, last_price)
         except Exception as e:
             logging.info(f"Wait for entry: {e}")
@@ -204,11 +207,17 @@ class NFOManager:
                 pos.state = (
                     "target_reached" if pos.state == "target_pending" else "stop_hit"
                 )
-                self.next_fn = "modify"
+                self.next_fn = "do_nothing"
         except Exception as e:
             logging.error(f"Final exit: {e} order id {pos.exit.order_id}")
         finally:
             return pos
+
+    def do_nothing(self, pos, last_price):
+        logging.info(
+            f"{pos.symbol} with status: {pos.state} @{last_price=} waiting for cleanup"
+        )
+        return pos
 
 
 executors = {"NFO": NFOManager, "BFO": BSEManager, "MCX": MCXManager}
@@ -260,8 +269,8 @@ class PositionManager:
         orders: List[dict],
         removable: bool = False,
     ) -> str:
-
         pos = self._positions.get(pos_id, None)
+
         if not pos:
             return "position_unknown"
 
@@ -269,7 +278,6 @@ class PositionManager:
             order = next(
                 (o for o in orders if o.get("order_id") == pos.entry.order_id), None
             )
-
             if order:
                 pos.average_price = float(order["fill_price"])
 
@@ -280,30 +288,39 @@ class PositionManager:
                         pos.stop_price + (dist * trail_percent)
                     )
 
+        if pos.state == "exit_pending":
+            order = next(
+                (o for o in orders if o.get("order_id") == pos.exit.order_id), None
+            )
+            if order:
+                pos.state = "stop_hit"
+
+            else:
+                is_target = last_price > pos.target_price if pos.target_price else False
+                is_stop = last_price < pos.stop_price or removable
+                if is_target or is_stop:
+                    pos.state = "target_pending" if is_target else "stop_pending"
+
         elif pos.state in [
-            "target_reached",
-            "stop_hit",
             "target_pending",
             "stop_pending",
-            "exit_pending",
         ]:
             order = next(
                 (o for o in orders if o.get("order_id") == pos.exit.order_id), None
             )
             if order:
-                self._cleanup(pos_id)
+                pos.state = "target_reached" if "target_pending" else "stop_hit"
 
-        if pos.state == "exit_pending":  # exit_pending
-            order = {}
-            is_target = last_price > pos.target_price if pos.target_price else False
-            is_stop = last_price < pos.stop_price or removable
-            if is_target or is_stop:
-                pos.state = "target_pending" if is_target else "stop_pending"
+        elif pos.state in [
+            "target_reached",
+            "stop_hit",
+        ]:
+            self._cleanup(pos_id)
+            return pos.state
 
         logging.info(
             f"position - {pos.state} stop:{pos.stop_price} < {last_price=} < target:{pos.target_price}"
         )
-
         self._positions[pos_id] = getattr(pos.ex, pos.ex.next_fn)(pos, last_price)
         return pos.state
 
