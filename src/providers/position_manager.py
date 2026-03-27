@@ -55,13 +55,23 @@ class MCXManager:
 
     def create_exit(self, pos, last_price):
         try:
-            pos.exit = replace(
-                self.template,
-                side="S",
-                price=pos.stop_price - pos.slippage,
-                trigger_price=pos.stop_price,
-                order_type="SL-LMT",
-            )
+            if self.exit_method == "target":
+                pos.exit = replace(
+                    self.template,
+                    side="S",
+                    price=pos.target_price,
+                    trigger_price=0,
+                    order_type="LMT",
+                )
+
+            else:
+                pos.exit = replace(
+                    self.template,
+                    side="S",
+                    price=pos.stop_price - pos.slippage,
+                    trigger_price=pos.stop_price,
+                    order_type="SL-LMT",
+                )
             pos.exit.order_id = self.broker.order_place(**_get_args(pos.exit))
             if pos.exit.order_id:
                 pos.state = "exit_pending"
@@ -186,12 +196,20 @@ class NFOManager:
             order_id = pos.state
             if pos.state == "target_pending" or pos.state == "stop_pending":
                 order_id = pos.exit.order_id
-                pos.exit = replace(
-                    pos.exit,
-                    price=pos.stop_price - pos.slippage,
-                    order_type="LMT",
-                    trigger_price=0.0,
-                )
+                if self.exit_method == "target":
+                    pos.exit = replace(
+                        pos.exit,
+                        price=last_price - pos.slippage,
+                        order_type="LMT",
+                        trigger_price=0.0,
+                    )
+                else:
+                    pos.exit = replace(
+                        pos.exit,
+                        price=pos.stop_price - pos.slippage,
+                        order_type="LMT",
+                        trigger_price=0.0,
+                    )
                 self.broker.order_modify(order_id=order_id, **_get_args(pos.exit))
                 self.next_fn = "cancel"
         except Exception as e:

@@ -89,12 +89,12 @@ class Ram:
         _, self._stop, self._target = self.gridlines.find_current_grid(self._last_price)
         return self._stop
 
-    def wait_for_breakout(self, is_new_candle):
+    def wait_for_breakout(self):
         try:
             curr_idx = self._time_mgr.current_index
 
             # --- PHASE 1: SEARCHING (DEFAULT STATE) ---
-            if self._state == BreakoutState.DEFAULT and is_new_candle:
+            if self._state == BreakoutState.DEFAULT:
                 # We only look for a NEW grid level when we aren't already tracking one
                 stop_level = self._set_stop()
 
@@ -102,10 +102,7 @@ class Ram:
                     return
 
                 # Check if the previous minute's price action crossed the CURRENT stop_level
-                if (
-                    self._prev_period_low <= stop_level
-                    and self._last_price > stop_level
-                ):
+                if self._period_low <= stop_level and self._last_price > stop_level:
                     self._state = BreakoutState.ARMED
                     logging.info(
                         f"ARMED: {self._tradingsymbol} locked at {stop_level} on candle #{curr_idx} "
@@ -178,9 +175,7 @@ class Ram:
             self._last_price = float(ltp)
 
             # 1. Update Candle Logic (Minute Tracker)
-            is_new_candle = False
             if self._time_mgr.current_index > self._last_idx:
-                is_new_candle = True
                 self._prev_period_low = self._period_low
                 self._period_low = self._last_price
                 self._last_idx = self._time_mgr.current_index
@@ -193,7 +188,7 @@ class Ram:
 
             # 3. Main Logic Branch (Straightforward)
             if self.pos_id is None:
-                self.wait_for_breakout(is_new_candle)
+                self.wait_for_breakout()
             else:
                 self.try_exiting_trade()
 
