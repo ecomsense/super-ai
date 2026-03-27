@@ -60,9 +60,15 @@ def test_pm_status_position_unknown(mock_broker):
     assert result == "position_unknown"
 
 
-def test_pm_status_entry_to_in_position(mock_broker):
+def test_pm_status_entry_into_position(mock_broker):
+    # Setup the real Manager with a Mock Broker
     pm = PositionManager(mock_broker)
 
+    # Configure the broker to return a valid Order ID string
+    mock_broker.order_place.return_value = "ORD_12345"
+
+    # 1. Trigger 'new'
+    # This creates a REAL Position and a REAL NFOManager instance
     pos_id = pm.new(
         symbol="BANKNIFTY-OPT",
         exchange="NFO",
@@ -71,25 +77,31 @@ def test_pm_status_entry_to_in_position(mock_broker):
         entry_price=100.0,
         stop_loss=90.0,
         target=150.0,
-        trail_percent=None,
+        trail_percent=None,  # Keep as None to avoid the float conversion logic for this test
     )
 
+    # 2. Simulate the broker filling the entry order
+    orders = [{"order_id": "ORD_12345", "fill_price": "100.0"}]
+
+    # 3. Trigger status update
+    # This will run: PM.status -> NFO.wait_for_entry -> NFO.create_exit
+    pm.status(pos_id=pos_id, last_price=105.0, orders=orders)
+
+    # 4. Fetch the actual position from the registry
     pos = pm._positions[pos_id]
 
-    # Bypassing a potential AttributeError on line 155
-    # (getattr(pos.ex, pos.next_fn) expects next_fn on pos, but it is on pos.ex)
-    pos.next_fn = pos.ex.next_fn
-
-    orders = [{"order_id": pos.entry.order_id, "fill_price": "100.0"}]
-
-    # Trigger the status update
-    pm.status(pos_id, last_price=100.0, orders=orders)
-
-    # State should progress through wait_for_entry -> in_position -> create_exit -> exit_pending
+    # --- ASSERTIONS ---
+    # Verify the fill was recorded
     assert pos.average_price == 100.0
+
+    # Verify the state progressed immediately to exit_pending
     assert pos.state == "exit_pending"
-    assert pos.exit.order_id == "ORD_12345"
+
+    # Verify exactly 2 calls: 1 for Entry and 1 for the Stop Loss (Exit)
     assert mock_broker.order_place.call_count == 2
+
+    # Verify the exit order ID was captured correctly
+    assert pos.exit.order_id == "ORD_12345"
 
 
 def test_nfo_manager_create_exit(mock_broker, global_mocks):

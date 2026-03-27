@@ -281,12 +281,24 @@ class PositionManager:
             if order:
                 pos.average_price = float(order["fill_price"])
 
-                if pos.trail_percent is not None:
-                    trail_percent = float(str(self.trail_percent).strip("%")) / 100
-                    dist = abs(pos.average_price - pos.stop_price)
-                    pos.stop_price = round_down_to_tick(
-                        pos.stop_price + (dist * trail_percent)
+                if pos.trail_percent is not None and not isinstance(
+                    pos.trail_percent, (int, float, str)
+                ):
+                    logging.warning(
+                        f"Invalid trail_percent type: {type(pos.trail_percent)}"
                     )
+                    # Skip trailing logic if it's a mock or invalid
+                elif pos.trail_percent is not None:
+                    # Use pos instead of self
+                    tp_str = str(pos.trail_percent).strip("%")
+                    try:
+                        trail_val = float(tp_str) / 100
+                        dist = abs(pos.average_price - pos.stop_price)
+                        pos.stop_price = round_down_to_tick(
+                            pos.stop_price + (dist * trail_val)
+                        )
+                    except ValueError:
+                        logging.error(f"Could not convert trail_percent: {tp_str}")
 
         if pos.state == "exit_pending":
             order = next(
