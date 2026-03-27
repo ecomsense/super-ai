@@ -188,6 +188,7 @@ class NFOManager:
                 order_id = pos.exit.order_id
                 pos.exit = replace(
                     pos.exit,
+                    price=pos.stop_price - pos.slippage,
                     order_type="LMT",
                     trigger_price=0.0,
                 )
