@@ -13,7 +13,7 @@ class BSEManager:
 
 
 class MCXManager:
-    def __init__(self, broker, pos, tag) -> None:
+    def __init__(self, broker, pos, tag, exit_method) -> None:
         self.broker = broker
         self.template = Trade(
             symbol=pos.symbol,
@@ -25,6 +25,7 @@ class MCXManager:
             trigger_price=0.0,
             side="B",
         )
+        self.exit_method = exit_method
         self.entry_or_exit = "entry"
         self.next_fn = "create_entry"
 
@@ -112,7 +113,7 @@ def _get_args(trade: Trade):
 
 
 class NFOManager:
-    def __init__(self, broker, pos, tag) -> None:
+    def __init__(self, broker, pos, tag, exit_method) -> None:
         self.broker = broker
         self.template = Trade(
             symbol=pos.symbol,
@@ -124,6 +125,7 @@ class NFOManager:
             trigger_price=0.0,
             side="B",
         )
+        self.exit_method = (exit_method,)
         self.entry_or_exit = "entry"
         self.next_fn = "create_entry"
 
@@ -153,13 +155,22 @@ class NFOManager:
 
     def create_exit(self, pos, last_price):
         try:
-            pos.exit = replace(
-                self.template,
-                side="S",
-                price=pos.stop_price - pos.slippage,
-                trigger_price=pos.stop_price,
-                order_type="SL-LMT",
-            )
+            if self.exit_method == "target":
+                pos.exit = replace(
+                    self.template,
+                    side="S",
+                    price=pos.target_price,
+                    trigger_price=0,
+                    order_type="LMT",
+                )
+            else:
+                pos.exit = replace(
+                    self.template,
+                    side="S",
+                    price=pos.stop_price - pos.slippage,
+                    trigger_price=pos.stop_price,
+                    order_type="SL-LMT",
+                )
             pos.exit.order_id = self.broker.order_place(**_get_args(pos.exit))
             if pos.exit.order_id:
                 pos.state = "exit_pending"
@@ -238,6 +249,7 @@ class PositionManager:
         tag,
         entry_price,
         stop_loss,
+        exit_method="target",
         target=None,
         trail_percent=None,
     ) -> int | None:
@@ -253,7 +265,9 @@ class PositionManager:
         executor = executors.get(exchange, NFOManager)
 
         # init an exchange executor instance
-        pos.ex = executor(broker=self.stock_broker, pos=pos, tag=tag)
+        pos.ex = executor(
+            broker=self.stock_broker, pos=pos, tag=tag, exit_method=exit_method
+        )
 
         pos = pos.ex.create_entry(pos, last_price=entry_price)
         if pos.entry.order_id:

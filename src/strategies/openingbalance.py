@@ -64,28 +64,6 @@ class Openingbalance:
         self._fn = "set_stop"
         self.set_stop()
 
-    """
-    def _is_trailstopped(self, percent):
-        # set max target reached
-        if max(percent, self._max_target_reached) == percent:
-            self._max_target_reached = percent
-        trailing_target = self._max_target_reached / 2
-
-        # if currently above stop% and below trailing target
-        if self._t2 <= percent < trailing_target:
-            msg = f"#TSL 50 PERC: {self._tradingsymbol} {percent=} < {trailing_target=}"
-            logging.info(msg)
-            return True
-        elif percent < self._t2 < self._max_target_reached:
-            msg = f"#TSL T2 HIT: {self._tradingsymbol} {percent=} < t2={self._t2}"
-            logging.info(msg)
-            return True
-
-        msg = f"#TRAIL: {self._tradingsymbol} {percent=} vs  max target reached:{self._max_target_reached}"
-        logging.info(msg)
-        return False
-    """
-
     def set_stop(self):
         try:
             self._last_idx = self._time_mgr.current_index

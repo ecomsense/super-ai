@@ -57,22 +57,11 @@ class Hilo:
             )
             timer(1)
 
-        high = kwargs["rest"].history(
-            token=kwargs["option_token"],
-            exchange=kwargs["option_exchange"],
-            loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
-            key="inth",
-        )
         target_set_by_user = kwargs.get("target", "50%")
 
         # objects and dependencies
-        highest = calc_highest_target(high=high, target=target_set_by_user)
-        prices = [
-            (0, low),
-            (low, calc_highest_target(low, target_set_by_user)),
-            (high, highest),
-            (highest, highest),
-        ]
+        high = calc_highest_target(high=low, target=target_set_by_user)
+        prices = [(0, low), (low, high), (high, high)]
         logging.info(f"grid we are going to trade today {prices}")
         self.gridlines = StopAndTarget(prices)
 
@@ -148,8 +137,8 @@ class Hilo:
                         quantity=self._quantity,
                         tag=self.strategy,
                         entry_price=self._last_price,
-                        stop_loss=self._stop,
-                        exit_method="stop",
+                        stop_loss=0,
+                        exit_method="target",
                         target=self._target,
                         trail_percent=self._trail,
                     )
