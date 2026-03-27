@@ -111,47 +111,31 @@ class Ram:
                         f"ARMED: {self._tradingsymbol} locked at {stop_level} on candle #{curr_idx} "
                         f"and prev candle lowest is {self._prev_period_low}"
                     )
-                self._armed_idx = curr_idx
-                return
+                    self._armed_idx = curr_idx
 
-            # --- PHASE 2: VALIDATION (ARMED STATE) ---
-            if self._state == BreakoutState.ARMED and self._armed_idx == curr_idx:
-                # 1. Monitoring Phase (Within the arming candle)
-                # If price fails the breakout line or hits the next target TOO FAST
-                if self._period_low < self._stop or self._last_price > self._target:
-                    logging.info(
-                        f"DISARMED: Low {self._period_low} violated locked levels "
-                        f"(Stop: {self._stop}, Target: {self._target})"
-                    )
-                    self._state = BreakoutState.DEFAULT
-                    return
+                    # We use self._stop as the reference for the entry
+                    if self._is_reentry():
+                        self.pos_id = self.pm.new(
+                            symbol=self._tradingsymbol,
+                            exchange=self._option_exchange,
+                            quantity=self._quantity,
+                            tag=self.strategy,
+                            entry_price=self._last_price,
+                            stop_loss=0,
+                            exit_method="target",
+                            target=self._target,
+                            trail_percent=self._trail,
+                        )
+                        if self.pos_id:
+                            self._fn = "try_exiting_trade"
+                    else:
+                        logging.info(
+                            "SORRY: We are passing this trade due to odd/even rule"
+                        )
 
-                # 2. Execution Phase (Candle has closed, index has incremented)
-                logging.info(f"SUCCESS: {self._tradingsymbol} held above {self._stop}")
-
-                # We use self._stop as the reference for the entry
-                if self._is_reentry():
-                    self.pos_id = self.pm.new(
-                        symbol=self._tradingsymbol,
-                        exchange=self._option_exchange,
-                        quantity=self._quantity,
-                        tag=self.strategy,
-                        entry_price=self._last_price,
-                        stop_loss=0,
-                        exit_method="target",
-                        target=self._target,
-                        trail_percent=self._trail,
-                    )
-                    if self.pos_id:
-                        self._fn = "try_exiting_trade"
-                else:
-                    logging.info(
-                        "SORRY: We are passing this trade due to odd/even rule"
-                    )
-
-                # Reset state for next cycle
-                self._state = BreakoutState.DEFAULT
-                self._last_idx = curr_idx
+            # Reset state for next cycle
+            self._state = BreakoutState.DEFAULT
+            # self._last_idx = curr_idx
 
         except Exception as e:
             logging.error(f"Wait for breakout: {e}")
