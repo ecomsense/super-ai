@@ -21,7 +21,7 @@ class BreakoutState(IntEnum):
     ARMED = 1  # breakout detected, monitoring for Condition 2
 
 
-class Hilo:
+class Ram:
     def __init__(self, **kwargs):
         """
         trail: 50%  #optional
