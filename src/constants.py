@@ -83,12 +83,12 @@ def async_logger():
         logger_manager.start()
 
         # Silence urllib3 connection pool noise by changing it to WARNING
-        logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
         # Silence general websocket library noise (pings, etc.)
         logging.getLogger("websocket").setLevel(logging.WARNING)
         # You may want to keep the broker API chatter if you are debugging network calls
         # but if it's too much, silence it slightly.
-        logging.getLogger("stock_brokers.finvasia.NorenApi").setLevel(logging.DEBUG)
+        logging.getLogger("stock_brokers.finvasia.NorenApi").setLevel(logging.WARNING)
 
         # 3. Expose the logger access function to the rest of the project
         # 'logging' now refers to the standard getLogger function
