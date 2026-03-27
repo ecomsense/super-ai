@@ -155,12 +155,11 @@ class Ram:
                     removable=self._removable,
                 )
 
-                if status in ["stop_hit", "position_unknown"]:
+                if status in ["stop_hit", "position_unknown", "target_reached"]:
                     self.pos_id = None
-                elif status == "target_reached" or is_time_past(self.stop_time):
-                    # if target is reached there is no further trade for this symbol
-                    # TODO
-                    self._removable = True
+
+            if is_time_past(self.stop_time):
+                self._removable = True
 
         except Exception as e:
             logging.error(f"{e} while exit order")
@@ -182,12 +181,8 @@ class Ram:
             else:
                 self._period_low = min(self._period_low, self._last_price)
 
-            # 2. Global Stop Time Check
-            if is_time_past(self.stop_time):
-                self._removable = True
-
             # 3. Main Logic Branch (Straightforward)
-            if self.pos_id is None:
+            if self.pos_id is None and not self._removable:
                 self.wait_for_breakout()
             else:
                 self.try_exiting_trade()

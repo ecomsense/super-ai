@@ -279,7 +279,7 @@ class PositionManager:
             stop_price=stop_loss,
             target_price=target,
             trail_percent=trail_percent,
-            slippage=2.0,
+            slippage=0.2 if exchange == "MCX" else 2,
         )
         executor = executors.get(exchange, NFOManager)
 
