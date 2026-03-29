@@ -1,0 +1,131 @@
+import logging
+from traceback import print_exc
+from src.config.interface import Position
+
+
+class RiskManager:
+    def __init__(self, broker):
+        self.broker = broker
+        self.positions = []  # List of Position objects
+        self.tag = "no_tag"
+
+    def _get_pos_from_api(self, symbol: str):
+        """Fetches real-time net quantity from the broker."""
+        try:
+            positions = self.broker.positions()
+            return next((p for p in positions if p["symbol"] == symbol), {})
+        except Exception as e:
+            logging.error(f"RM Error fetching positions: {e}")
+            return {}
+
+    def _read_position(self, symbol: str):
+        """Finds the internal Position object for a symbol."""
+        try:
+            return next((p for p in self.positions if p.symbol == symbol), None)
+        except Exception as e:
+            logging.error(f"RM Error reading Positions: {e}")
+            return None
+
+    def _write_position(self, symbol: str, quantity: int):
+        """Updates the quantity of an existing internal Position object."""
+        try:
+            pos_obj = self._read_position(symbol)
+            if pos_obj:
+                pos_obj.quantity = quantity
+                logging.debug(
+                    f"RM: Internal state updated for {symbol}: Qty {quantity}"
+                )
+        except Exception as e:
+            logging.error(f"RM Error writing Position: {e}")
+
+    def new(
+        self,
+        symbol: str,
+        exchange: str,
+        quantity: int,
+        entry_price: float,
+        stop_loss: float,
+        target: float,
+        tag="no_tag",
+    ) -> str | None:
+        """Executes entry and creates/updates tracking."""
+        try:
+            self.tag = tag
+            # 1. Place the entry order
+            order_no = self.broker.order_place(
+                symbol=symbol,
+                exchange=exchange,
+                quantity=quantity,
+                side="BUY",
+                order_type="MARKET",
+                trigger_price=0.0,
+                price=0,
+                disclosed_quantity=0,
+                tag=self.tag,
+            )
+            logging.info(f"RM: Buy Order #{order_no} for {symbol} @{entry_price}")
+
+            # 2. Get actual total quantity from Broker
+            api_pos = self._get_pos_from_api(symbol)
+            total_qty = api_pos.get("quantity", quantity)
+
+            # 3. Handle internal object state
+            position = self._read_position(symbol)
+            if position is None:
+                # Note: 'slippage' was in your snippet; ensure it's passed or defaulted
+                position = Position(
+                    symbol=symbol,
+                    quantity=total_qty,
+                    stop_price=stop_loss,
+                    target_price=target,
+                )
+                self.positions.append(position)
+            else:
+                self._write_position(symbol, total_qty)
+
+            return symbol
+
+        except Exception as e:
+            logging.error(f"RM New Position Error: {e}")
+            print_exc()
+            return None
+
+    def status(self, pos_id: str, last_price: float) -> int:
+        """
+        Executes Flattening.
+        Called by Ram strategy ONLY when an exit signal (Target/Time) is triggered.
+        """
+        try:
+            symbol = next((p.symbol for p in self.positions if p.id == pos_id), None)
+            if symbol is not None:
+                api_pos = self._get_pos_from_api(symbol)
+                qty_to_sell = int(api_pos.get("quantity", 0))
+
+                if qty_to_sell > 0:
+                    order_no = self.broker.order_place(
+                        symbol=symbol,
+                        exchange=api_pos.get("exchange"),
+                        quantity=qty_to_sell,
+                        disclosed_quantity=0,
+                        trigger_price=0.0,
+                        price=0,
+                        side="SELL",
+                        order_type="MARKET",
+                        tag=self.tag,
+                    )
+                    logging.info(
+                        f"RM: Exit Order #{order_no} for {symbol}. Qty: {qty_to_sell}@{last_price}"
+                    )
+
+                    # 4. Zero out the internal position
+                    if order_no:
+                        self._write_position(symbol, 0)
+                        return 0
+
+                    return qty_to_sell
+            return -1
+
+        except Exception as e:
+            logging.error(f"RM Status (Exit) Error {e} for {symbol}: {e}")
+            print_exc()
+            return -1

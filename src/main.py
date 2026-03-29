@@ -12,7 +12,7 @@ from src.sdk.helper import Helper
 from src.core.build import Builder, stuff_atm, stuff_tradingsymbols
 from src.core.strategy import create_strategies_from_params
 from src.core.engine import Engine
-from src.providers.position_manager import PositionManager
+from src.providers.risk_manager import RiskManager
 
 from toolkit.kokoo import is_time_past, blink, kill_tmux
 from traceback import print_exc
@@ -44,7 +44,7 @@ def read_builders():
                 user_settings=O_TRADESET,
                 quote=quote,
                 rest=rest,
-                pm=PositionManager(stock_broker=Helper.api()),
+                rm=RiskManager(stock_broker=Helper.api()),
             )
             .merge_settings_and_symbols(symbol_factory=get_symbol_fm_factory())
             .find_expiry()
