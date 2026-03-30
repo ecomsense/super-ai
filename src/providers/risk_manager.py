@@ -12,7 +12,7 @@ class RiskManager:
     def _get_pos_from_api(self, symbol: str):
         """Fetches real-time net quantity from the broker."""
         try:
-            positions = self.broker.positions()
+            positions = self.broker.positions
             return next((p for p in positions if p["symbol"] == symbol), {})
         except Exception as e:
             logging.error(f"RM Error fetching positions: {e}")
