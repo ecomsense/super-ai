@@ -22,6 +22,7 @@ class MCXManager:
             exchange="MCX",
             tag=tag,
             order_type="LMT",
+            product="NRML",
             trigger_price=0.0,
             side="B",
         )
