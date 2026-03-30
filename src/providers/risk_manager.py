@@ -8,6 +8,7 @@ class RiskManager:
         self.broker = stock_broker
         self.positions = []  # List of Position objects
         self.tag = "no_tag"
+        self.slippage = 0.8  # for MCX
 
     def _get_pos_from_api(self, symbol: str):
         """Fetches real-time net quantity from the broker."""
@@ -52,14 +53,15 @@ class RiskManager:
         try:
             self.tag = tag
             # 1. Place the entry order
+
             order_no = self.broker.order_place(
                 symbol=symbol,
                 exchange=exchange,
                 quantity=quantity,
                 side="BUY",
-                order_type="MARKET",
+                order_type="LIMIT" if exchange == "MCX" else "MARKET",
                 trigger_price=0.0,
-                price=0,
+                price=entry_price + self.slippage if exchange == "MCX" else 0.0,
                 disclosed_quantity=0,
                 tag=self.tag,
             )
@@ -102,15 +104,16 @@ class RiskManager:
                 qty_to_sell = int(api_pos.get("quantity", 0))
 
                 if qty_to_sell > 0:
+                    exchange = (api_pos.get("exchange", None),)
                     order_no = self.broker.order_place(
                         symbol=symbol,
-                        exchange=api_pos.get("exchange"),
+                        exchange=exchange,
                         quantity=qty_to_sell,
-                        disclosed_quantity=0,
-                        trigger_price=0.0,
-                        price=0,
                         side="SELL",
-                        order_type="MARKET",
+                        order_type="LIMIT" if exchange == "MCX" else "MARKET",
+                        trigger_price=0.0,
+                        price=last_price - self.slippage if exchange == "MCX" else 0.0,
+                        disclosed_quantity=0,
                         tag=self.tag,
                     )
                     logging.info(

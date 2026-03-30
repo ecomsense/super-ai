@@ -49,7 +49,7 @@ class Position:
     stop_price: Optional[float] = None
     target_price: Optional[float] = None
     state: str = "idle"
-    slippage: float = 0.0
+    slippage: float = 0.5
     trail_percent: Optional[float] = None
     ex: Any = field(init=False, repr=False, default=None)
 
