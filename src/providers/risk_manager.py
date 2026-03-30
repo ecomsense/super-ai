@@ -4,8 +4,8 @@ from src.config.interface import Position
 
 
 class RiskManager:
-    def __init__(self, broker):
-        self.broker = broker
+    def __init__(self, stock_broker):
+        self.broker = stock_broker
         self.positions = []  # List of Position objects
         self.tag = "no_tag"
 
