@@ -10,6 +10,8 @@ from typing import Any, Optional
 from src.providers.async_logger import AsyncLogger  # Assuming you put the class here
 
 
+requests.packages.urllib3.util.connection.HAS_IPV6 = False
+
 S_DATA = "./data/"
 S_FACT = "./factory/"
 S_SETG = "settings.yml"
