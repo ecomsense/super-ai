@@ -10,7 +10,11 @@ from typing import Any, Optional
 from src.providers.async_logger import AsyncLogger  # Assuming you put the class here
 import requests
 
+print("Default connection:", requests.get("https://api64.ipify.org").text)
+
 requests.packages.urllib3.util.connection.HAS_IPV6 = False
+
+print("Forced IPv4 connection:", requests.get("https://api64.ipify.org").text)
 
 S_DATA = "./data/"
 S_FACT = "./factory/"
