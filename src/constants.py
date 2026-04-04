@@ -8,7 +8,7 @@ from toolkit.fileutils import Fileutils
 from typing import Any, Optional
 
 from src.providers.async_logger import AsyncLogger  # Assuming you put the class here
-
+import requests
 
 requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
