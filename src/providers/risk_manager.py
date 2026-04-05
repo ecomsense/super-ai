@@ -52,19 +52,20 @@ class RiskManager:
         """Executes entry and creates/updates tracking."""
         try:
             self.tag = tag
-            # 1. Place the entry order
+
+            self.slippage = 1 if exchange == "MCX" else 2
 
             order_no = self.broker.order_place(
                 symbol=symbol,
                 exchange=exchange,
                 quantity=quantity,
                 side="BUY",
-                order_type="LIMIT" if exchange == "MCX" else "MARKET",
+                order_type="LIMIT",
                 trigger_price=0.0,
-                price=entry_price + self.slippage if exchange == "MCX" else 0.0,
+                price=entry_price + self.slippage,
                 disclosed_quantity=0,
                 tag=self.tag,
-                product="NRML",
+                product="MIS",
             )
             logging.info(f"RM: Buy Order #{order_no} for {symbol} @{entry_price}")
 
@@ -105,18 +106,19 @@ class RiskManager:
                 qty_to_sell = int(api_pos.get("quantity", 0))
 
                 if qty_to_sell > 0:
-                    exchange = (api_pos.get("exchange", None),)
+                    exchange = api_pos.get("exchange", None)
+                    self.slippage = 1 if exchange == "MCX" else 2
                     order_no = self.broker.order_place(
                         symbol=symbol,
                         exchange=exchange,
                         quantity=qty_to_sell,
                         side="SELL",
-                        order_type="LIMIT" if exchange == "MCX" else "MARKET",
+                        order_type="LIMIT",
                         trigger_price=0.0,
-                        price=last_price - self.slippage if exchange == "MCX" else 0.0,
+                        price=last_price - self.slippage,
                         disclosed_quantity=0,
                         tag=self.tag,
-                        product="NRML",
+                        product="MIS",
                     )
                     logging.info(
                         f"RM: Exit Order #{order_no} for {symbol}. Qty: {qty_to_sell}@{last_price}"
