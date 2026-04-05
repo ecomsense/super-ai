@@ -434,6 +434,15 @@ class RestApi:
             logging.error("f{e} RestApi: close positions")
             print_exc()
 
+    def cancel_algo_orders(self):
+        try:
+            algo_orders = [ord for ord in self._api.orders if len(ord["remarks"]) > 0]
+            for ord in algo_orders:
+                self._api.order_cancel(ord["order_id"])
+        except Exception as e:
+            logging.warning(e)
+            print_exc()
+
     def pnl(self, key="urmtom"):
         try:
             ttl = 0
