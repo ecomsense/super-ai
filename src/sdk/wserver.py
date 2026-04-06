@@ -1,6 +1,6 @@
 from src.constants import logging_func
 import time
-from stock_brokers.finvasia.NorenApi import FeedType
+from stock_brokers.flattrade.NorenApi import FeedType
 
 logging = logging_func(__name__)
 
@@ -13,20 +13,17 @@ class Wserver:
     def __init__(self, session, tokens):
         self.api = session
         self.tokens = tokens
-        ret = self.api.broker.start_websocket(
+        self.api.broker.start_websocket(
             order_update_callback=self.event_handler_order_update,
             subscribe_callback=self.event_handler_quote_update,
             socket_open_callback=self.open_callback,
             socket_close_callback=self.close_callback,
             socket_error_callback=self.error_callback,
         )
-        if ret:
-            logging.info(f"{ret} ws started")
 
     def open_callback(self):
         self.socket_opened = True
         self.api.broker.subscribe(self.tokens, feed_type=FeedType.SNAPQUOTE)
-        # api.subscribe(['NSE|22', 'BSE|522032'])
 
     def close_callback(self):
         logging.info("ws closed")
@@ -35,9 +32,7 @@ class Wserver:
     def error_callback(self, error):
         print(f"ws error: {error}")
 
-    # application callbacks
     def event_handler_order_update(self, message):
-        # handle order updates here
         print(f"order: {message}")
 
     def event_handler_quote_update(self, message):
@@ -56,7 +51,7 @@ class Wserver:
 if __name__ == "__main__":
     from src.sdk.helper import Helper
 
-    token = ["NSE|22", "NSE|34"]
+    token = ["NSE|22", "NSE|26000"]
     wserver = Wserver(Helper.api(), token)
     try:
         ltp = {}
