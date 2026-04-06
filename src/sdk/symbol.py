@@ -6,6 +6,7 @@ import pandas as pd
 from toolkit.fileutils import Fileutils
 from typing import Dict, Optional, Protocol
 from traceback import print_exc
+from requests import get
 
 logging = logging_func(__name__)
 
@@ -16,6 +17,24 @@ def get_exchange_token_map_finvasia(csvfile, exchange):
         print(f"{url}")
         df = pd.read_csv(url)
         df.to_csv(csvfile, index=False)
+
+
+def get_exchange_token_map_flattrade(csvfile, exchange):
+    # The standard endpoint for Flattrade V2 Master Scrips
+    url = f"https://api.flattrade.in/v2/scrip_master/{exchange.lower()}"
+
+    try:
+        if Fileutils().is_file_not_2day(csvfile):
+            response = get(url)
+            if response.status_status == 200:
+                # Save it locally so you don't have to fetch it every time
+                with open(f"{exchange}_symbols.csv", "wb") as f:
+                    f.write(response.content)
+                print("Master file downloaded successfully.")
+            else:
+                print(f"Failed: Status Code {response.status_code}")
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 class Symbol(Protocol):
@@ -39,7 +58,7 @@ class OptionSymbol(Symbol):
     def __init__(self, data: OptionData):
         self._data = data
         self.csvfile = f"./data/{self._data.exchange}_symbols.csv"
-        get_exchange_token_map_finvasia(self.csvfile, self._data.exchange)
+        get_exchange_token_map_flattrade(self.csvfile, self._data.exchange)
         logging.info(f"init OptionSymbol {data}")
 
     def get_atm(self, ltp: float) -> int:
