@@ -528,6 +528,7 @@ if __name__ == "__main__":
             resp = api.margins
             print(resp)
 
+        print("scripinfo", rest.ltp("NSE", 24))
         trades()
         orders()
         resp = rest.pnl("rpnl")
