@@ -20,37 +20,20 @@ def get_exchange_token_map_finvasia(csvfile, exchange):
         df.to_csv(csvfile, index=False)
 
 
-def get_exchange_token_map_flattrade(csvfile, exchange="NFO"):
-    """
-    Fetches the scrip master from Flattrade and returns a
-    dictionary mapping {Symbol: Token} for lookups.
-    """
-    # Flattrade V2 requires lowercase exchange in the URL
-    url = f"https://api.flattrade.in/v2/scrip_master/{exchange.lower()}"
-
-    headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-
-    try:
-        # Flattrade requires POST, even if no body is sent
-        response = requests.post(url, headers=headers, timeout=15)
-
-        if response.status_code == 200 and response.text.strip():
-            # Flattrade returns a CSV string.
-            # Columns usually include: 'Token', 'LotSize', 'Symbol', 'TradingSymbol'...
-            df = pd.read_csv(io.StringIO(response.text))
-
-            # Create a dictionary for fast lookup: { 'NIFTY24APR22500CE': '54321' }
-            # Note: Verify column names in the first run as they can vary slightly by segment.
-            token_map = pd.Series(df.Token.values, index=df.TradingSymbol).to_dict()
-
-            return token_map
+# The equivalent drop-in replacement for Flattrade using the working S3 endpoints
+def get_exchange_token_map_flattrade(csvfile, exchange):
+    if Fileutils().is_file_not_2day(csvfile):
+        if exchange.upper() == "NFO":
+            url = "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Nfo_Index_Derivatives.csv"
+        elif exchange.upper() == "BFO":
+            url = "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Bfo_Index_Derivatives.csv"
         else:
-            print(f"Error: Server returned {response.status_code} or empty body.")
-            return {}
+            # Fallback for other segments
+            url = f"https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Commodity.csv"
 
-    except Exception as e:
-        print(f"Failed to fetch Flattrade Token Map: {e}")
-        return {}
+        print(f"{url}")
+        df = pd.read_csv(url)
+        df.to_csv(csvfile, index=False)
 
 
 # Usage example:
