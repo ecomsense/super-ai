@@ -330,7 +330,8 @@ class RestApi:
 
     def ltp(self, exchange, token):
         try:
-            return self._api.broker.get_quotes(exchange, token)["lp"]
+            resp = self._api.broker.get_quotes(exchange, token)
+            return float(resp["lp"])
         except Exception as e:
             logging.error(e)
             print_exc()
