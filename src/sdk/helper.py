@@ -333,7 +333,7 @@ class RestApi:
             resp = self._api.broker.get_quotes(exchange, token)
             return float(resp["lp"])
         except Exception as e:
-            logging.error(e)
+            logging.error(f"{e} in {resp}")
             print_exc()
 
     def one_side(self, bargs):
