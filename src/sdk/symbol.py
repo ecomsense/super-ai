@@ -2,11 +2,12 @@ from src.constants import logging_func
 
 from src.config.interface import OptionData
 
+import requests
+import io
 import pandas as pd
 from toolkit.fileutils import Fileutils
 from typing import Dict, Optional, Protocol
 from traceback import print_exc
-from requests import get
 
 logging = logging_func(__name__)
 
@@ -19,22 +20,42 @@ def get_exchange_token_map_finvasia(csvfile, exchange):
         df.to_csv(csvfile, index=False)
 
 
-def get_exchange_token_map_flattrade(csvfile, exchange):
-    # The standard endpoint for Flattrade V2 Master Scrips
+def get_exchange_token_map_flattrade(csvfile, exchange="NFO"):
+    """
+    Fetches the scrip master from Flattrade and returns a
+    dictionary mapping {Symbol: Token} for lookups.
+    """
+    # Flattrade V2 requires lowercase exchange in the URL
     url = f"https://api.flattrade.in/v2/scrip_master/{exchange.lower()}"
 
+    headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+
     try:
-        if Fileutils().is_file_not_2day(csvfile):
-            response = get(url)
-            if response.status_status == 200:
-                # Save it locally so you don't have to fetch it every time
-                with open(f"{exchange}_symbols.csv", "wb") as f:
-                    f.write(response.content)
-                print("Master file downloaded successfully.")
-            else:
-                print(f"Failed: Status Code {response.status_code}")
+        # Flattrade requires POST, even if no body is sent
+        response = requests.post(url, headers=headers, timeout=15)
+
+        if response.status_code == 200 and response.text.strip():
+            # Flattrade returns a CSV string.
+            # Columns usually include: 'Token', 'LotSize', 'Symbol', 'TradingSymbol'...
+            df = pd.read_csv(io.StringIO(response.text))
+
+            # Create a dictionary for fast lookup: { 'NIFTY24APR22500CE': '54321' }
+            # Note: Verify column names in the first run as they can vary slightly by segment.
+            token_map = pd.Series(df.Token.values, index=df.TradingSymbol).to_dict()
+
+            return token_map
+        else:
+            print(f"Error: Server returned {response.status_code} or empty body.")
+            return {}
+
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Failed to fetch Flattrade Token Map: {e}")
+        return {}
+
+
+# Usage example:
+# nfo_map = get_exchange_token_map_flattrade('NFO')
+# token = nfo_map.get('NIFTY26MAR2622500CE')
 
 
 class Symbol(Protocol):
