@@ -17,6 +17,8 @@ class Wserver:
             order_update_callback=self.event_handler_order_update,
             subscribe_callback=self.event_handler_quote_update,
             socket_open_callback=self.open_callback,
+            socket_close_callback=self.close_callback,
+            socket_error_callback=self.error_callback,
         )
         if ret:
             logging.info(f"{ret} ws started")
@@ -26,18 +28,26 @@ class Wserver:
         self.api.broker.subscribe(self.tokens, feed_type=FeedType.SNAPQUOTE)
         # api.subscribe(['NSE|22', 'BSE|522032'])
 
-    def unsubscribe(self, tokens):
-        self.api.broker.unsubscribe(tokens, feed_type=FeedType.SNAPQUOTE)
+    def close_callback(self):
+        logging.info("ws closed")
+        self.socket_opened = False
+
+    def error_callback(self, error):
+        print(f"ws error: {error}")
 
     # application callbacks
     def event_handler_order_update(self, message):
         # handle order updates here
-        pass
+        print(f"order: {message}")
 
     def event_handler_quote_update(self, message):
+        print(message)
         val = message.get("lp", False)
         if val:
             self.ltp[message["e"] + "|" + message["tk"]] = val
+
+    def unsubscribe(self, tokens):
+        self.api.broker.unsubscribe(tokens, feed_type=FeedType.SNAPQUOTE)
 
     def subscribe(self, tokens):
         self.api.broker.subscribe(tokens, feed_type=FeedType.SNAPQUOTE)
