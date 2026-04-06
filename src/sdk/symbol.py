@@ -2,8 +2,6 @@ from src.constants import logging_func
 
 from src.config.interface import OptionData
 
-import requests
-import io
 import pandas as pd
 from toolkit.fileutils import Fileutils
 from typing import Dict, Optional, Protocol
@@ -33,6 +31,11 @@ def get_exchange_token_map_flattrade(csvfile, exchange):
 
         print(f"{url}")
         df = pd.read_csv(url)
+        # Standardize Flattrade columns to match Finvasia
+        df.rename(
+            columns={"Optiontype": "OptionType", "Strike": "StrikePrice"}, inplace=True
+        )
+        df.StrikePrice = df.StrikePrice.astype(int)
         df.to_csv(csvfile, index=False)
 
 
@@ -168,20 +171,48 @@ class OptionSymbol(Symbol):
                 if c_or_p == "CE"
                 else atm - (distance * self._data.diff)
             )
-            logging.info(f"Symbol: found strike price {find_strike}")
             df = pd.read_csv(self.csvfile)
+            # ... previous code ...
             logging.info(
-                f"Symbol:{self._data.symbol} {c_or_p=} {find_strike=} for expiry{self._data.expiry}"
+                f"Target: Symbol={self._data.symbol}, Type={c_or_p}, Strike={find_strike}, Expiry={self._data.expiry}"
             )
-            row = df[
-                (df["Symbol"] == self._data.symbol)
-                & (df["OptionType"] == c_or_p)
-                & (df["StrikePrice"] == find_strike)
-                & (df["Expiry"] == self._data.expiry)
+
+            # Step 1: Symbol
+            df_sym = df[df["Symbol"] == self._data.symbol]
+            print(f"1. After Symbol filter: {len(df_sym)} rows remaining")
+            if df_sym.empty:
+                print(f"ERROR: Symbol '{self._data.symbol}' not found.")
+
+            # Step 2: OptionType
+            df_opt = df_sym[df_sym["OptionType"] == c_or_p]
+            print(f"2. After OptionType filter: {len(df_opt)} rows remaining")
+            if df_opt.empty and not df_sym.empty:
+                print(f"ERROR: Available OptionTypes: {df_sym['OptionType'].unique()}")
+
+            # Step 3: Strike Price (Forcing float comparison to be safe)
+            df_strike = df_opt[
+                df_opt["StrikePrice"].astype(float) == float(find_strike)
             ]
-            if not row.empty:
-                return row.iloc[0]
-            raise Exception("Option not found")
+            print(f"3. After StrikePrice filter: {len(df_strike)} rows remaining")
+            if df_strike.empty and not df_opt.empty:
+                print(
+                    f"ERROR: Looking for {float(find_strike)}. Available Strikes: {df_opt['StrikePrice'].head(10).unique()}..."
+                )
+
+            # Step 4: Expiry Date
+            df_final = df_strike[df_strike["Expiry"] == self._data.expiry]
+            print(f"4. After Expiry filter: {len(df_final)} rows remaining")
+            if df_final.empty and not df_strike.empty:
+                print(
+                    f"ERROR: Looking for Expiry '{self._data.expiry}'. Available Expiries: {df_strike['Expiry'].unique()}"
+                )
+
+            # Final Check
+            if not df_final.empty:
+                print("SUCCESS: Option found!")
+                return df_final.iloc[0]
+
+            raise Exception("Option not found during step-by-step filtering.")
         except Exception as e:
             logging.error(f"{e} Symbol: while find_option_by_distance")
             print_exc()
@@ -189,15 +220,15 @@ class OptionSymbol(Symbol):
 
 if __name__ == "__main__":
     data = OptionData(
-        exchange="BFO",
-        base="SENSEX",
-        symbol="BSXOPT",
-        diff=100,
-        depth=10,
-        expiry=None,
+        exchange="NFO",
+        base="NIFTY",
+        symbol="NIFTY",
+        diff=50,
+        depth=25,
+        expiry="28-APR-2026",
         token=None,
     )
 
     os = OptionSymbol(data)
-    resp = os.find_option_by_distance(atm=77500, distance=3, c_or_p="CE")
+    resp = os.find_option_by_distance(atm=24500, distance=3, c_or_p="CE")
     print(resp)
