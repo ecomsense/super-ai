@@ -44,7 +44,7 @@ class Wserver:
 
 
 if __name__ == "__main__":
-    from src.helper import Helper
+    from src.sdk.helper import Helper
 
     token = ["NSE|22", "NSE|34"]
     wserver = Wserver(Helper.api(), token)
@@ -59,7 +59,7 @@ if __name__ == "__main__":
             time.sleep(1)
         else:
             print("after unsubscribing", wserver.ltp)
-    except KeyboardInterrupt as k:
-        print("user")
+    except KeyboardInterrupt:
+        print("user interrupted")
     except Exception as e:
         print(e)
