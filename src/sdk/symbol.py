@@ -33,7 +33,13 @@ def get_exchange_token_map_flattrade(csvfile, exchange):
         df = pd.read_csv(url)
         # Standardize Flattrade columns to match Finvasia
         df.rename(
-            columns={"Optiontype": "OptionType", "Strike": "StrikePrice"}, inplace=True
+            columns={
+                "Optiontype": "OptionType",
+                "Strike": "StrikePrice",
+                "Tradingsymbol": "TradingSymbol",
+                "Lotsize": "LotSize",
+            },
+            inplace=True,
         )
         df.StrikePrice = df.StrikePrice.astype(int)
         df.to_csv(csvfile, index=False)
