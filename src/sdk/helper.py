@@ -330,14 +330,9 @@ class RestApi:
 
     def ltp(self, exchange, token):
         try:
-            resp = self._api.scriptinfo(exchange, token)
-            if resp is not None:
-                return float(resp["lp"])
-            else:
-                return None
+            return self._api.broker.get_quotes(exchange, token)["lp"]
         except Exception as e:
-            message = f"{e} while ltp"
-            logging.warning(message)
+            logging.error(e)
             print_exc()
 
     def one_side(self, bargs):
@@ -528,7 +523,6 @@ if __name__ == "__main__":
             resp = api.margins
             print(resp)
 
-        print("scripinfo", rest.ltp("NSE", 24))
         trades()
         orders()
         resp = rest.pnl("rpnl")
