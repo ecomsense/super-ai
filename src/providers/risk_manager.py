@@ -65,7 +65,7 @@ class RiskManager:
                 price=entry_price + self.slippage,
                 disclosed_quantity=0,
                 tag=self.tag,
-                product="MIS",
+                product="NRML" if exchange == "MCX" else "MIS",
             )
             logging.info(f"RM: Buy Order #{order_no} for {symbol} @{entry_price}")
 
@@ -118,7 +118,7 @@ class RiskManager:
                         price=last_price - self.slippage,
                         disclosed_quantity=0,
                         tag=self.tag,
-                        product="MIS",
+                        product="NRML" if exchange == "MCX" else "MIS",
                     )
                     logging.info(
                         f"RM: Exit Order #{order_no} for {symbol}. Qty: {qty_to_sell}@{last_price}"
