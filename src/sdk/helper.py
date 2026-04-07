@@ -495,6 +495,11 @@ if __name__ == "__main__":
         api = Helper.api()
         rest = Helper._rest
 
+        str_resp = api.broker.get_quotes("NSE", "26000")
+        print("str_resp", str_resp)
+        int_resp = api.broker.get_quotes("NSE", 26000)
+        print("int_resp", int_resp)
+
         def trades():
             resp = rest.trades()
             if resp:
