@@ -84,6 +84,7 @@ class Ram:
                 (candle.iloc[-3]["close"] < candle.iloc[-3]["open"])
                 and (candle.iloc[-2]["close"] > candle.iloc[-2]["open"])
                 and self._last_price < self._target
+                and self._last_price > self._stop
             ):
                 self._on_signal(curr_idx)
 
