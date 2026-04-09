@@ -26,17 +26,16 @@ class Wserver:
         self.api.broker.subscribe(self.tokens, feed_type=FeedType.SNAPQUOTE)
 
     def close_callback(self):
-        logging.info("ws closed")
+        logging.warning("ws closed")
         self.socket_opened = False
 
     def error_callback(self, error):
         print(f"ws error: {error}")
 
     def event_handler_order_update(self, message):
-        print(f"order: {message}")
+        logging.info(f"order: {message}")
 
     def event_handler_quote_update(self, message):
-        print(message)
         val = message.get("lp", False)
         if val:
             self.ltp[message["e"] + "|" + message["tk"]] = val
