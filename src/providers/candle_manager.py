@@ -20,7 +20,7 @@ class CandleManager:
 
         # Resample ticks into OHLC based on the timeframe
         # '1T' = 1 minute, '5T' = 5 minutes
-        df_ohlc = df_ticks.set_index("dt")["price"].resample(f"{self.tf}T").ohlc()
+        df_ohlc = df_ticks.set_index("dt")["price"].resample(f"{self.tf}min").ohlc()
 
         # Remove empty rows (intervals with no ticks)
         df_ohlc = df_ohlc.dropna()

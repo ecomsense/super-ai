@@ -96,7 +96,7 @@ def async_logger():
         # but if it's too much, silence it slightly.
         logging.getLogger("stock_brokers.finvasia.NorenApi").setLevel(logging.DEBUG)
 
-        logging.getLogger("stock_brokers.flattrade.NorenApi").setLevel(logging.DEBUG)
+        logging.getLogger("stock_brokers.flattrade.NorenApi").setLevel(logging.WARNING)
         # 3. Expose the logger access function to the rest of the project
         # 'logging' now refers to the standard getLogger function
         # Request: Your strategy modules will import this 'logging'

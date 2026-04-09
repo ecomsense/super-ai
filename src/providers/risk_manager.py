@@ -36,6 +36,7 @@ class RiskManager:
                 logging.debug(
                     f"RM: Internal state updated for {symbol}: Qty {quantity}"
                 )
+                return pos_obj
         except Exception as e:
             logging.error(f"RM Error writing Position: {e}")
 
@@ -48,7 +49,7 @@ class RiskManager:
         stop_loss: float,
         target: float,
         tag="no_tag",
-    ) -> str | None:
+    ) -> int | None:
         """Executes entry and creates/updates tracking."""
         try:
             self.tag = tag
@@ -85,9 +86,9 @@ class RiskManager:
                 )
                 self.positions.append(position)
             else:
-                self._write_position(symbol, total_qty)
+                position = self._write_position(symbol, total_qty)
 
-            return symbol
+            return position.id
 
         except Exception as e:
             logging.error(f"RM New Position Error: {e}")
