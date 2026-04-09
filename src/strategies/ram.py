@@ -4,7 +4,7 @@ import pendulum as pdlm
 from toolkit.kokoo import is_time_past, timer
 
 from src.constants import logging_func
-from src.providers.time_manager import TimeManager
+from src.providers.candle_manager import CandleManager
 from src.sdk.utils import calc_highest_target
 
 from src.providers.risk_manager import RiskManager
@@ -31,13 +31,13 @@ class Ram:
         low_candle_time = kwargs.get("low_candle_time", default_time)
         self._stop = None
         while self._stop is None:
+            timer(0.5)
             self._stop = kwargs["rest"].history(
                 token=kwargs["option_token"],
                 exchange=kwargs["option_exchange"],
                 loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
                 key="intl",
             )
-            timer(1)
 
         target_set_by_user = kwargs.get("target", "50%")
 
@@ -45,29 +45,47 @@ class Ram:
         self._target = calc_highest_target(high=self._stop, target=target_set_by_user)
 
         rest_time = kwargs.get("rest_time", {"minutes": 1})
-        self._time_mgr = TimeManager(rest_time)
-        self._armed_idx = self._time_mgr.current_index - 1
-        self._last_idx = self._armed_idx
+
+        self._candle = CandleManager(rest_time["minutes"])
+        self._candle.add_tick(self._last_price)
+
+        self._armed_idx = 0
         self.pos_id = None
+
+    def _on_signal(self, curr_idx):
+        self.pos_id = self.rm.new(
+            symbol=self._tradingsymbol,
+            exchange=self._option_exchange,
+            quantity=self._quantity,
+            tag=self.strategy,
+            entry_price=self._last_price,
+            target=self._target,
+            stop_loss=0,
+        )
+        self._armed_idx = curr_idx
 
     def wait_for_breakout(self):
         try:
-            curr_idx = self._time_mgr.current_index
+            candle = self._candle.transform()
+            curr_idx = len(candle)
             if (
-                self._period_low <= self._stop
+                candle.iloc[-1]["low"] <= self._stop
                 and self._last_price > self._stop
                 and self._armed_idx != curr_idx
             ):
-                self.pos_id = self.rm.new(
-                    symbol=self._tradingsymbol,
-                    exchange=self._option_exchange,
-                    quantity=self._quantity,
-                    tag=self.strategy,
-                    entry_price=self._last_price,
-                    target=self._target,
-                    stop_loss=0,
-                )
-                self._armed_idx = curr_idx
+                self._on_signal(curr_idx)
+                return
+
+            # two candle condition
+            if curr_idx < 4 or (curr_idx - self._armed_idx) < 3:
+                return
+
+            if (
+                (candle.iloc[-3]["close"] < candle.iloc[-3]["open"])
+                and (candle.iloc[-2]["close"] > candle.iloc[-2]["open"])
+                and self._last_price < self._target
+            ):
+                self._on_signal(curr_idx)
 
         except Exception as e:
             logging.error(f"Wait for breakout: {e}")
@@ -90,19 +108,11 @@ class Ram:
     def run(self, quotes):
         try:
             # get quotes
-            prev_price = self._last_price
             ltp = quotes.get(self._tradingsymbol)
             if ltp is None:
                 return
             self._last_price = float(ltp)
-
-            # 1. Update Candle Logic (Minute Tracker)
-            curr_idx = self._time_mgr.current_index
-            if curr_idx > self._last_idx:
-                self._period_low = min(prev_price, self._last_price)
-                self._last_idx = curr_idx
-            else:
-                self._period_low = min(self._period_low, self._last_price)
+            self._candle.add_tick(self._last_price)
 
             # no need to wait for breakout if time is up
             if not is_time_past(self.stop_time) and not self._removable:
