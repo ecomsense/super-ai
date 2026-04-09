@@ -15,7 +15,7 @@ logging = logging_func(__name__)
 class Ram:
     def __init__(self, **kwargs):
         self._removable = False
-        self._period_low = 1000000
+        self.prev_trade_at = 0
 
         # from parameters
         self._tradingsymbol = kwargs["tradingsymbol"]
@@ -85,8 +85,10 @@ class Ram:
                 and (candle.iloc[-2]["close"] > candle.iloc[-2]["open"])
                 and self._last_price < self._target
                 and self._last_price > self._stop
+                and self._last_price > self.prev_trade_at
             ):
                 self._on_signal(curr_idx)
+                self.prev_trade_at = self._last_price
 
         except Exception as e:
             logging.error(f"Wait for breakout: {e}")
