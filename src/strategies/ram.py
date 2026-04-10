@@ -15,7 +15,6 @@ logging = logging_func(__name__)
 class Ram:
     def __init__(self, **kwargs):
         self._removable = False
-        self.prev_trade_at = 0
 
         # from parameters
         self._tradingsymbol = kwargs["tradingsymbol"]
@@ -38,6 +37,8 @@ class Ram:
                 loc=pdlm.now("Asia/Kolkata").replace(**low_candle_time),
                 key="intl",
             )
+
+        self.prev_trade_at = self._stop
 
         target_set_by_user = kwargs.get("target", "50%")
 
@@ -74,6 +75,7 @@ class Ram:
                 and self._armed_idx != curr_idx
             ):
                 self._on_signal(curr_idx)
+                self.prev_trade_at = self._stop
                 return
 
             # two candle condition
@@ -84,7 +86,6 @@ class Ram:
                 (candle.iloc[-3]["close"] < candle.iloc[-3]["open"])
                 and (candle.iloc[-2]["close"] > candle.iloc[-2]["open"])
                 and self._last_price < self._target
-                and self._last_price > self._stop
                 and self._last_price > self.prev_trade_at
             ):
                 self._on_signal(curr_idx)

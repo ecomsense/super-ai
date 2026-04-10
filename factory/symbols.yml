@@ -1,9 +1,16 @@
 NIFTY:
-  diff: 50
+  diff: 100
   index: "Nifty 50"
   exchange: "NSE"
   token: "26000"
   depth: 16
+
+SENSEX:
+  diff: 100
+  index: "SENSEX" 
+  exchange: "BSE"
+  token:  "1"
+  depth: 10
 
 BANKNIFTY:
   diff: 100
@@ -32,9 +39,9 @@ NATURALGAS:
   exchange: "MCX"
   depth: 15
 
-SENSEX:
-  diff: 100
-  index: "SENSEX" 
-  exchange: "BSE"
-  token:  "1"
-  depth: 10
+CRUDEOIL:
+  diff: 50
+  index: "Crude Oil current month future"
+  exchange: "MCX"
+  depth: 15
+
