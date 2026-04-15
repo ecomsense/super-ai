@@ -20,7 +20,7 @@ class PivotData:
     first_trade_at: Optional[Any] = None
 
 
-@dataclass(slots=True)
+@dataclass
 class Trade:
     symbol: Optional[str] = None
     quantity: Optional[int] = None
@@ -38,7 +38,7 @@ class Trade:
     order_id: Optional[str] = None
 
 
-@dataclass(slots=True)
+@dataclass
 class Position:
     id: int = field(default_factory=generate_id)
     symbol: Optional[str] = None
@@ -54,7 +54,7 @@ class Position:
     ex: Any = field(init=False, repr=False, default=None)
 
 
-@dataclass(slots=True)
+@dataclass
 class OptionData:
     """A dataclass to hold the core attributes of a financial symbol."""
 
