@@ -1,3 +1,4 @@
+from __future__ import annotations
 from src.constants import logging_func
 
 from traceback import print_exc

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import asdict, replace
 
 from src.config.interface import Position, Trade
