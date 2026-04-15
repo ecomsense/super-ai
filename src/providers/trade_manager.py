@@ -4,14 +4,14 @@ from src.config.interface import Position, Trade
 from src.constants import logging_func
 
 logging = logging_func(__name__)
-from typing import Any
+from typing import Any, Union
 
 
 class TradeStatus:
     IN_POSITION, STOP_HIT, TARGET_REACHED = 0, 1, 2
 
 
-def find_dict_with_kv(val: str | int, lst_of_dct: list[dict[str, Any]]):
+def find_dict_with_kv(val: Union[str, int], lst_of_dct: list[dict[str, Any]]):
     return next((dct for dct in lst_of_dct if dct.get("order_id") == val), None)
 
 

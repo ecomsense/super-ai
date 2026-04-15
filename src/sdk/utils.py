@@ -2,7 +2,7 @@ import random
 import string
 from functools import wraps
 from traceback import print_exc
-from typing import Optional
+from typing import Optional, Union
 
 import pendulum as plum
 from toolkit.fileutils import Fileutils
@@ -10,7 +10,7 @@ from toolkit.fileutils import Fileutils
 from src.constants import S_DATA
 
 
-def calc_highest_target(high, target: Optional[Optional[float | int] | str]):
+def calc_highest_target(high, target: Optional[Union[float, int, str]]):
     """
     calculate the target price from percentage or fixed value
     """
