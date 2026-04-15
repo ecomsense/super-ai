@@ -1,5 +1,5 @@
 from dataclasses import asdict, replace
-from typing import Dict, List
+from typing import Dict, List, Optional
 from src.constants import logging_func
 from src.sdk.utils import round_down_to_tick
 from src.config.interface import Trade, Position
@@ -272,7 +272,7 @@ class PositionManager:
         exit_method="target",
         target=None,
         trail_percent=None,
-    ) -> int | None:
+    ) -> Optional[int]:
 
         pos = Position(
             symbol=symbol,

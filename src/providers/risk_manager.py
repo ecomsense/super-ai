@@ -1,5 +1,6 @@
 import logging
 from traceback import print_exc
+from typing import Optional
 from src.config.interface import Position
 
 
@@ -49,7 +50,7 @@ class RiskManager:
         stop_loss: float,
         target: float,
         tag="no_tag",
-    ) -> int | None:
+    ) -> Optional[int]:
         """Executes entry and creates/updates tracking."""
         try:
             self.tag = tag

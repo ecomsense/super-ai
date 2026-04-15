@@ -60,7 +60,7 @@ class Symbol(Protocol):
     ) -> Optional[str]: ...
     def find_option_by_distance(
         self, atm: int, distance: int, c_or_p: str
-    ) -> str | None: ...
+    ) -> Optional[str]: ...
 
 
 class OptionSymbol(Symbol):
@@ -170,7 +170,7 @@ class OptionSymbol(Symbol):
 
     def find_option_by_distance(
         self, atm: int, distance: int, c_or_p: str
-    ) -> str | None:
+    ) -> Optional[str]:
         try:
             find_strike = (
                 atm + (distance * self._data.diff)
