@@ -12,3 +12,5 @@ requests
 websocket_client
 tabulate
 rich
+fastapi
+uvicorn

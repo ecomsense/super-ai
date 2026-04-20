@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Super AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .status { font-size: 24px; margin: 20px 0; padding: 20px; border-radius: 8px; text-align: center; }
+        .running { background: #d4edda; color: #155724; }
+        .stopped { background: #f8d7da; color: #721c24; }
+        button { padding: 15px 30px; font-size: 18px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; }
+        .start { background: #28a745; color: white; }
+        .stop { background: #dc3545; color: white; }
+        .logs { background: #f8f9fa; padding: 15px; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; font-family: monospace; height: 300px; overflow-y: auto; margin-top: 20px; }
+        .refresh { background: #007bff; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Super AI</h1>
+    <div id="status" class="status">Loading...</div>
+    <div>
+        <button class="start" onclick="doAction('/start')">Start</button>
+        <button class="stop" onclick="doAction('/stop')">Stop</button>
+        <button class="refresh" onclick="refresh()">Refresh</button>
+    </div>
+    <h3>Logs</h3>
+    <div id="logs" class="logs"></div>
+
+    <script>
+        async function refresh() {
+            const statusRes = await fetch('/status');
+            const statusData = await statusRes.json();
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = statusData.status;
+            statusEl.className = 'status ' + (statusData.status === 'Running' ? 'running' : 'stopped');
+
+            const logsRes = await fetch('/logs');
+            const logsData = await logsRes.json();
+            document.getElementById('logs').textContent = logsData.logs;
+        }
+
+        async function doAction(action) {
+            await fetch(action, { method: 'POST' });
+            setTimeout(refresh, 1000);
+        }
+
+        refresh();
+        setInterval(refresh, 5000);
+    </script>
+</body>
+</html>
