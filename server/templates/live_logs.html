@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Super AI - Live Logs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" every="3">
+    <style>
+        body { font-family: monospace; padding: 10px; background: #1e1e1e; color: #00ff00; }
+        .nav { margin-bottom: 10px; }
+        .nav a { margin-right: 15px; color: #007bff; }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
+        .status { padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .running { background: #155724; }
+        .stopped { background: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/" style="color: white;">Dashboard</a>
+        <a href="/live-logs" style="color: white;">Live Logs</a>
+    </div>
+    <div id="status" class="status"></div>
+    <pre id="logs">Loading...</pre>
+
+    <script>
+        async function refresh() {
+            const statusRes = await fetch('/status');
+            const statusData = await statusRes.json();
+            document.getElementById('status').textContent = statusData.status;
+            document.getElementById('status').className = 'status ' + (statusData.status === 'Running' ? 'running' : 'stopped');
+
+            const logsRes = await fetch('/logs');
+            const logsData = await logsRes.json();
+            document.getElementById('logs').textContent = logsData.logs;
+        }
+
+        refresh();
+        setInterval(refresh, 3000);
+    </script>
+</body>
+</html>

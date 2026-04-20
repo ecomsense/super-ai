@@ -13,17 +13,22 @@
         .stop { background: #dc3545; color: white; }
         .logs { background: #f8f9fa; padding: 15px; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; font-family: monospace; height: 300px; overflow-y: auto; margin-top: 20px; }
         .refresh { background: #007bff; color: white; }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 15px; color: #007bff; }
     </style>
 </head>
 <body>
     <h1>Super AI</h1>
-    <div id="status" class="status">Loading...</div>
-    <div>
-        <button class="start" onclick="doAction('/start')">Start</button>
-        <button class="stop" onclick="doAction('/stop')">Stop</button>
-        <button class="refresh" onclick="refresh()">Refresh</button>
+    <div class="nav">
+        <a href="/">Dashboard</a>
+        <a href="/live-logs">Live Logs</a>
     </div>
-    <h3>Logs</h3>
+    <div id="status" class="status">Loading...</div>
+    <div id="buttons">
+        <button class="start" id="btnStart" onclick="doAction('/start')">Start</button>
+        <button class="stop" id="btnStop" onclick="doAction('/stop')">Stop</button>
+    </div>
+    <h3>Recent Logs</h3>
     <div id="logs" class="logs"></div>
 
     <script>
@@ -33,6 +38,9 @@
             const statusEl = document.getElementById('status');
             statusEl.textContent = statusData.status;
             statusEl.className = 'status ' + (statusData.status === 'Running' ? 'running' : 'stopped');
+
+            document.getElementById('btnStart').style.display = statusData.status === 'Running' ? 'none' : 'inline-block';
+            document.getElementById('btnStop').style.display = statusData.status === 'Running' ? 'inline-block' : 'none';
 
             const logsRes = await fetch('/logs');
             const logsData = await logsRes.json();
