@@ -57,14 +57,41 @@ async def stop(user: str = Depends(get_current_user)):
 
 @app.get("/logs")
 async def logs(user: str = Depends(get_current_user)):
-    result = subprocess.run(
-        ["tmux", "capture-pane", "-t", TMUX_SESSION, "-p", "-S", "-100"],
-        capture_output=True,
-        text=True
-    )
-    return {"logs": result.stdout or "No logs"}
+    try:
+        import libtmux
+        server = libtmux.Server()
+        session = server.find_where({"session_name": TMUX_SESSION})
+        if session:
+            pane = session.attached_pane
+            if pane:
+                pane.capture_pane()
+                return {"logs": pane.content}
+    except Exception:
+        pass
+    return {"logs": "Session not running"}
 
 
 @app.get("/live-logs", response_class=HTMLResponse)
 async def live_logs(request: Request, user: str = Depends(get_current_user)):
     return templates.TemplateResponse("live_logs.html", {"request": request})
+
+
+@app.get("/terminal", response_class=HTMLResponse)
+async def terminal(request: Request, user: str = Depends(get_current_user)):
+    return templates.TemplateResponse("terminal.html", {"request": request})
+
+
+@app.get("/stream-logs")
+async def stream_logs(user: str = Depends(get_current_user)):
+    try:
+        import libtmux
+        server = libtmux.Server()
+        session = server.find_where({"session_name": TMUX_SESSION})
+        if session:
+            pane = session.attached_pane
+            if pane:
+                pane.capture_pane()
+                return {"logs": pane.content}
+    except Exception:
+        pass
+    return {"logs": "Session not running"}
