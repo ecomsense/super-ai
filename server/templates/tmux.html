@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Super AI - Tmux</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: monospace; padding: 10px; background: #1e1e1e; color: #00ff00; }
+        .nav { margin-bottom: 10px; }
+        .nav a { margin-right: 15px; color: #007bff; }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/" style="color: white;">Dashboard</a>
+        <a href="/tmux" style="color: white;">Tmux</a>
+        <a href="/log" style="color: white;">Log</a>
+    </div>
+    <pre id="tmux">Loading...</pre>
+
+    <script>
+        async function refresh() {
+            const res = await fetch('/tmux-data');
+            const data = await res.json();
+            document.getElementById('tmux').textContent = data.tmux;
+        }
+
+        refresh();
+        setInterval(refresh, 2000);
+    </script>
+</body>
+</html>

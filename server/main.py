@@ -55,8 +55,13 @@ async def stop(user: str = Depends(get_current_user)):
     return {"status": "stopped"}
 
 
-@app.get("/logs")
-async def logs(user: str = Depends(get_current_user)):
+@app.get("/tmux", response_class=HTMLResponse)
+async def tmux_page(request: Request, user: str = Depends(get_current_user)):
+    return templates.TemplateResponse("tmux.html", {"request": request})
+
+
+@app.get("/tmux-data")
+async def tmux_data(user: str = Depends(get_current_user)):
     try:
         import libtmux
         server = libtmux.Server()
@@ -65,33 +70,20 @@ async def logs(user: str = Depends(get_current_user)):
             pane = session.attached_pane
             if pane:
                 pane.capture_pane()
-                return {"logs": pane.content}
+                return {"tmux": pane.content}
     except Exception:
         pass
-    return {"logs": "Session not running"}
+    return {"tmux": "Session not running"}
 
 
-@app.get("/live-logs", response_class=HTMLResponse)
-async def live_logs(request: Request, user: str = Depends(get_current_user)):
-    return templates.TemplateResponse("live_logs.html", {"request": request})
+@app.get("/log", response_class=HTMLResponse)
+async def log_page(request: Request, user: str = Depends(get_current_user)):
+    return templates.TemplateResponse("log.html", {"request": request})
 
 
-@app.get("/terminal", response_class=HTMLResponse)
-async def terminal(request: Request, user: str = Depends(get_current_user)):
-    return templates.TemplateResponse("terminal.html", {"request": request})
-
-
-@app.get("/stream-logs")
-async def stream_logs(user: str = Depends(get_current_user)):
-    try:
-        import libtmux
-        server = libtmux.Server()
-        session = server.find_where({"session_name": TMUX_SESSION})
-        if session:
-            pane = session.attached_pane
-            if pane:
-                pane.capture_pane()
-                return {"logs": pane.content}
-    except Exception:
-        pass
-    return {"logs": "Session not running"}
+@app.get("/log-data")
+async def log_data(user: str = Depends(get_current_user)):
+    log_file = PROJECT_ROOT / "data" / "log.txt"
+    if log_file.exists():
+        return {"log": log_file.read_text()[-5000:]}
+    return {"log": "No log file"}

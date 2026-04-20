@@ -11,25 +11,22 @@
         button { padding: 15px 30px; font-size: 18px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; }
         .start { background: #28a745; color: white; }
         .stop { background: #dc3545; color: white; }
-        .logs { background: #f8f9fa; padding: 15px; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; font-family: monospace; height: 300px; overflow-y: auto; margin-top: 20px; }
-        .refresh { background: #007bff; color: white; }
         .nav { margin-bottom: 20px; }
-        .nav a { margin-right: 15px; color: #007bff; }
+        .nav a { margin-right: 15px; color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
     <h1>Super AI</h1>
     <div class="nav">
         <a href="/">Dashboard</a>
-        <a href="/live-logs">Live Logs</a>
+        <a href="/tmux">Tmux</a>
+        <a href="/log">Log</a>
     </div>
     <div id="status" class="status">Loading...</div>
     <div id="buttons">
         <button class="start" id="btnStart" onclick="doAction('/start')">Start</button>
         <button class="stop" id="btnStop" onclick="doAction('/stop')">Stop</button>
     </div>
-    <h3>Recent Logs</h3>
-    <div id="logs" class="logs"></div>
 
     <script>
         async function refresh() {
@@ -41,10 +38,6 @@
 
             document.getElementById('btnStart').style.display = statusData.status === 'Running' ? 'none' : 'inline-block';
             document.getElementById('btnStop').style.display = statusData.status === 'Running' ? 'inline-block' : 'none';
-
-            const logsRes = await fetch('/logs');
-            const logsData = await logsRes.json();
-            document.getElementById('logs').textContent = logsData.logs;
         }
 
         async function doAction(action) {
