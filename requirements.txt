@@ -13,4 +13,5 @@ websocket_client
 tabulate
 rich
 fastapi
+jinja2
 uvicorn
