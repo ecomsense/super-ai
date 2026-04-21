@@ -7,17 +7,11 @@
 </head>
 <body>
     <div class="header">
-        <h1>Super Ai</h1>
+        <h1><a href="/" style="color: white; text-decoration: none;">Super Ai</a></h1>
         <div class="buttons">
             <button class="start" id="btnStart" onclick="doAction('/start')">Start</button>
             <button class="stop" id="btnStop" onclick="doAction('/stop')">Stop</button>
         </div>
-    </div>
-    <div class="nav">
-        <a href="/">Dashboard</a>
-        <a href="/tmux">Tmux</a>
-        <a href="/log">Log</a>
-        <a href="/files">Files</a>
     </div>
     <div class="content">
         {% block content %}{% endblock %}

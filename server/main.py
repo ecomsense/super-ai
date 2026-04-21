@@ -41,7 +41,13 @@ async def style_css():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, user: str = Depends(get_current_user)):
-    return templates.TemplateResponse("index.html", {"request": request})
+    data_dir = PROJECT_ROOT / "data"
+    files = []
+    if data_dir.exists():
+        for f in data_dir.iterdir():
+            if f.is_file() and f.suffix in [".txt", ".yml", ".yaml"]:
+                files.append({"name": f.name, "size": f.stat().st_size})
+    return templates.TemplateResponse("index.html", {"request": request, "files": files})
 
 
 @app.get("/status")
