@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from fastapi import FastAPI, Request, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Form
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -127,12 +127,12 @@ async def view_file(request: Request, filename: str, user: str = Depends(get_cur
 
 
 @app.post("/file/{filename}")
-async def save_file(request: Request, filename: str, user: str = Depends(get_current_user)):
+async def save_file(filename: str, content: str = Form(...), user: str = Depends(get_current_user)):
     file_path = PROJECT_ROOT / "data" / filename
     if file_path.exists() and file_path.is_file():
-        form = await request.form()
-        file_path.write_text(form.get("content", ""))
-        return {"status": "saved"}
+        file_path.write_text(content)
+        return RedirectResponse(url="/", status_code=303)
+    return {"error": "File not found"}
 
 
 class RenameRequest(BaseModel):
