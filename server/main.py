@@ -64,7 +64,7 @@ async def home(request: Request, user: str = Depends(get_current_user)):
         tmux_content = ""
 
     if is_running:
-        return templates.TemplateResponse("tmux_page.html", {"request": request, "tmux": tmux_content})
+        return templates.TemplateResponse("tmux.html", {"request": request})
 
     data_dir = PROJECT_ROOT / "data"
     files = []
