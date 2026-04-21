@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="background: white; border-radius: 5px; padding: 15px;">
+{% if files %}
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr style="text-align: left; border-bottom: 1px solid #ddd;">
+            <th style="padding: 10px;">Name</th>
+            <th style="padding: 10px;">Size</th>
+            <th style="padding: 10px;">Action</th>
+        </tr>
+        {% for f in files %}
+        <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 10px;">{{ f.name }}</td>
+            <td style="padding: 10px;">{{ f.size }} bytes</td>
+            <td style="padding: 10px;">
+                <a href="/file/{{ f.name }}" style="color: #007bff;">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+{% else %}
+    <p>No files found.</p>
+{% endif %}
+</div>
+{% endblock %}

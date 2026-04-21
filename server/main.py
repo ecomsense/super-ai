@@ -4,7 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 from fastapi import FastAPI, Request, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -14,6 +14,8 @@ TMUX_SESSION = "tmux-session"
 
 app = FastAPI()
 security = HTTPBasic()
+
+STATIC_DIR = Path(__file__).parent / "templates"
 
 
 def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
@@ -26,7 +28,15 @@ def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials.username
 
 
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+templates = Jinja2Templates(directory=STATIC_DIR)
+
+
+@app.get("/style.css")
+async def style_css():
+    css_file = STATIC_DIR / "style.css"
+    if css_file.exists():
+        return FileResponse(str(css_file), media_type="text/css")
+    return HTMLResponse("Not found", status_code=404)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -86,3 +96,23 @@ async def log_data(user: str = Depends(get_current_user)):
     if log_file.exists():
         return {"log": log_file.read_text()[-5000:]}
     return {"log": "No log file"}
+
+
+@app.get("/files", response_class=HTMLResponse)
+async def files_page(request: Request, user: str = Depends(get_current_user)):
+    data_dir = PROJECT_ROOT / "data"
+    files = []
+    if data_dir.exists():
+        for f in data_dir.iterdir():
+            if f.is_file() and f.suffix in [".txt", ".yml", ".yaml"]:
+                files.append({"name": f.name, "size": f.stat().st_size})
+    return templates.TemplateResponse("files.html", {"request": request, "files": files})
+
+
+@app.get("/file/{filename}")
+async def view_file(filename: str, user: str = Depends(get_current_user)):
+    file_path = PROJECT_ROOT / "data" / filename
+    if file_path.exists() and file_path.is_file():
+        content = file_path.read_text()
+        return templates.TemplateResponse("file.html", {"request": None, "filename": filename, "content": content})
+    return {"error": "File not found"}
