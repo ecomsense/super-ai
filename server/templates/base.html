@@ -13,6 +13,11 @@
             <button class="stop" id="btnStop" onclick="doAction('/stop')">Stop</button>
         </div>
     </div>
+    <div class="nav">
+        <a href="/">Home</a>
+        <a href="/tmux">Tmux</a>
+        <a href="/log">Log</a>
+    </div>
     <div class="content">
         {% block content %}{% endblock %}
     </div>
@@ -22,7 +27,7 @@
     <script>
         async function doAction(action) {
             await fetch(action, { method: 'POST' });
-            setTimeout(refreshButtons, 1000);
+            setTimeout(() => location.reload(), 1000);
         }
         async function refreshButtons() {
             const res = await fetch('/status');
