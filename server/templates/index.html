@@ -1,52 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Super AI</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
-        .status { font-size: 24px; margin: 20px 0; padding: 20px; border-radius: 8px; text-align: center; }
-        .running { background: #d4edda; color: #155724; }
-        .stopped { background: #f8d7da; color: #721c24; }
-        button { padding: 15px 30px; font-size: 18px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; }
-        .start { background: #28a745; color: white; }
-        .stop { background: #dc3545; color: white; }
-        .nav { margin-bottom: 20px; }
-        .nav a { margin-right: 15px; color: #007bff; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <h1>Super AI</h1>
-    <div class="nav">
-        <a href="/">Dashboard</a>
-        <a href="/tmux">Tmux</a>
-        <a href="/log">Log</a>
-    </div>
-    <div id="status" class="status">Loading...</div>
-    <div id="buttons">
-        <button class="start" id="btnStart" onclick="doAction('/start')">Start</button>
-        <button class="stop" id="btnStop" onclick="doAction('/stop')">Stop</button>
-    </div>
-
-    <script>
-        async function refresh() {
-            const statusRes = await fetch('/status');
-            const statusData = await statusRes.json();
-            const statusEl = document.getElementById('status');
-            statusEl.textContent = statusData.status;
-            statusEl.className = 'status ' + (statusData.status === 'Running' ? 'running' : 'stopped');
-
-            document.getElementById('btnStart').style.display = statusData.status === 'Running' ? 'none' : 'inline-block';
-            document.getElementById('btnStop').style.display = statusData.status === 'Running' ? 'inline-block' : 'none';
-        }
-
-        async function doAction(action) {
-            await fetch(action, { method: 'POST' });
-            setTimeout(refresh, 1000);
-        }
-
-        refresh();
-        setInterval(refresh, 5000);
-    </script>
-</body>
-</html>
+{% extends "base.html" %}
+{% block content %}
+<div id="status" style="padding: 20px; border-radius: 8px; text-align: center;">
+    Loading...
+</div>
+{% endblock %}
