@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from pydantic import BaseModel
 
 PROJECT_ROOT = Path(__file__).parent.parent
 TMUX_SESSION = "tmux-session"
@@ -43,9 +44,10 @@ async def style_css():
 async def home(request: Request, user: str = Depends(get_current_user)):
     data_dir = PROJECT_ROOT / "data"
     files = []
+    ignore = ["log.txt", "run.txt"]
     if data_dir.exists():
         for f in data_dir.iterdir():
-            if f.is_file() and f.suffix in [".txt", ".yml", ".yaml"]:
+            if f.is_file() and f.suffix in [".txt", ".yml", ".yaml"] and f.name not in ignore:
                 files.append({"name": f.name, "size": f.stat().st_size})
     return templates.TemplateResponse("index.html", {"request": request, "files": files})
 
@@ -121,4 +123,28 @@ async def view_file(filename: str, user: str = Depends(get_current_user)):
     if file_path.exists() and file_path.is_file():
         content = file_path.read_text()
         return templates.TemplateResponse("file.html", {"request": None, "filename": filename, "content": content})
+    return {"error": "File not found"}
+
+
+@app.post("/file/{filename}")
+async def save_file(filename: str, user: str = Depends(get_current_user)):
+    file_path = PROJECT_ROOT / "data" / filename
+    if file_path.exists() and file_path.is_file():
+        content = await Request.form()
+        file_path.write_text(content.get("content", ""))
+        return {"status": "saved"}
+
+
+class RenameRequest(BaseModel):
+    old: str
+    new: str
+
+
+@app.post("/rename")
+async def rename_file(req: RenameRequest, user: str = Depends(get_current_user)):
+    old_path = PROJECT_ROOT / "data" / req.old
+    new_path = PROJECT_ROOT / "data" / req.new
+    if old_path.exists() and old_path.is_file():
+        old_path.rename(new_path)
+        return {"status": "renamed"}
     return {"error": "File not found"}

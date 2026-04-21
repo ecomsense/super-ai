@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <h3>{{ filename }}</h3>
-<pre style="background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: monospace; font-size: 12px;">{{ content }}</pre>
+<form method="post" action="/file/{{ filename }}">
+    <textarea name="content">{{ content }}</textarea>
+    <br><br>
+    <button type="submit" class="btn-save">Save</button>
+    <a href="/">Back</a>
+</form>
 {% endblock %}
