@@ -118,20 +118,20 @@ async def files_page(request: Request, user: str = Depends(get_current_user)):
 
 
 @app.get("/file/{filename}")
-async def view_file(filename: str, user: str = Depends(get_current_user)):
+async def view_file(request: Request, filename: str, user: str = Depends(get_current_user)):
     file_path = PROJECT_ROOT / "data" / filename
     if file_path.exists() and file_path.is_file():
         content = file_path.read_text()
-        return templates.TemplateResponse("file.html", {"request": None, "filename": filename, "content": content})
+        return templates.TemplateResponse("file.html", {"request": request, "filename": filename, "content": content})
     return {"error": "File not found"}
 
 
 @app.post("/file/{filename}")
-async def save_file(filename: str, user: str = Depends(get_current_user)):
+async def save_file(request: Request, filename: str, user: str = Depends(get_current_user)):
     file_path = PROJECT_ROOT / "data" / filename
     if file_path.exists() and file_path.is_file():
-        content = await Request.form()
-        file_path.write_text(content.get("content", ""))
+        form = await request.form()
+        file_path.write_text(form.get("content", ""))
         return {"status": "saved"}
 
 
