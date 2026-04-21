@@ -15,7 +15,7 @@
             <td>{{ f.size }} bytes</td>
             <td>
                 <a href="/file/{{ f.name }}">Edit</a>
-                <a href="#" onclick="rename('{{ f.name }}')">Rename</a>
+                <a href="#" onclick="rename('{{ f.name }}')">Toggle</a>
             </td>
         </tr>
         {% endfor %}
@@ -28,15 +28,12 @@
 {% block script %}
 <script>
 async function rename(filename) {
-    const newName = prompt('Enter new name:');
-    if (newName) {
-        await fetch('/rename', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({old: filename, new: newName})
-        });
-        location.reload();
-    }
+    await fetch('/rename', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filename: filename})
+    });
+    location.reload();
 }
 </script>
 {% endblock %}

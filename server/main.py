@@ -135,16 +135,20 @@ async def save_file(filename: str, content: str = Form(...), user: str = Depends
     return {"error": "File not found"}
 
 
-class RenameRequest(BaseModel):
-    old: str
-    new: str
+class ToggleRequest(BaseModel):
+    filename: str
 
 
 @app.post("/rename")
-async def rename_file(req: RenameRequest, user: str = Depends(get_current_user)):
-    old_path = PROJECT_ROOT / "data" / req.old
-    new_path = PROJECT_ROOT / "data" / req.new
-    if old_path.exists() and old_path.is_file():
-        old_path.rename(new_path)
-        return {"status": "renamed"}
+async def rename_file(req: ToggleRequest, user: str = Depends(get_current_user)):
+    file_path = PROJECT_ROOT / "data" / req.filename
+    if file_path.exists() and file_path.is_file():
+        if file_path.suffix == ".yml":
+            new_path = file_path.with_suffix(".txt")
+        elif file_path.suffix == ".txt":
+            new_path = file_path.with_suffix(".yml")
+        else:
+            return {"error": "Cannot toggle"}
+        file_path.rename(new_path)
+        return {"status": "renamed", "new": new_path.name}
     return {"error": "File not found"}
