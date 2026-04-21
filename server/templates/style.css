@@ -1,5 +1,6 @@
 * { box-sizing: border-box; }
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; display: flex; flex-direction: column; color: #fff; }
+html, body { height: 100%; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; display: flex; flex-direction: column; color: #fff; }
 .header { background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); padding: 20px 25px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, #00d4ff, #7b2cbe); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }

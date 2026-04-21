@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<pre style="background: #1e1e1e; color: #ffaa00; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: monospace;" id="log">Loading...</pre>
+<pre id="log">{{ log }}</pre>
 {% endblock %}
 {% block script %}
 <script>
-    async function refresh() {
-        const res = await fetch('/log-data');
-        const data = await res.json();
-        document.getElementById('log').textContent = data.log;
-    }
-    refresh();
-    setInterval(refresh, 5000);
+async function refresh() {
+    const res = await fetch('/log-data');
+    const data = await res.json();
+    document.getElementById('log').textContent = data.log;
+}
+refresh();
+setInterval(refresh, 5000);
 </script>
 {% endblock %}
