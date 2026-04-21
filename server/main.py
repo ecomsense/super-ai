@@ -45,7 +45,7 @@ async def status(user: str = Depends(get_current_user)):
 
 @app.post("/start")
 async def start(user: str = Depends(get_current_user)):
-    subprocess.Popen([str(PROJECT_ROOT / "tmux.sh")], cwd=PROJECT_ROOT)
+    subprocess.run(["bash", str(PROJECT_ROOT / "tmux.sh")], cwd=PROJECT_ROOT)
     return {"status": "started"}
 
 
