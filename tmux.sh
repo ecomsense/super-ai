@@ -1,4 +1,5 @@
 #!/bin/env sh
+export TZ=Asia/Kolkata
 find . -type d -name "__pycache__" -print0 | xargs -0 rm -rf
 sess="tmux-session"
 
