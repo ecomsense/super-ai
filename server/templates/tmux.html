@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<pre style="background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: monospace;" id="tmux">Loading...</pre>
+<pre id="content-area">Loading...</pre>
 {% endblock %}
 {% block script %}
 <script>
-    async function refresh() {
-        const res = await fetch('/tmux-data');
-        const data = await res.json();
-        document.getElementById('tmux').textContent = data.tmux;
-    }
-    refresh();
-    setInterval(refresh, 2000);
+async function refresh() {
+    const res = await fetch('/tmux-data');
+    const data = await res.json();
+    document.getElementById('content-area').textContent = data.tmux;
+}
+refresh();
+setInterval(refresh, 2000);
 </script>
 {% endblock %}

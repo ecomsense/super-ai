@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<pre id="log">{{ log }}</pre>
+<pre id="content-area">Loading...</pre>
 {% endblock %}
 {% block script %}
 <script>
 async function refresh() {
     const res = await fetch('/log-data');
     const data = await res.json();
-    document.getElementById('log').textContent = data.log;
+    document.getElementById('content-area').textContent = data.log;
 }
 refresh();
 setInterval(refresh, 5000);
