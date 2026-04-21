@@ -1,7 +1,7 @@
 from src.constants import logging
-from src.helper import df_to_csv
-from src.time_manager import TimeManager
-from src.trade import Trade
+from src.sdk.helper import df_to_csv
+from src.providers.time_manager import TimeManager
+from src.config.interface import Trade
 from traceback import print_exc
 import pendulum as pdlm
 from renkodf import RenkoWS
@@ -111,7 +111,7 @@ class Renko:
             tag="renko_modify",
             last_price=self.trade.last_price,
         )
-        return self._trade_manager.complete_exit(**kwargs):
+        return self._trade_manager.complete_exit(**kwargs)
 
     def exit_on_sell_signal(self):
         in_position = True

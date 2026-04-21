@@ -1,7 +1,7 @@
 from src.constants import logging, S_SETG, yml_to_obj
 from src.config.interface import Trade
 
-from src.sdk.helper import Helper, history
+from src.sdk.helper import Helper
 
 from src.providers.trade_manager import TradeManager
 from src.providers.time_manager import TimeManager
@@ -237,7 +237,7 @@ class Oblegacy:
             print_exc()
 
     def _set_new_stop_from_low(self):
-        low = history(
+        low = Helper.history(
             Helper.api(),
             exchange=self.trade.exchange,
             token=self._token,

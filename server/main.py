@@ -67,10 +67,9 @@ async def tmux_data(user: str = Depends(get_current_user)):
         server = libtmux.Server()
         session = server.find_where({"session_name": TMUX_SESSION})
         if session:
-            pane = session.attached_pane
-            if pane:
-                pane.capture_pane()
-                return {"tmux": pane.content}
+            pane = session.active_pane
+            lines = pane.capture_pane()
+            return {"tmux": "\n".join(lines)}
     except Exception:
         pass
     return {"tmux": "Session not running"}
