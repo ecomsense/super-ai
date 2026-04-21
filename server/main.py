@@ -152,3 +152,12 @@ async def rename_file(req: ToggleRequest, user: str = Depends(get_current_user))
         file_path.rename(new_path)
         return {"status": "renamed", "new": new_path.name}
     return {"error": "File not found"}
+
+
+@app.post("/delete")
+async def delete_file(req: ToggleRequest, user: str = Depends(get_current_user)):
+    file_path = PROJECT_ROOT / "data" / req.filename
+    if file_path.exists() and file_path.is_file():
+        file_path.unlink()
+        return {"status": "deleted"}
+    return {"error": "File not found"}

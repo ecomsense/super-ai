@@ -15,7 +15,10 @@
             <td>{{ f.size }} bytes</td>
             <td>
                 <a href="/file/{{ f.name }}">Edit</a>
+                {% if f.name != 'settings.yml' %}
                 <a href="#" onclick="rename('{{ f.name }}')">Toggle</a>
+                <a href="#" onclick="del('{{ f.name }}')">Delete</a>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
@@ -34,6 +37,16 @@ async function rename(filename) {
         body: JSON.stringify({filename: filename})
     });
     location.reload();
+}
+async function del(filename) {
+    if (confirm('Delete ' + filename + '?')) {
+        await fetch('/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({filename: filename})
+        });
+        location.reload();
+    }
 }
 </script>
 {% endblock %}
