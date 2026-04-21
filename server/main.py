@@ -42,6 +42,30 @@ async def style_css():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, user: str = Depends(get_current_user)):
+    result = subprocess.run(
+        ["tmux", "has-session", "-t", TMUX_SESSION],
+        capture_output=True
+    )
+    is_running = result.returncode == 0
+
+    if is_running:
+        import libtmux
+        try:
+            server = libtmux.Server()
+            session = server.find_where({"session_name": TMUX_SESSION})
+            tmux_content = ""
+            if session:
+                pane = session.active_pane
+                lines = pane.capture_pane()
+                tmux_content = "\n".join(lines)
+        except:
+            tmux_content = "Session running"
+    else:
+        tmux_content = ""
+
+    if is_running:
+        return templates.TemplateResponse("tmux_page.html", {"request": request, "tmux": tmux_content})
+
     data_dir = PROJECT_ROOT / "data"
     files = []
     ignore = ["log.txt", "run.txt"]
