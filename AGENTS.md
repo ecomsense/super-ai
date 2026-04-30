@@ -73,6 +73,9 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - **Root cause**: Stray `:` colon on line 114 after `return` statement
 - **Fix**: Removed colon, fixed import paths (`src.helper` → `src.sdk.helper`, `src.trade` → `src.config.interface`)
 - **Status**: Fixed
+- **pre**: `scripts/pre-renko-fix.sh`
+- **commit**: `fix renko.py syntax error`
+- **post**: `scripts/post-renko-fix.sh`
 
 ### oblegacy.py history import
 - **Root cause**: `history` was imported from `src.sdk.helper` but it's a method on `Helper` class
