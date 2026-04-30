@@ -64,7 +64,7 @@ async def home(request: Request, user: str = Depends(get_current_user)):
         tmux_content = ""
 
     if is_running:
-        return templates.TemplateResponse("tmux.html", {"request": request})
+        return templates.TemplateResponse(request, "tmux.html")
 
     data_dir = PROJECT_ROOT / "data"
     files = []
@@ -73,7 +73,7 @@ async def home(request: Request, user: str = Depends(get_current_user)):
         for f in data_dir.iterdir():
             if f.is_file() and f.suffix in [".txt", ".yml", ".yaml"] and f.name not in ignore:
                 files.append({"name": f.name, "size": f.stat().st_size})
-    return templates.TemplateResponse("index.html", {"request": request, "files": files})
+    return templates.TemplateResponse(request, "index.html", {"files": files})
 
 
 @app.get("/status")
@@ -102,7 +102,7 @@ async def stop(user: str = Depends(get_current_user)):
 
 @app.get("/tmux", response_class=HTMLResponse)
 async def tmux_page(request: Request, user: str = Depends(get_current_user)):
-    return templates.TemplateResponse("tmux.html", {"request": request})
+    return templates.TemplateResponse(request, "tmux.html")
 
 
 @app.get("/tmux-data")
@@ -122,7 +122,7 @@ async def tmux_data(user: str = Depends(get_current_user)):
 
 @app.get("/log", response_class=HTMLResponse)
 async def log_page(request: Request, user: str = Depends(get_current_user)):
-    return templates.TemplateResponse("log.html", {"request": request})
+    return templates.TemplateResponse(request, "log.html")
 
 
 @app.get("/log-data")
@@ -141,7 +141,7 @@ async def files_page(request: Request, user: str = Depends(get_current_user)):
         for f in data_dir.iterdir():
             if f.is_file() and f.suffix in [".txt", ".yml", ".yaml"]:
                 files.append({"name": f.name, "size": f.stat().st_size})
-    return templates.TemplateResponse("files.html", {"request": request, "files": files})
+    return templates.TemplateResponse(request, "files.html", {"files": files})
 
 
 @app.get("/file/{filename}")
@@ -149,7 +149,7 @@ async def view_file(request: Request, filename: str, user: str = Depends(get_cur
     file_path = PROJECT_ROOT / "data" / filename
     if file_path.exists() and file_path.is_file():
         content = file_path.read_text()
-        return templates.TemplateResponse("file.html", {"request": request, "filename": filename, "content": content})
+        return templates.TemplateResponse(request, "file.html", {"filename": filename, "content": content})
     return {"error": "File not found"}
 
 
