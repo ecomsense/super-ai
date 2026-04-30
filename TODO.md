@@ -707,3 +707,27 @@ If concurrent execution causes issues:
 | 6 | Logging for threads | ⏳ Pending | - |
 | 7 | Test concurrent execution | ⏳ Pending | - |
 
+## Milestone: Concurrent Execution (2026-04-30)
+
+### Completed
+- ✅ Task 1: Position book snapshot in engine tick
+- ✅ Task 2: Thread-safe RiskManager.new() with threading.Lock()
+
+### Not Going to Implement (Tasks 3-7)
+**Reason:** Only one RAM strategy type exists. CE and PE share the same RiskManager instance, created once. No actual concurrency benefit needed for single-strategy setup.
+
+**Tasks kept for reference:**
+- Task 3: ThreadPoolExecutor to RAM
+- Task 4: Engine concurrent submission
+- Task 5: Graceful shutdown
+- Task 6: Logging for threads
+- Task 7: Test concurrent execution
+
+### Rollback Plan
+If concurrent execution causes issues:
+1. Revert `engine.py` to sequential strategy iteration
+2. Keep `RiskManager` thread-safety (no harm)
+3. Keep position book snapshot (reduces API calls)
+4. Debug issues in isolation
+5. Re-enable concurrent execution after fix
+
