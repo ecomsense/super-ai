@@ -1,4 +1,5 @@
 import logging
+import threading
 from traceback import print_exc
 from typing import Optional
 from src.config.interface import Position
@@ -7,6 +8,7 @@ from src.config.interface import Position
 class RiskManager:
     def __init__(self, stock_broker):
         self.broker = stock_broker
+        self._lock = threading.Lock()
         self.positions = []  # List of Position objects
         self.tag = "no_tag"
         self.slippage = 0.8  # for MCX
@@ -52,89 +54,91 @@ class RiskManager:
         tag="no_tag",
     ) -> Optional[int]:
         """Executes entry and creates/updates tracking."""
-        try:
-            self.tag = tag
+        with self._lock:
+            try:
+                self.tag = tag
 
-            self.slippage = 1 if exchange == "MCX" else 2
+                self.slippage = 1 if exchange == "MCX" else 2
 
-            order_no = self.broker.order_place(
-                symbol=symbol,
-                exchange=exchange,
-                quantity=quantity,
-                side="BUY",
-                order_type="LIMIT",
-                trigger_price=0.0,
-                price=entry_price + self.slippage,
-                disclosed_quantity=0,
-                tag=self.tag,
-                product="NRML" if exchange == "MCX" else "MIS",
-            )
-            logging.info(f"RM: Buy Order #{order_no} for {symbol} @{entry_price}")
-
-            # 2. Get actual total quantity from Broker
-            api_pos = self._get_pos_from_api(symbol)
-            total_qty = api_pos.get("quantity", quantity)
-
-            # 3. Handle internal object state
-            position = self._read_position(symbol)
-            if position is None:
-                # Note: 'slippage' was in your snippet; ensure it's passed or defaulted
-                position = Position(
+                order_no = self.broker.order_place(
                     symbol=symbol,
-                    quantity=total_qty,
-                    stop_price=stop_loss,
-                    target_price=target,
+                    exchange=exchange,
+                    quantity=quantity,
+                    side="BUY",
+                    order_type="LIMIT",
+                    trigger_price=0.0,
+                    price=entry_price + self.slippage,
+                    disclosed_quantity=0,
+                    tag=self.tag,
+                    product="NRML" if exchange == "MCX" else "MIS",
                 )
-                self.positions.append(position)
-            else:
-                position = self._write_position(symbol, total_qty)
+                logging.info(f"RM: Buy Order #{order_no} for {symbol} @{entry_price}")
 
-            return position.id
+                # 2. Get actual total quantity from Broker
+                api_pos = self._get_pos_from_api(symbol)
+                total_qty = api_pos.get("quantity", quantity)
 
-        except Exception as e:
-            logging.error(f"RM New Position Error: {e}")
-            print_exc()
-            return None
+                # 3. Handle internal object state
+                position = self._read_position(symbol)
+                if position is None:
+                    # Note: 'slippage' was in your snippet; ensure it's passed or defaulted
+                    position = Position(
+                        symbol=symbol,
+                        quantity=total_qty,
+                        stop_price=stop_loss,
+                        target_price=target,
+                    )
+                    self.positions.append(position)
+                else:
+                    position = self._write_position(symbol, total_qty)
+
+                return position.id
+
+            except Exception as e:
+                logging.error(f"RM New Position Error: {e}")
+                print_exc()
+                return None
 
     def status(self, pos_id: str, last_price: float) -> int:
         """
         Executes Flattening.
         Called by Ram strategy ONLY when an exit signal (Target/Time) is triggered.
         """
-        try:
-            symbol = next((p.symbol for p in self.positions if p.id == pos_id), None)
-            if symbol is not None:
-                api_pos = self._get_pos_from_api(symbol)
-                qty_to_sell = int(api_pos.get("quantity", 0))
+        with self._lock:
+            try:
+                symbol = next((p.symbol for p in self.positions if p.id == pos_id), None)
+                if symbol is not None:
+                    api_pos = self._get_pos_from_api(symbol)
+                    qty_to_sell = int(api_pos.get("quantity", 0))
 
-                if qty_to_sell > 0:
-                    exchange = api_pos.get("exchange", None)
-                    self.slippage = 1 if exchange == "MCX" else 2
-                    order_no = self.broker.order_place(
-                        symbol=symbol,
-                        exchange=exchange,
-                        quantity=qty_to_sell,
-                        side="SELL",
-                        order_type="LIMIT",
-                        trigger_price=0.0,
-                        price=last_price - self.slippage,
-                        disclosed_quantity=0,
-                        tag=self.tag,
-                        product="NRML" if exchange == "MCX" else "MIS",
-                    )
-                    logging.info(
-                        f"RM: Exit Order #{order_no} for {symbol}. Qty: {qty_to_sell}@{last_price}"
-                    )
+                    if qty_to_sell > 0:
+                        exchange = api_pos.get("exchange", None)
+                        self.slippage = 1 if exchange == "MCX" else 2
+                        order_no = self.broker.order_place(
+                            symbol=symbol,
+                            exchange=exchange,
+                            quantity=qty_to_sell,
+                            side="SELL",
+                            order_type="LIMIT",
+                            trigger_price=0.0,
+                            price=last_price - self.slippage,
+                            disclosed_quantity=0,
+                            tag=self.tag,
+                            product="NRML" if exchange == "MCX" else "MIS",
+                        )
+                        logging.info(
+                            f"RM: Exit Order #{order_no} for {symbol}. Qty: {qty_to_sell}@{last_price}"
+                        )
 
-                    # 4. Zero out the internal position
-                    if order_no:
-                        self._write_position(symbol, 0)
-                        return 0
+                        # 4. Zero out the internal position
+                        if order_no:
+                            self._write_position(symbol, 0)
+                            return 0
 
-                    return qty_to_sell
-            return -1
+                        return qty_to_sell
+                return -1
 
-        except Exception as e:
-            logging.error(f"RM Status (Exit) Error {e} for {symbol}: {e}")
-            print_exc()
-            return -1
+            except Exception as e:
+                logging.error(f"RM Status (Exit) Error {e} for {symbol}: {e}")
+                print_exc()
+                return -1

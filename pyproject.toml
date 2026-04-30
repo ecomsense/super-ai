@@ -1,0 +1,53 @@
+[project]
+name = "super-ai"
+version = "0.1.0"
+description = "Algorithmic trading platform with broker-agnostic architecture"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml",
+    "pyopenssl>=24.0.0",
+    "numpy==1.26.4",
+    "pandas",
+    "pendulum",
+    "pyotp",
+    "requests",
+    "websocket-client",
+    "tabulate",
+    "rich",
+    "fastapi",
+    "jinja2",
+    "uvicorn",
+    "python-multipart",
+    "libtmux",
+    "stock-brokers @ git+https://github.com/ecomsense/stock-brokers",
+    "toolkit @ git+https://github.com/pannet1/toolkit",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "freezegun",
+    "ruff",
+    "mypy",
+]
+
+[build-system]
+requires = ["setuptools>=58.2.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

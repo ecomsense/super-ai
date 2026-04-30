@@ -109,9 +109,10 @@ class Ram:
             logging.error(f"{e} while exit order")
             print_exc()
 
-    def run(self, quotes):
+    def run(self, position_book, quotes):
         try:
-            # get quotes
+            self.rm.positions = position_book
+            
             ltp = quotes.get(self._tradingsymbol)
             if ltp is None:
                 return

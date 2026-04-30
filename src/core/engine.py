@@ -38,11 +38,7 @@ class Engine:
 
             tbl_rich = []
             for strgy in self.strategies:
-                """
-                run_args = trades, quote.get_quotes(), positions
-                strgy.run(*run_args)  # Pass the dynamically generated args
-                """
-                strgy.run(quote.get_quotes())
+                strgy.run(rest.positions(), quote.get_quotes())
                 tbl_rich.append(generate_table(strgy))
 
             live.update(Columns(tbl_rich))
