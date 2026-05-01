@@ -10,6 +10,7 @@ import threading
 import time
 from unittest.mock import Mock, patch
 from src.providers.risk_manager import RiskManager
+from src.strategies.ram import Ram
 
 
 class TestPositionBookSnapshot:
@@ -20,6 +21,9 @@ class TestPositionBookSnapshot:
         mock_rm = Mock(spec=RiskManager)
         mock_rm.positions = []
 
+        mock_rest = Mock()
+        mock_rest.history.return_value = 100.0
+
         ram = Ram(
             tradingsymbol="NIFTY05MAY26C23700",
             strategy="ram",
@@ -28,6 +32,8 @@ class TestPositionBookSnapshot:
             option_exchange="NFO",
             quantity=65,
             ltp=340.0,
+            rest=mock_rest,
+            option_token="123",
         )
 
         position_book = [{"symbol": "NIFTY05MAY26C23700", "quantity": 65}]
@@ -44,6 +50,9 @@ class TestPositionBookSnapshot:
         mock_rm = Mock(spec=RiskManager)
         mock_rm.positions = []
 
+        mock_rest = Mock()
+        mock_rest.history.return_value = 100.0
+
         ram = Ram(
             tradingsymbol="NIFTY05MAY26C23700",
             strategy="ram",
@@ -52,6 +61,8 @@ class TestPositionBookSnapshot:
             option_exchange="NFO",
             quantity=65,
             ltp=340.0,
+            rest=mock_rest,
+            option_token="123",
         )
 
         position_book = [{"symbol": "NIFTY05MAY26C23700", "quantity": 65}]
@@ -67,6 +78,9 @@ class TestPositionBookSnapshot:
         mock_rm = Mock(spec=RiskManager)
         mock_rm.positions = []
 
+        mock_rest = Mock()
+        mock_rest.history.return_value = 100.0
+
         ram = Ram(
             tradingsymbol="NIFTY05MAY26C23700",
             strategy="ram",
@@ -75,6 +89,8 @@ class TestPositionBookSnapshot:
             option_exchange="NFO",
             quantity=65,
             ltp=340.0,
+            rest=mock_rest,
+            option_token="123",
         )
 
         position_book = []

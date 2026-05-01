@@ -1,5 +1,5 @@
 from unittest.mock import patch
-from src.providers.position_manager import PositionManager
+from src.providers.position_manager import PositionManager, NFOManager
 
 
 def test_pm_new_creates_entry(mock_broker, global_mocks):
@@ -112,7 +112,7 @@ def test_nfo_manager_create_exit(mock_broker, global_mocks):
     pos.symbol = "BANKNIFTY-OPT"
     pos.quantity = 15
 
-    nfo = NFOManager(mock_broker, pos, "test_tag")
+    nfo = NFOManager(mock_broker, pos, "test_tag", exit_method="target")
 
     updated_pos = nfo.create_exit(pos, last_price=100.0)
 
@@ -128,7 +128,7 @@ def test_nfo_manager_modify_and_cancel(mock_broker, global_mocks):
     pos.state = "target_pending"
     pos.exit.order_id = "EXT_123"
 
-    nfo = NFOManager(mock_broker, pos, "test_tag")
+    nfo = NFOManager(mock_broker, pos, "test_tag", exit_method="target")
 
     # 1. Test Modification logic
     nfo.modify(pos, last_price=150.0)

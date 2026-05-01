@@ -1,4 +1,4 @@
-from src.strategies.openingbalance import BreakoutState, Openingbalance
+from src.deprecated.openingbalance import BreakoutState, Openingbalance
 from tests.factory_settings import Factory
 
 

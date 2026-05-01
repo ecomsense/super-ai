@@ -71,7 +71,7 @@ def main():
             Table(title="Initializing..."), console=console, refresh_per_second=4
         ) as live:
             while not is_time_past(engine.stop):
-                for builder in builders:
+                for builder in list(builders):
                     if builder.can_build():
                         data = stuff_atm(builder._data, builder._meta)
                         lst_of_params = stuff_tradingsymbols(data, builder._meta)

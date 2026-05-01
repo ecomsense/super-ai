@@ -1,7 +1,7 @@
 # tests/integration/test_hilo_flow.py
 
 import pytest
-from src.strategies.hilo import Hilo
+from src.deprecated.hilo import Hilo
 
 
 @pytest.mark.integration

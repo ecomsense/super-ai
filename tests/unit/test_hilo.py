@@ -1,4 +1,4 @@
-from src.strategies.hilo import BreakoutState, Hilo
+from src.deprecated.hilo import BreakoutState, Hilo
 from tests.factory_settings import Factory
 
 

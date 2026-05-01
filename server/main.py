@@ -11,6 +11,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 
 PROJECT_ROOT = Path(__file__).parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
 TMUX_SESSION = "tmux-session"
 
 app = FastAPI()
@@ -29,6 +30,14 @@ def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials.username
 
 
+def is_tmux_running() -> bool:
+    result = subprocess.run(
+        ["tmux", "has-session", "-t", TMUX_SESSION],
+        capture_output=True
+    )
+    return result.returncode == 0
+
+
 templates = Jinja2Templates(directory=STATIC_DIR)
 
 
@@ -42,11 +51,7 @@ async def style_css():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, user: str = Depends(get_current_user)):
-    result = subprocess.run(
-        ["tmux", "has-session", "-t", TMUX_SESSION],
-        capture_output=True
-    )
-    is_running = result.returncode == 0
+    is_running = is_tmux_running()
 
     if is_running:
         import libtmux
@@ -66,7 +71,7 @@ async def home(request: Request, user: str = Depends(get_current_user)):
     if is_running:
         return templates.TemplateResponse(request, "tmux.html")
 
-    data_dir = PROJECT_ROOT / "data"
+    data_dir = DATA_DIR
     files = []
     ignore = ["log.txt", "run.txt"]
     if data_dir.exists():
@@ -78,16 +83,12 @@ async def home(request: Request, user: str = Depends(get_current_user)):
 
 @app.get("/status")
 async def status(user: str = Depends(get_current_user)):
-    result = subprocess.run(
-        ["tmux", "has-session", "-t", TMUX_SESSION],
-        capture_output=True
-    )
-    return {"status": "Running" if result.returncode == 0 else "Stopped"}
+    return {"status": "Running" if is_tmux_running() else "Stopped"}
 
 
 @app.post("/start")
 async def start(user: str = Depends(get_current_user)):
-    run_file = PROJECT_ROOT / "data" / "run.txt"
+    run_file = DATA_DIR / "run.txt"
     if run_file.exists():
         run_file.unlink()
     subprocess.run(["bash", str(PROJECT_ROOT / "tmux.sh")], cwd=PROJECT_ROOT)
@@ -127,7 +128,7 @@ async def log_page(request: Request, user: str = Depends(get_current_user)):
 
 @app.get("/log-data")
 async def log_data(user: str = Depends(get_current_user)):
-    log_file = PROJECT_ROOT / "data" / "log.txt"
+    log_file = DATA_DIR / "log.txt"
     if log_file.exists():
         return {"log": log_file.read_text()[-5000:]}
     return {"log": "No log file"}
@@ -135,7 +136,7 @@ async def log_data(user: str = Depends(get_current_user)):
 
 @app.get("/files", response_class=HTMLResponse)
 async def files_page(request: Request, user: str = Depends(get_current_user)):
-    data_dir = PROJECT_ROOT / "data"
+    data_dir = DATA_DIR
     files = []
     if data_dir.exists():
         for f in data_dir.iterdir():
@@ -146,7 +147,7 @@ async def files_page(request: Request, user: str = Depends(get_current_user)):
 
 @app.get("/file/{filename}")
 async def view_file(request: Request, filename: str, user: str = Depends(get_current_user)):
-    file_path = PROJECT_ROOT / "data" / filename
+    file_path = DATA_DIR / filename
     if file_path.exists() and file_path.is_file():
         content = file_path.read_text()
         return templates.TemplateResponse(request, "file.html", {"filename": filename, "content": content})
@@ -155,7 +156,7 @@ async def view_file(request: Request, filename: str, user: str = Depends(get_cur
 
 @app.post("/file/{filename}")
 async def save_file(filename: str, content: str = Form(...), user: str = Depends(get_current_user)):
-    file_path = PROJECT_ROOT / "data" / filename
+    file_path = DATA_DIR / filename
     if file_path.exists() and file_path.is_file():
         file_path.write_text(content)
         return RedirectResponse(url="/", status_code=303)
@@ -168,7 +169,7 @@ class ToggleRequest(BaseModel):
 
 @app.post("/rename")
 async def rename_file(req: ToggleRequest, user: str = Depends(get_current_user)):
-    file_path = PROJECT_ROOT / "data" / req.filename
+    file_path = DATA_DIR / req.filename
     if file_path.exists() and file_path.is_file():
         if file_path.suffix == ".yml":
             new_path = file_path.with_suffix(".txt")
@@ -183,7 +184,7 @@ async def rename_file(req: ToggleRequest, user: str = Depends(get_current_user))
 
 @app.post("/delete")
 async def delete_file(req: ToggleRequest, user: str = Depends(get_current_user)):
-    file_path = PROJECT_ROOT / "data" / req.filename
+    file_path = DATA_DIR / req.filename
     if file_path.exists() and file_path.is_file():
         file_path.unlink()
         return {"status": "deleted"}
