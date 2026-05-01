@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Form
@@ -32,8 +31,7 @@ def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
 
 def is_tmux_running() -> bool:
     result = subprocess.run(
-        ["tmux", "has-session", "-t", TMUX_SESSION],
-        capture_output=True
+        ["tmux", "has-session", "-t", TMUX_SESSION], capture_output=True
     )
     return result.returncode == 0
 
@@ -55,6 +53,7 @@ async def home(request: Request, user: str = Depends(get_current_user)):
 
     if is_running:
         import libtmux
+
         try:
             server = libtmux.Server()
             session = server.find_where({"session_name": TMUX_SESSION})
@@ -76,7 +75,11 @@ async def home(request: Request, user: str = Depends(get_current_user)):
     ignore = ["log.txt", "run.txt"]
     if data_dir.exists():
         for f in data_dir.iterdir():
-            if f.is_file() and f.suffix in [".txt", ".yml", ".yaml"] and f.name not in ignore:
+            if (
+                f.is_file()
+                and f.suffix in [".txt", ".yml", ".yaml"]
+                and f.name not in ignore
+            ):
                 files.append({"name": f.name, "size": f.stat().st_size})
     return templates.TemplateResponse(request, "index.html", {"files": files})
 
@@ -110,6 +113,7 @@ async def tmux_page(request: Request, user: str = Depends(get_current_user)):
 async def tmux_data(user: str = Depends(get_current_user)):
     try:
         import libtmux
+
         server = libtmux.Server()
         session = server.find_where({"session_name": TMUX_SESSION})
         if session:
@@ -146,16 +150,22 @@ async def files_page(request: Request, user: str = Depends(get_current_user)):
 
 
 @app.get("/file/{filename}")
-async def view_file(request: Request, filename: str, user: str = Depends(get_current_user)):
+async def view_file(
+    request: Request, filename: str, user: str = Depends(get_current_user)
+):
     file_path = DATA_DIR / filename
     if file_path.exists() and file_path.is_file():
         content = file_path.read_text()
-        return templates.TemplateResponse(request, "file.html", {"filename": filename, "content": content})
+        return templates.TemplateResponse(
+            request, "file.html", {"filename": filename, "content": content}
+        )
     return {"error": "File not found"}
 
 
 @app.post("/file/{filename}")
-async def save_file(filename: str, content: str = Form(...), user: str = Depends(get_current_user)):
+async def save_file(
+    filename: str, content: str = Form(...), user: str = Depends(get_current_user)
+):
     file_path = DATA_DIR / filename
     if file_path.exists() and file_path.is_file():
         file_path.write_text(content)
