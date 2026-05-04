@@ -4,8 +4,8 @@
 
 - **Repo**: `git@github.com:ecomsense/super-ai`
 - **Remote server**: `ssh harinath.r` (see ~/.ssh/config for IP)
-- **Venv**: `/home/pannet1/py/finvasia/`
-- **Python**: 3.13
+- **Venv**: `.venv/` (at project root)
+- **Python**: 3.10 (use `uv venv .venv --python 3.10` to create)
 
 ## Troubleshooting Checklist
 
@@ -50,12 +50,17 @@ print('OK')
 ### Missing Dependencies
 
 ```bash
-# Install from requirements
-/home/pannet1/py/finvasia/bin/pip install -r requirements.txt
+# Install dependencies using uv (use pyproject.toml, not requirements.txt)
+cd /path/to/super-ai
+uv venv .venv --python 3.10
+uv pip install -r requirements.txt  # If requirements.txt exists, otherwise use pyproject.toml
+uv pip install pytest  # For running tests locally
 
-# Install renkodf separately (not in requirements.txt)
-/home/pannet1/py/finvasia/bin/pip install renkodf
+# Install renkodf separately (if needed)
+uv pip install renkodf
 ```
+
+**Note**: Use `pyproject.toml` as single source of truth for dependencies (per rules.md).
 
 ### Git Sync
 
@@ -91,6 +96,21 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - **Root cause**: Password stored in plaintext
 - **Fix**: Should use environment variables or .env file
 - **Status**: Known issue, not fixed
+
+### Broker Position Format
+- **Finding**: Helper.positions() returns broker position dicts with keys: `symbol`, `quantity`
+- **Note**: No `id` field in broker response - RiskManager generates id from symbol
+- **Fixtures**: Added broker_position_book, broker_order_book, broker_trades fixtures in tests/conftest.py
+- **Status**: Done
+
+### Running Tests Locally
+```bash
+cd /path/to/super-ai
+uv venv .venv --python 3.10
+uv pip install -r requirements.txt  # or uv pip install -e .
+uv pip install pytest
+.venv/bin/python -m pytest tests/unit/ -v
+```
 
 ### server/main.py refactoring
 - **Changes**: Added logging, replaced hardcoded credentials with env vars (no defaults - must be set via environment), removed bare except, extracted duplicated file listing logic, removed unused import, added type hints, extracted magic number (LOG_SLICE_SIZE), extracted file validation into get_valid_file_path() helper (also adds security check for path traversal), moved style.css to static folder and using StaticFiles middleware, changed auth dependency parameter to _ to avoid linter warnings, renamed status() to get_status() to avoid conflict with imported status module, removed unused FileResponse import
