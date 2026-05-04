@@ -1,5 +1,6 @@
 from unittest.mock import patch
 from src.providers.position_manager import PositionManager, NFOManager
+from src.config.interface import Trade
 
 
 def test_pm_new_creates_entry(mock_broker, global_mocks):
@@ -126,14 +127,35 @@ def test_nfo_manager_modify_and_cancel(mock_broker, global_mocks):
     # Setup mock state for modification
     pos = global_mocks["mock"]
     pos.state = "target_pending"
-    pos.exit.order_id = "EXT_123"
+    pos.target_price = 200.0
+    pos.stop_price = 150.0  # Also set stop_price to avoid MagicMock
+    pos.slippage = 0.5
+    pos.exit = Trade(
+        order_id="EXT_123",
+        order_type="LMT",
+        trigger_price=0.0,
+        side="S",
+        symbol="TEST",
+        quantity=15,
+        exchange="NFO",
+        product="M",  # Include product since it has a default
+    )
 
     nfo = NFOManager(mock_broker, pos, "test_tag", exit_method="target")
 
     # 1. Test Modification logic
+    # Note: When exit_method is "target", modify uses last_price - slippage, not target_price
     nfo.modify(pos, last_price=150.0)
     mock_broker.order_modify.assert_called_once_with(
-        order_id="EXT_123", order_type="LMT", trigger_price=0.0
+        order_id="EXT_123",
+        order_type="LMT",
+        trigger_price=0.0,
+        side="S",
+        symbol="TEST",
+        quantity=15,
+        exchange="NFO",
+        product="M",  # Trade has product="M" as default
+        price=149.5,  # last_price - slippage = 150.0 - 0.5 (not target_price!)
     )
     assert nfo.next_fn == "cancel"
 

@@ -676,10 +676,44 @@ If concurrent execution causes issues:
 
 ---
 
+## Future Improvement: Position Sync (2026-05-03)
+
+**Issue:** Internal positions can drift from broker API state.
+
+**Problem:** Two sources of position data:
+1. `position_book` passed from engine tick
+2. `_get_pos_from_api()` called internally in RiskManager
+
+**Risk:** Manual trades outside system, API delays, partial fills can cause sync issues.
+
+**Solution:** Update internal positions whenever we fetch from broker API:
+
+```python
+def _get_pos_from_api(self, symbol: str):
+    api_pos = self.broker.positions
+    broker_qty = next((p for p in api_pos if p["symbol"] == symbol), {}).get("quantity", 0)
+    
+    # Sync internal state
+    internal = self._read_position(symbol)
+    if internal:
+        internal.quantity = broker_qty
+    
+    return broker_qty
+```
+
+**Benefits:**
+- Single source of truth
+- Fallback ready if API fails
+- Remove need to pass position_book around
+
+**Status:** TODO - wait for trading to stabilize after thread/futures changes
+
+---
+
 **Status:** Ready for implementation  
 **Created:** 2026-04-30  
-**Updated:** 2026-04-30 (revised design + code quality analysis)  
-**Priority:** High (customer-facing issue)
+**Updated:** 2026-05-03 (added position sync improvement)  
+**Priority:** Medium
 
 ---
 
