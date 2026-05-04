@@ -19,7 +19,7 @@ LOG_SLICE_SIZE = 50
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(PROJECT_ROOT / "data" / "server.log"), logging.StreamingHandler()]
+    handlers=[logging.FileHandler(PROJECT_ROOT / "data" / "server.log"), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
