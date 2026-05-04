@@ -530,23 +530,23 @@ if __name__ == "__main__":
             resp = api.margins
             print(resp)
 
+        # Check positions
+        print("=== Checking positions ===")
+        h = rest
+        pos = h.positions()
+        print("positions() returned:", pos)
+        print("_positions:", h._positions)
+        if h._positions and h._positions != [{}]:
+            print("Keys:", list(h._positions[0].keys()))
+        else:
+            print("No positions or empty")
+        print("Done!")
+        sys.exit(0)  # Exit after printing positions
+
         trades()
         orders()
         resp = rest.pnl("rpnl")
         print("rpnl: ", resp)
-
-        # Check positions
-        print("=== Checking positions ===")
-        h = Helper()
-        pos = h.positions()
-        print('positions() returned:', pos)
-        print('_positions:', h._positions)
-        if h._positions and h._positions != [{}]:
-            print('Keys:', list(h._positions[0].keys()))
-        else:
-            print('No positions or empty')
-        print('Done!')
-        return  # Exit immediately after printing positions
 
         # Old code commented out below:
         # exchange = "NFO"
@@ -561,16 +561,16 @@ if __name__ == "__main__":
         # df = Helper._rest.yesterday("NFO", "47764")
         # print(df)
         # Helper._rest.close_positions()
-
+        """
         while True:
             idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
             resp = history(
                 api=Helper.api(), exchange="NFO", token="44604", loc=idx, key="intl"
             )
             print("history", resp)
+        """
     except KeyboardInterrupt:
         print("ctrl c pressed")
-        """
     except Exception as e:
         print(e)
         print_exc()
