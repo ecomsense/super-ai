@@ -535,23 +535,6 @@ if __name__ == "__main__":
         resp = rest.pnl("rpnl")
         print("rpnl: ", resp)
 
-        """ 
-        exchange = "NFO"
-        tsym = "BANKNIFTY24FEB26P59600"
-
-        intl = rest.history(
-            exchange=exchange,
-            token=api.instrument_symbol(exchange, tsym),
-            loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
-            key="intl",
-        )
-        print(intl)
-
-        df = Helper._rest.yesterday("NFO", "47764")
-        print(df)
-
-        Helper._rest.close_positions()
-
         # Check positions
         print("=== Checking positions ===")
         h = Helper()
@@ -564,6 +547,20 @@ if __name__ == "__main__":
             print('No positions or empty')
         print('Done!')
         return  # Exit immediately after printing positions
+
+        # Old code commented out below:
+        # exchange = "NFO"
+        # tsym = "BANKNIFTY24FEB26P59600"
+        # intl = rest.history(
+        #     exchange=exchange,
+        #     token=api.instrument_symbol(exchange, tsym),
+        #     loc=pdlm.now("Asia/Kolkata").replace(hour=9, minute=16),
+        #     key="intl",
+        # )
+        # print(intl)
+        # df = Helper._rest.yesterday("NFO", "47764")
+        # print(df)
+        # Helper._rest.close_positions()
 
         while True:
             idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
