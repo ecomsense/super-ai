@@ -537,14 +537,31 @@ if __name__ == "__main__":
         print("positions() returned:", pos)
         print("_positions:", h._positions)
         if h._positions and h._positions != [{}]:
-            print("Keys:", list(h._positions[0].keys()))
+            print("Positions Keys:", list(h._positions[0].keys()))
         else:
             print("No positions or empty")
-        print("Done!")
-        sys.exit(0)  # Exit after printing positions
 
-        trades()
-        orders()
+        # Check orders
+        print("=== Checking orders ===")
+        ordrs = h.orders()
+        print("orders() returned:", ordrs)
+        if ordrs and ordrs != [{}]:
+            print("Orders Keys:", list(ordrs[0].keys()))
+        else:
+            print("No orders or empty")
+
+        # Check trades
+        print("=== Checking trades ===")
+        trds = h.trades()
+        print("trades() returned:", trds)
+        if trds and trds != []:
+            print("Trades Keys:", list(trds[0].keys()))
+        else:
+            print("No trades or empty")
+
+        print("Done!")
+        sys.exit(0)  # Exit after printing
+
         resp = rest.pnl("rpnl")
         print("rpnl: ", resp)
 
