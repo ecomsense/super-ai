@@ -553,10 +553,15 @@ if __name__ == "__main__":
         Helper._rest.close_positions()
 
         # Check positions
+        print("=== Checking positions ===")
         h = Helper()
-        h.positions()
-        print('Positions:', h._positions)
-        print('Keys:', list(h._positions[0].keys()) if h._positions else 'empty')
+        pos = h.positions()
+        print('positions() returned:', pos)
+        print('_positions:', h._positions)
+        if h._positions and h._positions != [{}]:
+            print('Keys:', list(h._positions[0].keys()))
+        else:
+            print('No positions or empty')
         print('Done!')
         return  # Exit immediately after printing positions
 
