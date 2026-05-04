@@ -20,50 +20,12 @@ def rm(mock_broker):
 
 
 # Realistic dummy data that resembles actual broker position response
-# From actual flattrade broker API response
+# Only include keys we actually check - keep it broker agnostic
 BROKER_POSITION_DICT = {
-    "stat": "Ok",
-    "uid": "FZ13059",
-    "actid": "FZ13059",
-    "exchange": "NFO",
     "symbol": "NIFTY05MAY26C23800",
-    "s_prdt_ali": "MIS",
-    "prd": "I",
-    "token": "74129",
-    "symname": "NIFTY",
-    "und_exch": "NSE",
-    "und_tk": "26000",
-    "instname": "OPTIDX",
-    "cname": "NIFTY 05MAY26 23800 CE ",
-    "dname": "NIFTY 05MAY26 23800 CE ",
-    "frzqty": "1801",
-    "pp": "2",
-    "ls": "65",
-    "ti": "0.05",
-    "mult": "1",
-    "prcftr": "1.000000",
-    "daybuyqty": 455,
-    "daysellqty": 455,
-    "day_buy_value": 208058.5,
-    "daybuyavgprc": 457.27,
-    "day_sell_value": 214340.75,
-    "daysellavgprc": 471.08,
-    "cfbuyqty": 0,
-    "cfsellqty": 0,
-    "openbuyqty": 0,
-    "opensellqty": 0,
-    "dayavgprc": 0.0,
-    "quantity": 0,  # net position (daybuyqty - daysellqty)
-    "netavgprc": "0.00",
-    "upldprc": "0.00",
-    "last_price": 354.4,
-    "urmtom": 0.0,
-    "bep": "0.00",
-    "totbuyamt": "208058.50",
-    "totsellamt": "214340.75",
-    "totbuyavgprc": "457.27",
-    "totsellavgprc": "471.08",
-    "rpnl": 6282.25,
+    "quantity": 65,
+    "daybuyqty": 100,
+    "daysellqty": 35,
 }
 
 
@@ -71,80 +33,20 @@ BROKER_POSITION_DICT = {
 def broker_position_book():
     """Return a realistic position book as returned by the broker.
     
-    This data resembles the actual response from the broker's positions API.
-    Some fields may vary between brokers, but this is a realistic example.
-    From actual flattrade broker API response.
+    Only include keys we actually check - keep it broker agnostic.
     """
     return [
         {
-            "stat": "Ok",
-            "uid": "FZ13059",
-            "actid": "FZ13059",
-            "exchange": "NFO",
             "symbol": "NIFTY05MAY26C23800",
-            "s_prdt_ali": "MIS",
-            "prd": "I",
-            "token": "74129",
-            "symname": "NIFTY",
-            "und_exch": "NSE",
-            "und_tk": "26000",
-            "instname": "OPTIDX",
-            "cname": "NIFTY 05MAY26 23800 CE ",
-            "dname": "NIFTY 05MAY26 23800 CE ",
-            "ls": "65",
-            "mult": "1",
-            "daybuyqty": 455,
-            "daysellqty": 455,
-            "daybuyavgprc": 457.27,
-            "daysellavgprc": 471.08,
-            "cfbuyqty": 0,
-            "cfsellqty": 0,
-            "openbuyqty": 0,
-            "opensellqty": 0,
-            "dayavgprc": 0.0,
-            "quantity": 0,
-            "netavgprc": "0.00",
-            "last_price": 354.4,
-            "urmtom": 0.0,
-            "bep": "0.00",
-            "totbuyamt": "208058.50",
-            "totsellamt": "214340.75",
-            "rpnl": 6282.25,
+            "quantity": 65,
+            "daybuyqty": 100,
+            "daysellqty": 35,
         },
         {
-            "stat": "Ok",
-            "uid": "FZ13059",
-            "actid": "FZ13059",
-            "exchange": "NFO",
             "symbol": "NIFTY05MAY26P24200",
-            "s_prdt_ali": "MIS",
-            "prd": "I",
-            "token": "74168",
-            "symname": "NIFTY",
-            "und_exch": "NSE",
-            "und_tk": "26000",
-            "instname": "OPTIDX",
-            "cname": "NIFTY 05MAY26 24200 PE ",
-            "dname": "NIFTY 05MAY26 24200 PE ",
-            "ls": "65",
-            "mult": "1",
-            "daybuyqty": 780,
-            "daysellqty": 780,
-            "daybuyavgprc": 126.6,
-            "daysellavgprc": 127.8,
-            "cfbuyqty": 0,
-            "cfsellqty": 0,
-            "openbuyqty": 0,
-            "opensellqty": 0,
-            "dayavgprc": 0.0,
             "quantity": 0,
-            "netavgprc": "0.00",
-            "last_price": 133.65,
-            "urmtom": 0.0,
-            "bep": "0.00",
-            "totbuyamt": "98751.25",
-            "totsellamt": "99680.75",
-            "rpnl": 929.5,
+            "daybuyqty": 50,
+            "daysellqty": 50,
         },
     ]
 
@@ -154,24 +56,10 @@ def broker_position_book_with_exit():
     """Return a position book where some positions are ready to exit (profit target hit)."""
     return [
         {
-            "stat": "Ok",
-            "uid": "FZ13059",
-            "actid": "FZ13059",
-            "exchange": "NFO",
             "symbol": "NIFTY05MAY26C23800",
-            "s_prdt_ali": "MIS",
-            "prd": "I",
-            "token": "74129",
-            "symname": "NIFTY",
-            "ls": "65",
-            "mult": "1",
+            "quantity": 100,
             "daybuyqty": 100,
             "daysellqty": 0,
-            "daybuyavgprc": 440.00,
-            "daysellavgprc": 0.0,
-            "quantity": 100,
-            "last_price": 470.00,  # Target hit - price above target
-            "rpnl": 3000.00,  # Profit
         },
     ]
 

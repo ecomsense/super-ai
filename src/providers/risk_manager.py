@@ -24,16 +24,10 @@ class RiskManager:
         for p in position_book:
             if isinstance(p, dict):
                 # Convert dict to Position object
-                # Note: broker returns 'quantity' as net position (daybuyqty - daysellqty)
-                # For open positions, use 'daybuyqty - daysellqty' or use the 'quantity' field
-                quantity = p.get("quantity", 0)
-                # If quantity is 0, try to calculate from daybuyqty/daysellqty
-                if quantity == 0 and "daybuyqty" in p and "daysellqty" in p:
-                    quantity = int(p.get("daybuyqty", 0)) - int(p.get("daysellqty", 0))
-                
+                # Broker returns 'quantity' as net position (daybuyqty - daysellqty)
                 pos = Position(
                     symbol=p.get("symbol", ""),
-                    quantity=quantity,
+                    quantity=p.get("quantity", 0),
                     stop_price=p.get("stop_price", 0),
                     target_price=p.get("target_price", 0),
                 )
