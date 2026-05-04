@@ -556,7 +556,9 @@ if __name__ == "__main__":
         h = Helper()
         h.positions()
         print('Positions:', h._positions)
-        print('Keys:', h._positions[0].keys() if h._positions else 'empty')
+        print('Keys:', list(h._positions[0].keys()) if h._positions else 'empty')
+        print('Done!')
+        return  # Exit immediately after printing positions
 
         while True:
             idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
