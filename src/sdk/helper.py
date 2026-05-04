@@ -530,38 +530,8 @@ if __name__ == "__main__":
             resp = api.margins
             print(resp)
 
-        # Check positions
-        print("=== Checking positions ===")
-        h = rest
-        pos = h.positions()
-        print("positions() returned:", pos)
-        print("_positions:", h._positions)
-        if h._positions and h._positions != [{}]:
-            print("Positions Keys:", list(h._positions[0].keys()))
-        else:
-            print("No positions or empty")
-
-        # Check orders
-        print("=== Checking orders ===")
-        ordrs = h.orders()
-        print("orders() returned:", ordrs)
-        if ordrs and ordrs != [{}]:
-            print("Orders Keys:", list(ordrs[0].keys()))
-        else:
-            print("No orders or empty")
-
-        # Check trades
-        print("=== Checking trades ===")
-        trds = h.trades()
-        print("trades() returned:", trds)
-        if trds and trds != []:
-            print("Trades Keys:", list(trds[0].keys()))
-        else:
-            print("No trades or empty")
-
-        print("Done!")
-        sys.exit(0)  # Exit after printing
-
+        trades()
+        orders()
         resp = rest.pnl("rpnl")
         print("rpnl: ", resp)
 
