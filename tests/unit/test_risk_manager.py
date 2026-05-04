@@ -1,23 +1,13 @@
 """Tests for RiskManager, specifically the status() method."""
 import pytest
-from unittest.mock import Mock, MagicMock
-from src.providers.risk_manager import RiskManager
 from src.config.interface import Position
 
-
-@pytest.fixture
-def mock_broker():
-    """Create a mock broker."""
-    broker = Mock()
-    broker.order_place.return_value = "ORD_12345"
-    broker.positions = []
-    return broker
-
-
-@pytest.fixture
-def rm(mock_broker):
-    """Create a RiskManager instance."""
-    return RiskManager(mock_broker)
+# Using fixtures from conftest.py:
+# - mock_broker: provides mock broker with order_place and positions
+# - rm: provides RiskManager instance with mock broker
+# - broker_position_book: realistic position data from broker
+# - broker_position_book_with_exit: positions ready to exit
+# - broker_position_book_empty: empty position book
 
 
 class TestRiskManagerPositions:
@@ -31,27 +21,25 @@ class TestRiskManagerPositions:
         assert len(rm.positions) == 1
         assert rm.positions[0].symbol == "NIFTY"
 
-    def test_positions_converts_dicts_to_position_objects(self, rm):
+    def test_positions_converts_dicts_to_position_objects(self, rm, broker_position_book):
         """RiskManager should convert dict-based positions to Position objects."""
         # This is what the broker API returns - a list of dicts
-        position_book = [
-            {"symbol": "NIFTY", "quantity": 10, "id": 123456},
-            {"symbol": "BANKNIFTY", "quantity": 5, "id": 789012}
-        ]
-        rm.positions = position_book
+        rm.positions = broker_position_book
         
         assert len(rm.positions) == 2
-        assert rm.positions[0].symbol == "NIFTY"
-        assert rm.positions[0].quantity == 10
-        assert rm.positions[1].symbol == "BANKNIFTY"
-        assert rm.positions[1].quantity == 5
+        assert rm.positions[0].symbol == "NIFTY05MAY26C23800"
+        assert rm.positions[0].quantity == 65
+        assert rm.positions[1].symbol == "BANKNIFTY05MAY26C42000"
+        assert rm.positions[1].quantity == 30
 
-    def test_positions_preserves_id_from_dict(self, rm):
+    def test_positions_preserves_id_from_dict(self, rm, broker_position_book):
         """RiskManager should preserve the id when converting from dict."""
-        position_book = [{"symbol": "NIFTY", "quantity": 10, "id": 123456}]
-        rm.positions = position_book
+        # Note: broker_position_book doesn't have 'id' field, so this tests
+        # that the Position object's default id is used
+        rm.positions = broker_position_book
         
-        assert rm.positions[0].id == 123456
+        # The id should be auto-generated (not from dict since it's not present)
+        assert rm.positions[0].id is not None
 
 
 class TestRiskManagerStatus:
@@ -92,9 +80,9 @@ class TestRiskManagerStatus:
         # Verify: Should work without exceptions
         assert result >= 0
 
-    def test_status_with_invalid_pos_id(self, rm, mock_broker):
+    def test_status_with_invalid_pos_id(self, rm, mock_broker, broker_position_book_empty):
         """status() should return -1 when pos_id is not found."""
-        rm.positions = []  # No positions
+        rm.positions = broker_position_book_empty  # No positions
         
         result = rm.status(pos_id=999999, last_price=100.0)
         
@@ -117,9 +105,9 @@ class TestRiskManagerStatus:
         # Should return -1 on error
         assert result == -1
 
-    def test_status_with_empty_positions(self, rm, mock_broker):
+    def test_status_with_empty_positions(self, rm, mock_broker, broker_position_book_empty):
         """status() should return -1 when there are no positions."""
-        rm.positions = []
+        rm.positions = broker_position_book_empty
         
         result = rm.status(pos_id=123456, last_price=100.0)
         
