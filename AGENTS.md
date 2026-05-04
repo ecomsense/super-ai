@@ -3,7 +3,7 @@
 ## Project
 
 - **Repo**: `git@github.com:ecomsense/super-ai`
-- **Remote server**: `ssh harinath.r` (65.20.88.130)
+- **Remote server**: `ssh harinath.r` (see ~/.ssh/config for IP)
 - **Venv**: `/home/pannet1/py/finvasia/`
 - **Python**: 3.13
 
@@ -91,6 +91,11 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - **Root cause**: Password stored in plaintext
 - **Fix**: Should use environment variables or .env file
 - **Status**: Known issue, not fixed
+
+### server/main.py refactoring
+- **Changes**: Added logging, replaced hardcoded credentials with env vars (no defaults - must be set via environment), removed bare except, extracted duplicated file listing logic, removed unused import, added type hints, extracted magic number (LOG_SLICE_SIZE), extracted file validation into get_valid_file_path() helper (also adds security check for path traversal), moved style.css to static folder and using StaticFiles middleware, changed auth dependency parameter to _ to avoid linter warnings, renamed status() to get_status() to avoid conflict with imported status module, removed unused FileResponse import
+- **Status**: Done
+- **commit**: `refactor server/main.py - add logging, env vars, type hints, remove duplication`
 
 ## Scripts
 
