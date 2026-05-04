@@ -62,6 +62,64 @@ def broker_position_book_empty():
     return []
 
 
+# Broker order response - only essential keys we actually use
+BROKER_ORDER_DICT = {
+    "order_id": "26050400351374",
+    "remarks": "algo_order",
+    "exchange": "NFO",
+    "symbol": "NIFTY05MAY26P24200",
+    "price": 165.70,
+    "price_type": "MKT",
+    "quantity": 65,
+}
+
+
+@pytest.fixture
+def broker_order_book():
+    """Return a realistic order book as returned by the broker.
+    
+    Only include keys we actually check - keep it broker agnostic.
+    """
+    return [
+        {
+            "order_id": "26050400351374",
+            "remarks": "",
+            "exchange": "NFO",
+            "symbol": "NIFTY05MAY26P24200",
+            "price": 165.70,
+            "price_type": "MKT",
+            "quantity": 65,
+        },
+        {
+            "order_id": "26050400346882",
+            "remarks": "ram",
+            "exchange": "NFO",
+            "symbol": "NIFTY05MAY26P24200",
+            "price": 169.00,
+            "price_type": "LMT",
+            "quantity": 65,
+        },
+    ]
+
+
+@pytest.fixture
+def broker_trades():
+    """Return a realistic trades list as returned by the broker.
+    
+    Only include keys we actually check - keep it broker agnostic.
+    Currently no specific keys are used in code, but adding for completeness.
+    """
+    return [
+        {
+            "order_id": "26050400351374",
+            "symbol": "NIFTY05MAY26P24200",
+            "quantity": 65,
+            "fill_price": 165.70,
+            "side": "S",
+        },
+    ]
+
+
 @pytest.fixture(autouse=True)
 def global_mocks(request):
     """
