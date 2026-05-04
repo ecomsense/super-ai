@@ -176,7 +176,7 @@ async def view_file(
 @app.post("/file/{filename}")
 async def save_file(
     filename: str, content: str = Form(...), _: str = Depends(get_current_user)
-) -> RedirectResponse | dict[str, str]:
+):
     file_path = get_valid_file_path(filename)
     if file_path:
         file_path.write_text(content)
