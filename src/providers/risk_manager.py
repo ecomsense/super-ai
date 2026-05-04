@@ -9,9 +9,34 @@ class RiskManager:
     def __init__(self, stock_broker):
         self.broker = stock_broker
         self._lock = threading.Lock()
-        self.positions = []  # List of Position objects
+        self._positions = []  # Internal list of Position objects
         self.tag = "no_tag"
         self.slippage = 0.8  # for MCX
+
+    @property
+    def positions(self):
+        return self._positions
+
+    @positions.setter
+    def positions(self, position_book):
+        """Convert dict-based position book to Position objects."""
+        self._positions = []
+        for p in position_book:
+            if isinstance(p, dict):
+                # Convert dict to Position object
+                pos = Position(
+                    symbol=p.get("symbol", ""),
+                    quantity=p.get("quantity", 0),
+                    stop_price=p.get("stop_price", 0),
+                    target_price=p.get("target_price", 0),
+                )
+                # Preserve the id if it exists
+                if "id" in p:
+                    pos.id = p["id"]
+                self._positions.append(pos)
+            else:
+                # Already a Position object
+                self._positions.append(p)
 
     def _get_pos_from_api(self, symbol: str):
         """Fetches real-time net quantity from the broker."""
@@ -139,6 +164,6 @@ class RiskManager:
                 return -1
 
             except Exception as e:
-                logging.error(f"RM Status (Exit) Error {e} for {symbol}: {e}")
+                logging.error(f"RM Status (Exit) Error: {e}")
                 print_exc()
                 return -1
