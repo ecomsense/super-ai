@@ -98,6 +98,7 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - **commit**: `refactor server/main.py - add logging, env vars, type hints, remove duplication`
 - **Note**: Environment variables DASHBOARD_USER and DASHBOARD_PASS must be set on server (use `systemctl --user set-environment DASHBOARD_USER=... DASHBOARD_PASS=...`)
 - **Fix**: Fixed RiskManager error - added property setter to convert dict-based positions to Position objects, fixed error handler referencing unassigned variable
+- **Tests**: Added tests/unit/test_risk_manager.py with tests for status() method including dict-based positions
 
 ## Scripts
 
