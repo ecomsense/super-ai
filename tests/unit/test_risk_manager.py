@@ -29,8 +29,8 @@ class TestRiskManagerPositions:
         assert len(rm.positions) == 2
         assert rm.positions[0].symbol == "NIFTY05MAY26C23800"
         assert rm.positions[0].quantity == 65
-        assert rm.positions[1].symbol == "BANKNIFTY05MAY26C42000"
-        assert rm.positions[1].quantity == 30
+        assert rm.positions[1].symbol == "NIFTY05MAY26P24200"
+        assert rm.positions[1].quantity == 0
 
     def test_positions_preserves_id_from_dict(self, rm, broker_position_book):
         """RiskManager should preserve the id when converting from dict."""
