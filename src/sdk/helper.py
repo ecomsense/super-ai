@@ -551,6 +551,13 @@ if __name__ == "__main__":
         print(df)
 
         Helper._rest.close_positions()
+
+        # Check positions
+        h = Helper()
+        h.positions()
+        print('Positions:', h._positions)
+        print('Keys:', h._positions[0].keys() if h._positions else 'empty')
+
         while True:
             idx = pdlm.now("Asia/Kolkata").subtract(hours=10)
             resp = history(
