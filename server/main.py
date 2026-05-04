@@ -163,7 +163,7 @@ async def files_page(request: Request, _: str = Depends(get_current_user)):
 @app.get("/file/{filename}")
 async def view_file(
     request: Request, filename: str, _: str = Depends(get_current_user)
-) -> HTMLResponse | dict[str, str]:
+):
     file_path = get_valid_file_path(filename)
     if file_path:
         content = file_path.read_text()
