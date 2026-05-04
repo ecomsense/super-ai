@@ -24,8 +24,6 @@ def rm(mock_broker):
 BROKER_POSITION_DICT = {
     "symbol": "NIFTY05MAY26C23800",
     "quantity": 65,
-    "daybuyqty": 100,
-    "daysellqty": 35,
 }
 
 
@@ -39,14 +37,10 @@ def broker_position_book():
         {
             "symbol": "NIFTY05MAY26C23800",
             "quantity": 65,
-            "daybuyqty": 100,
-            "daysellqty": 35,
         },
         {
             "symbol": "NIFTY05MAY26P24200",
             "quantity": 0,
-            "daybuyqty": 50,
-            "daysellqty": 50,
         },
     ]
 
@@ -58,8 +52,6 @@ def broker_position_book_with_exit():
         {
             "symbol": "NIFTY05MAY26C23800",
             "quantity": 100,
-            "daybuyqty": 100,
-            "daysellqty": 0,
         },
     ]
 
