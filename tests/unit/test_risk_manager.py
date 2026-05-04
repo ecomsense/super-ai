@@ -45,7 +45,7 @@ class TestRiskManagerPositions:
 class TestRiskManagerStatus:
     """Tests for the status() method."""
 
-    def test_status_with_position_objects(self, rm, mock_broker):
+    def test_status_with_position_objects(self, rm, mock_broker, broker_position_nifty_qty_10):
         """status() should work when positions are Position objects."""
         # Setup: Create a position as a Position object
         pos = Position(symbol="NIFTY", quantity=10)
@@ -53,7 +53,7 @@ class TestRiskManagerStatus:
         rm.positions = [pos]
         
         # Setup mock to return positive quantity (simulating open position)
-        mock_broker.positions = [{"symbol": "NIFTY", "quantity": 10, "exchange": "NFO"}]
+        mock_broker.positions = broker_position_nifty_qty_10
         
         # Call status with a valid pos_id
         result = rm.status(pos_id=123456, last_price=100.0)
@@ -61,7 +61,7 @@ class TestRiskManagerStatus:
         # Verify: Should return 0 if order placed successfully, or positive qty
         assert result >= 0  # Either placed order (0) or has qty to sell (positive)
 
-    def test_status_with_dict_based_positions(self, rm, mock_broker):
+    def test_status_with_dict_based_positions(self, rm, mock_broker, broker_position_nifty_qty_10):
         """status() should work when positions are dicts (from broker API).
         
         This is the critical test that catches the bug where positions
@@ -72,7 +72,7 @@ class TestRiskManagerStatus:
         rm.positions = position_book
         
         # Setup mock to return positive quantity
-        mock_broker.positions = [{"symbol": "NIFTY", "quantity": 10, "exchange": "NFO"}]
+        mock_broker.positions = broker_position_nifty_qty_10
         
         # Call status - this should NOT raise an exception
         result = rm.status(pos_id=123456, last_price=100.0)
@@ -132,10 +132,10 @@ class TestRiskManagerNew:
         assert len(rm.positions) == 1
         assert rm.positions[0].symbol == "NIFTY"
 
-    def test_new_with_dict_broker_response(self, rm, mock_broker):
+    def test_new_with_dict_broker_response(self, rm, mock_broker, broker_position_nifty_qty_10):
         """new() should work when broker returns dicts for positions."""
         # Setup: Broker returns dict (like real API)
-        mock_broker.positions = [{"symbol": "NIFTY", "quantity": 10}]
+        mock_broker.positions = broker_position_nifty_qty_10
         
         result = rm.new(
             symbol="NIFTY",

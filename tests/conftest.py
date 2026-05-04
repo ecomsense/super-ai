@@ -62,6 +62,22 @@ def broker_position_book_empty():
     return []
 
 
+# Broker position with specific data for testing status() method
+@pytest.fixture
+def broker_position_nifty_qty_10():
+    """Return a position book with NIFTY symbol and quantity 10.
+    
+    Used for testing status() method where broker returns open position.
+    """
+    return [
+        {
+            "symbol": "NIFTY",
+            "quantity": 10,
+            "exchange": "NFO",
+        },
+    ]
+
+
 # Broker order response - only essential keys we actually use
 BROKER_ORDER_DICT = {
     "order_id": "26050400351374",
