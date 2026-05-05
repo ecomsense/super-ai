@@ -15,8 +15,11 @@
         </div>
         <div class="header-actions">
             <button class="btn btn-log" onclick="location.href='/log'">Log</button>
-            <button class="btn btn-start" id="btnStart" onclick="doAction('/start')">Start</button>
-            <button class="btn btn-stop" id="btnStop" onclick="doAction('/stop')">Stop</button>
+            <label class="switch">
+                <input type="checkbox" id="toggleSession" onchange="doToggle()">
+                <span class="slider"></span>
+            </label>
+            <span id="statusLabel" class="status-text">Stopped</span>
         </div>
     </div>
     <div class="content">
@@ -26,15 +29,18 @@
         Made with &#10084; by <a href="https://ecomsense.in">Ecomsense</a>
     </div>
     <script>
-        async function doAction(action) {
-            await fetch(action, { method: 'POST' });
+        async function doToggle() {
+            const isChecked = document.getElementById('toggleSession').checked;
+            await fetch(isChecked ? '/start' : '/stop', { method: 'POST' });
             setTimeout(() => location.reload(), 1500);
         }
         async function refreshButtons() {
             const res = await fetch('/status');
             const data = await res.json();
-            document.getElementById('btnStart').style.display = data.status === 'Running' ? 'none' : 'inline-block';
-            document.getElementById('btnStop').style.display = data.status === 'Running' ? 'inline-block' : 'none';
+            const isRunning = data.status === 'Running';
+            document.getElementById('toggleSession').checked = isRunning;
+            document.getElementById('statusLabel').textContent = isRunning ? 'Running' : 'Stopped';
+            document.getElementById('statusLabel').className = 'status-text ' + (isRunning ? 'running' : 'stopped');
         }
         refreshButtons();
         setInterval(refreshButtons, 5000);

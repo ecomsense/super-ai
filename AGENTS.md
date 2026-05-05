@@ -20,6 +20,17 @@ ssh harinath.r "grep -E '2026-05-05 1[6-7]:' /home/harinath/no_venv/super-ai/dat
 # 3. Compare: entries WITH POST /start = button, WITHOUT = tmux.sh
 ```
 
+**Session Running Check:**
+```bash
+# Check if tmux session exists
+ssh harinath.r "tmux ls"
+
+# Check button response after clicking
+ssh harinath.r "journalctl --user -u fastapi_app.service -n 3 | grep POST /start"
+# - If "already_running" returned → session existed, button worked correctly
+# - If "started" returned → new session created
+```
+
 ## Project
 
 - **Repo**: `git@github.com:ecomsense/super-ai`
@@ -136,3 +147,46 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - No POST /start in journalctl + trading session = **Started via shell (tmux.sh)**
 
 This distinction is critical for troubleshooting. Don't assume start button if there's no POST /start record.
+
+---
+
+## WebSocket 502 Errors Investigation (2026-05-05)
+
+### What Happened
+- Morning logs showed 502 Bad Gateway websocket errors at ~10:32
+- We couldn't determine if session was started via start button or tmux.sh
+- No logging to distinguish between the two start methods
+
+### Key Finding
+- WebSocket 502 errors occurred ~17-20 minutes AFTER session was already running
+- They were NOT coinciding with the start button press
+- This indicates broker connection issues mid-session, not at session start
+- Root cause: Broker's websocket server went down, not at session initialization
+
+### Why This Matters
+- Without proper logging, we cannot retroactively determine:
+  - When the session was started
+  - Whether it was via start button or tmux.sh
+
+### Fix - Logging Added
+Now strategy logs "start_time: HH:MM" at session start, making it traceable:
+
+| Start Method | journalctl | log.txt |
+|-----------|-----------|--------|
+| Start button (POST /start) | Has POST /start | Has start_time: |
+| tmux.sh | No POST /start | Has start_time: |
+
+### Diagnosis Commands
+```bash
+# Find start button clicks (with HTTP POST)
+ssh harinath.r "journalctl --user -u fastapi_app.service | grep 'POST /start'"
+
+
+# Find any session starts (strategy load time)
+ssh harinath.r "grep 'start_time:' /home/harinath/no_venv/super-ai/data/log.txt"
+```
+
+### WebSocket Error Pattern
+- Error: "Handshake status 502 Bad Gateway"
+- Happens during trading when broker's WS server goes down
+- Does NOT indicate start method - traceable only via journalctl + log comparison
