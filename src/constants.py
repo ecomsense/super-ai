@@ -77,10 +77,8 @@ def async_logger():
     O_SETG = yml_to_obj(S_SETG)
     if isinstance(O_SETG, dict):
         level = O_SETG.get("log_level", logging.DEBUG)
-        if O_SETG.get("log_show", True):
-            logger_manager = AsyncLogger(level)
-        else:
-            logger_manager = AsyncLogger(level, S_LOG)
+        # Always use journalctl for all logs, and file for errors only
+        logger_manager = AsyncLogger(level, S_LOG, use_journal=True)
 
         # 2. Start the asynchronous thread BEFORE any other strategy logic runs
         logger_manager.start()

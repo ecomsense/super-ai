@@ -4,6 +4,7 @@ import queue
 import atexit
 import sys
 from typing import Any
+import os
 
 
 class AsyncLogger:
@@ -12,15 +13,16 @@ class AsyncLogger:
     for the entire application. It configures the root logger to use a QueueHandler.
     """
 
-    def __init__(self, level=logging.INFO, log_file: Any = None):
+    def __init__(self, level=logging.INFO, log_file: Any = None, use_journal: bool = True):
         """
         Initializes the manager but does not start the background thread yet.
         :param level: The minimum log level to capture (e.g., logging.INFO).
-        :param log_file: If provided, all logs go to this file. If None, logs
-                         only go to stdout.
+        :param log_file: If provided, only ERROR level logs go to this file.
+        :param use_journal: If True, send all logs to systemd journal via /dev/log.
         """
         self._level = level
         self._log_file_path = log_file
+        self._use_journal = use_journal
         self._listener = None
         self._log_queue = queue.Queue(-1)
 
@@ -38,20 +40,31 @@ class AsyncLogger:
         # 1. Define the 'Slow' Handlers (I/O writers)
         slow_handlers = []
 
+        # Add systemd journal handler if enabled
+        if self._use_journal and os.path.exists('/dev/log'):
+            try:
+                journal_handler = logging.handlers.SysLogHandler(address='/dev/log')
+                journal_handler.setFormatter(self._formatter)
+                slow_handlers.append(journal_handler)
+                print("Async logging enabled, outputting to systemd journal.")
+            except Exception as e:
+                print(f"Could not connect to systemd journal: {e}")
+
         if self._log_file_path:
-            # Request: Log to file if path is provided
+            # Log only ERROR level to file
             file_handler = logging.handlers.RotatingFileHandler(
                 self._log_file_path, maxBytes=10 * 1024 * 1024, backupCount=5
             )
             file_handler.setFormatter(self._formatter)
+            file_handler.setLevel(logging.ERROR)  # Only ERROR and above
             slow_handlers.append(file_handler)
-            print(f"Async logging enabled, outputting to: {self._log_file_path}")
+            print(f"Async logging enabled, outputting errors to: {self._log_file_path}")
         else:
-            # Request: Log to stdout if no file path is provided
+            # Log to stdout if no file path provided
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setFormatter(self._formatter)
             slow_handlers.append(console_handler)
-            print("Async logging enabled, outputting only to console.")
+            print("Async logging enabled, outputting to console.")
 
         # 2. Create and Start the QueueListener (The Consumer Thread)
         self._listener = logging.handlers.QueueListener(self._log_queue, *slow_handlers)
