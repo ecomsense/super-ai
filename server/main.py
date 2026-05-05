@@ -130,7 +130,7 @@ async def tmux_data(_: str = Depends(get_current_user)) -> dict[str, str]:
         import libtmux
 
         server = libtmux.Server()
-        session = server.find_where({"session_name": TMUX_SESSION})
+        session = server.sessions.get(session_name=TMUX_SESSION, default=None)
         if session:
             pane = session.active_pane
             lines = pane.capture_pane()
