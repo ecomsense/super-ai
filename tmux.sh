@@ -14,10 +14,10 @@ else
 	git reset --hard && git pull
 	if [ -t 0 ]; then
 		echo "Creating and attaching to session $sess."
-		tmux new-session -s "$sess" ".venv/bin/python -m src.main && tmux kill-session -t $sess"
+		tmux new-session -s "$sess" -x 120 -y 48 ".venv/bin/python -m src.main && tmux kill-session -t $sess"
 	else
 		echo "Creating session $sess."
-		tmux new-session -d -s "$sess"
+		tmux new-session -d -s "$sess" -x 120 -y 48
 		tmux send-keys -t "$sess" ".venv/bin/python -m src.main && tmux kill-session -t $sess" C-m
 	fi
 fi
