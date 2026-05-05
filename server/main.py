@@ -133,7 +133,7 @@ async def tmux_data(_: str = Depends(get_current_user)) -> dict[str, str]:
         for session in server.sessions:
             if session.name == TMUX_SESSION:
                 pane = session.active_pane
-                lines = pane.capture_pane(limit=-1)
+                lines = pane.capture_pane()
                 return {"tmux": "\n".join(lines)}
     except Exception as e:
         logger.warning(f"Failed to get tmux data: {e}")
