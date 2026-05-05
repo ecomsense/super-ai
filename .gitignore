@@ -150,7 +150,7 @@ node_modules/
 package.json
 package-lock.json
 postcss.config.js
-style.css
+postcss.config.js
 tailwind.config.js
 yarn-error.log
 yarn.lock
