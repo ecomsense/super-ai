@@ -130,11 +130,11 @@ async def tmux_data(_: str = Depends(get_current_user)) -> dict[str, str]:
         import libtmux
 
         server = libtmux.Server()
-        session = server.sessions.get(session_name=TMUX_SESSION, default=None)
-        if session:
-            pane = session.active_pane
-            lines = pane.capture_pane(limit=-1)
-            return {"tmux": "\n".join(lines)}
+        for session in server.sessions:
+            if session.name == TMUX_SESSION:
+                pane = session.active_pane
+                lines = pane.capture_pane(limit=-1)
+                return {"tmux": "\n".join(lines)}
     except Exception as e:
         logger.warning(f"Failed to get tmux data: {e}")
     return {"tmux": "Session not running"}
