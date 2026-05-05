@@ -63,6 +63,12 @@ def main():
 
         builders = read_builders()
 
+        for i, builder in enumerate(builders):
+            strategy_name = builder._meta.get('strategy', f'strategy_{i}')
+            strategy_start = builder._meta.get('start_time', 'N/A')
+            strategy_stop = builder._meta.get('stop_time', 'N/A')
+            logging.info(f"Strategy '{strategy_name}' start_time: {strategy_start}, stop_time: {strategy_stop}")
+
         rest = Helper._rest
         quote = Helper._quote
 

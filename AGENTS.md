@@ -4,8 +4,6 @@
 
 - **Repo**: `git@github.com:ecomsense/super-ai`
 - **Remote server**: `ssh harinath.r` (see ~/.ssh/config for IP)
-- **Venv**: `.venv/` (at project root)
-- **Python**: 3.10 (use `uv venv .venv --python 3.10` to create)
 
 ## Troubleshooting Checklist
 
@@ -49,18 +47,7 @@ print('OK')
 
 ### Missing Dependencies
 
-```bash
-# Install dependencies using uv (use pyproject.toml, not requirements.txt)
-cd /path/to/super-ai
-uv venv .venv --python 3.10
-uv pip install -r requirements.txt  # If requirements.txt exists, otherwise use pyproject.toml
-uv pip install pytest  # For running tests locally
-
-# Install renkodf separately (if needed)
-uv pip install renkodf
-```
-
-**Note**: Use `pyproject.toml` as single source of truth for dependencies (per rules.md).
+**Note**: See rules.md for Python/uv setup - use pyproject.toml as source of truth for dependencies.
 
 ### Git Sync
 
@@ -104,13 +91,8 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - **Status**: Done
 
 ### Running Tests Locally
-```bash
-cd /path/to/super-ai
-uv venv .venv --python 3.10
-uv pip install -r requirements.txt  # or uv pip install -e .
-uv pip install pytest
-.venv/bin/python -m pytest tests/unit/ -v
-```
+
+**Note**: See rules.md for Python/uv setup and test running commands.
 
 ### server/main.py refactoring
 - **Changes**: Added logging, replaced hardcoded credentials with env vars (no defaults - must be set via environment), removed bare except, extracted duplicated file listing logic, removed unused import, added type hints, extracted magic number (LOG_SLICE_SIZE), extracted file validation into get_valid_file_path() helper (also adds security check for path traversal), moved style.css to static folder and using StaticFiles middleware, changed auth dependency parameter to _ to avoid linter warnings, renamed status() to get_status() to avoid conflict with imported status module, removed unused FileResponse import
