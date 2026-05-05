@@ -129,7 +129,7 @@ async def tmux_data(_: str = Depends(get_current_user)) -> dict[str, str]:
     try:
         import libtmux
 
-        server = libtmux.Server()
+        server = libtmux.Server(socket_path="/tmp/tmux-1001/default")
         for session in server.sessions:
             if session.name == TMUX_SESSION:
                 pane = session.active_pane
