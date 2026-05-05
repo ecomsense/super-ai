@@ -1,5 +1,25 @@
 # AGENTS.md - super-ai
 
+## CRITICAL: Start Button vs tmux.sh
+
+- **Start button** (POST /start): Creates HTTP request, but may NOT create tmux session
+- **tmux.sh via shell**: This is what actually creates the trading session
+- If no POST /start in journalctl but trading running → started via shell manually
+
+## Session Diagnosis Method
+
+To check what user did after a specific time:
+
+```bash
+# 1. Find POST /start in journalctl (start button clicks)
+ssh harinath.r "journalctl --user -u fastapi_app.service --since '2026-05-05 15:30' --no-pager | grep 'POST /start'"
+
+# 2. Find trading sessions in log (all starts - button OR tmux.sh)
+ssh harinath.r "grep -E '2026-05-05 1[6-7]:' /home/harinath/no_venv/super-ai/data/log.txt | grep -E 'WAITING|Live trading'"
+
+# 3. Compare: entries WITH POST /start = button, WITHOUT = tmux.sh
+```
+
 ## Project
 
 - **Repo**: `git@github.com:ecomsense/super-ai`
@@ -108,3 +128,11 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - `tmux.sh` - Start trading engine in tmux session
 - `stop.sh` - Stop trading engine
 - `status.sh` - Check trading engine status
+
+## Diagnosis Note - Identifying How Trading Session Started
+
+**Rule:**
+- POST /start in journalctl + trading session = **Started via Start button**
+- No POST /start in journalctl + trading session = **Started via shell (tmux.sh)**
+
+This distinction is critical for troubleshooting. Don't assume start button if there's no POST /start record.

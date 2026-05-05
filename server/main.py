@@ -102,6 +102,10 @@ async def get_status(_: str = Depends(get_current_user)) -> dict[str, str]:
 
 @app.post("/start")
 async def start(_: str = Depends(get_current_user)) -> dict[str, str]:
+    # Check if session already exists first
+    if is_tmux_running():
+        return {"status": "already_running"}
+    
     run_file = DATA_DIR / "run.txt"
     if run_file.exists():
         run_file.unlink()
