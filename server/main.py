@@ -14,7 +14,7 @@ from pydantic import BaseModel
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 TMUX_SESSION = "tmux-session"
-LOG_SLICE_SIZE = 50
+LOG_SLICE_SIZE = 30
 
 logging.basicConfig(
     level=logging.INFO,
@@ -145,7 +145,8 @@ async def log_page(request: Request, _: str = Depends(get_current_user)):
 async def log_data(_: str = Depends(get_current_user)) -> dict[str, str]:
     log_file = DATA_DIR / "log.txt"
     if log_file.exists():
-        return {"log": log_file.read_text()[-LOG_SLICE_SIZE:]}
+        lines = log_file.read_text().splitlines()
+        return {"log": "\n".join(lines[-LOG_SLICE_SIZE:])}
     return {"log": "No log file"}
 
 
