@@ -7,9 +7,16 @@ class CandleManager:
         self.tf = timeframe_minutes
         self._ticks = []  # List of (timestamp, price)
 
-    def add_tick(self, price):
-        """Accepts ticks with the current timestamp."""
-        self._ticks.append({"dt": pdlm.now("Asia/Kolkata"), "price": price})
+    def add_tick(self, price, timestamp=None):
+        """Accepts ticks with an optional timestamp.
+
+        Args:
+            price: The tick price
+            timestamp: pendulum DateTime (optional). If not provided, uses current time.
+        """
+        if timestamp is None:
+            timestamp = pdlm.now("Asia/Kolkata")
+        self._ticks.append({"dt": timestamp, "price": price})
 
     def transform(self):
         """Compresses ticks into OHLC and enforces the 5-candle window."""
