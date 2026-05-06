@@ -79,12 +79,8 @@ class TestRamWaitForBreakout:
         ram._last_price = 110.0
         ram._armed_idx = 0
 
-        mock_candle = pd.DataFrame({
-            "low": [90.0],
-            "open": [105.0],
-            "close": [108.0],
-        })
-        ram._candle.transform = Mock(return_value=mock_candle)
+        mock_candle = [{"open": 105.0, "high": 110.0, "low": 90.0, "close": 108.0}]
+        ram._candle.get_candles = Mock(return_value=mock_candle)
 
         ram.wait_for_breakout()
 
@@ -117,12 +113,9 @@ class TestRamWaitForBreakout:
         ram._last_price = 90.0
         ram._armed_idx = 0
 
-        mock_candle = pd.DataFrame({
-            "low": [90.0],
-            "open": [105.0],
-            "close": [108.0],
-        })
-        ram._candle.transform = Mock(return_value=mock_candle)
+        # Candle close below stop - should NOT trigger
+        mock_candle = [{"open": 105.0, "high": 110.0, "low": 90.0, "close": 95.0}]
+        ram._candle.get_candles = Mock(return_value=mock_candle)
 
         initial_pos_id = ram.pos_id
         ram.wait_for_breakout()
@@ -158,19 +151,19 @@ class TestRamWaitForBreakout:
         ram._armed_idx = 1  # Set armed_idx to 1 so single candle condition fails
         ram.prev_trade_at = 100.0
 
-        # Need at least 4 candles for two-candle condition
-        mock_candle = pd.DataFrame({
-            "low": [95.0, 96.0, 97.0, 101.0],  # Last low > stop to fail single candle condition
-            "open": [102.0, 105.0, 104.0, 105.0],  # -3 open=105, close=101 (close<open)
-            "close": [101.0, 101.0, 106.0, 107.0],  # -2 open=104, close=106 (close>open)
-        })
-        ram._candle.transform = Mock(return_value=mock_candle)
+        mock_candle = [
+            {"open": 105.0, "high": 107.0, "low": 104.0, "close": 104.0},  # -4
+            {"open": 105.0, "high": 110.0, "low": 104.0, "close": 104.0},  # -3 RED
+            {"open": 104.0, "high": 108.0, "low": 103.0, "close": 108.0},  # -2 GREEN
+            {"open": 108.0, "high": 110.0, "low": 105.0, "close": 110.0},  # -1 current
+        ]
+        ram._candle.get_candles = Mock(return_value=mock_candle)
 
         ram.wait_for_breakout()
 
         mock_rm.new.assert_called_once()
         assert ram.pos_id == 456
-        assert ram.prev_trade_at == 105.0
+        assert ram.prev_trade_at == 110.0
 
     def test_wait_for_breakout_skips_while_waiting_for_candles(self):
         """Should skip breakout check when not enough candles"""
@@ -198,12 +191,8 @@ class TestRamWaitForBreakout:
         ram._armed_idx = 1
         ram.prev_trade_at = 100.0
 
-        mock_candle = pd.DataFrame({
-            "low": [95.0, 96.0],
-            "open": [102.0, 103.0],
-            "close": [101.0, 104.0],
-        })
-        ram._candle.transform = Mock(return_value=mock_candle)
+        mock_candle = [{"open": 105.0, "high": 110.0, "low": 90.0, "close": 108.0}]
+        ram._candle.get_candles = Mock(return_value=mock_candle)
 
         ram.wait_for_breakout()
 
@@ -233,12 +222,8 @@ class TestRamWaitForBreakout:
         ram._last_price = 110.0
         ram._armed_idx = 1
 
-        mock_candle = pd.DataFrame({
-            "low": [90.0],
-            "open": [105.0],
-            "close": [108.0],
-        })
-        ram._candle.transform = Mock(return_value=mock_candle)
+        mock_candle = [{"open": 105.0, "high": 110.0, "low": 90.0, "close": 108.0}]
+        ram._candle.get_candles = Mock(return_value=mock_candle)
 
         ram.wait_for_breakout()
 

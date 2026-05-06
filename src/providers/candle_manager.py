@@ -5,8 +5,7 @@ import pendulum as pdlm
 class CandleManager:
     def __init__(self, timeframe_minutes=1):
         self.tf = timeframe_minutes
-        # Only store last 3 completed + current
-        self._completed = []  # max 3 items
+        self._completed = []  # Completed candles
         self._current = None
         self._tick_counter = 0
         
@@ -21,14 +20,12 @@ class CandleManager:
             return
         
         if current_min != self._current["minute"]:
-            # New minute - close current
             self._completed.append(self._current)
-            if len(self._completed) > 3:
-                self._completed.pop(0)  # Keep only last 3
+            if len(self._completed) > 10:  # Store more for safety
+                self._completed.pop(0)
             self._current = {"open": price, "high": price, "low": price, "close": price, "minute": current_min}
             return
         
-        # Update current
         self._current["close"] = price
         self._current["high"] = max(self._current["high"], price)
         self._current["low"] = min(self._current["low"], price)
@@ -49,3 +46,17 @@ class CandleManager:
         df = pd.DataFrame(candles)
         df["dt"] = dts
         return df[["dt", "open", "high", "low", "close"]]
+    
+    def get_candles(self):
+        """Returns list of candles as dicts - direct access without DataFrame."""
+        candles = self._completed.copy()
+        if self._current:
+            candles.append(self._current)
+        return candles
+    
+    def __len__(self):
+        """Returns count of available candles."""
+        count = len(self._completed)
+        if self._current:
+            count += 1
+        return count

@@ -125,6 +125,22 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 
 **Note**: See rules.md for Python/uv setup and test running commands.
 
+### Backtest Report
+
+To generate backtest report:
+
+```bash
+# Run on server
+ssh harinath.r "cd /home/harinath/no_venv/super-ai && /.venv/bin/python backtest.py call"
+ssh harinath.r "cd /home/harinath/no_venv/super-ai && /.venv/bin/python backtest.py put"
+
+# Copy to local
+scp harinath.r:/home/harinath/no_venv/super-ai/data/backtest_NATURALGAS_CALL.csv /data/
+scp harinath.r:/home/harinath/no_venv/super-ai/data/backtest_NATURALGAS_PUT.csv /data/
+```
+
+**IMPORTANT**: After copying, verify files exist in local data folder before completing.
+
 ### server/main.py refactoring
 - **Changes**: Added logging, replaced hardcoded credentials with env vars (no defaults - must be set via environment), removed bare except, extracted duplicated file listing logic, removed unused import, added type hints, extracted magic number (LOG_SLICE_SIZE), extracted file validation into get_valid_file_path() helper (also adds security check for path traversal), moved style.css to static folder and using StaticFiles middleware, changed auth dependency parameter to _ to avoid linter warnings, renamed status() to get_status() to avoid conflict with imported status module, removed unused FileResponse import
 - **Status**: Done

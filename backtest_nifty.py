@@ -15,7 +15,6 @@ if instrument == "call":
     token = api.instrument_symbol('NFO', 'NIFTY12MAY26C24000')
     name = "NIFTY_CALL"
     sym = "NIFTY12MAY26C24000"
-    # For NIFTY - use 9:14:59 as stop time
     stop_hour, stop_min = 9, 14
 else:
     token = api.instrument_symbol('NFO', 'NIFTY12MAY26P24200')
@@ -23,13 +22,21 @@ else:
     sym = "NIFTY12MAY26P24200"
     stop_hour, stop_min = 9, 14
 
-# Get stop (low at 9:14:59)
+# Try to get stop, fallback to first candle
 stop_time = pdlm.now().replace(hour=stop_hour, minute=stop_min, second=59)
 stop_data = api.historical('NFO', token, 
     stop_time.subtract(hours=1).timestamp(),
     stop_time.timestamp())
 
-stop = float(stop_data[0]['intl'])
+if stop_data:
+    stop = float(stop_data[0]['intl'])
+else:
+    # Use first available candle
+    first_candle = api.historical('NFO', token, 
+        pdlm.now().replace(hour=9, minute=15).timestamp(),
+        pdlm.now().replace(hour=9, minute=20).timestamp())
+    stop = float(first_candle[0]['intl'])
+
 target = stop * 1.5  # Default 50% for NIFTY
 
 # Get candles from 9:15 to 15:30
@@ -84,21 +91,12 @@ for line in log.split('\n'):
         if m:
             actual.add(m.group(1)[:5])
 
-# Merge into single list
-all_times = set()
-for t, price, signal, action in bt_signals:
-    all_times.add(t)
-for t in actual:
-    all_times.add(t)
-
+# Merge
 signals = []
-
-# Add backtest entries
 for t, price, signal, action in bt_signals:
     bot = "BOT" if t in actual else "-"
     signals.append([t, price, signal, action, "BACKTEST", bot])
 
-# Add actual trades not in backtest
 for t in sorted(actual):
     if t not in [x[0] for x in bt_signals]:
         price = "-"
@@ -108,19 +106,15 @@ for t in sorted(actual):
                 break
         signals.append([t, price, "ACTUAL", "TRADE", "BOT", "BOT"])
 
-# Sort by time
 signals.sort(key=lambda x: x[0])
 
-# Add target status
 target_hit = any(float(c['inth']) >= target for c in candles)
 signals.append(["-", "-", "TARGET", "HIT" if target_hit else "NOT_REACHED", "-", "-"])
 
-# Write
 filename = f"{S_DATA}backtest_{name}.csv"
 with open(filename, 'w', newline='') as f:
     writer = csv.writer(f)
     writer.writerow(["time", "price", "signal", "action", "source", "bot"])
     writer.writerows(signals)
 
-print(f"CSV: {filename}")
-print(f"Total: {len(signals)}")
+print(f"CSV: {filename}, Total: {len(signals)}")

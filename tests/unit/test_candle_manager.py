@@ -1,5 +1,5 @@
 """
-Tests for optimized CandleManager
+Tests for CandleManager
 """
 import pytest
 import pendulum as pdlm
@@ -17,7 +17,7 @@ class TestCandleManager:
         assert cm._current["open"] == 100.0
         assert cm._current["close"] == 100.0
     
-    def test_tick_updates_current(self):
+    def test_tick_updates_ohlc(self):
         """Subsequent ticks update current candle OHLC."""
         cm = CandleManager()
         cm.add_tick(100.0)
@@ -33,31 +33,63 @@ class TestCandleManager:
         """New minute should close current and move to completed."""
         cm = CandleManager()
         
-        # Add tick at minute X
+        # Set first minute
         cm._current = {"open": 100, "high": 100, "low": 100, "close": 100, 
                       "minute": pdlm.now("Asia/Kolkata").start_of("minute")}
         
-        # Simulate tick in next minute (by manually setting)
-        next_min = cm._current["minute"].add(minutes=1)
-        cm._current["minute"] = next_min
-        cm.add_tick(101.0)  # This closes and starts new
+        # Change to next minute
+        cm._current["minute"] = cm._current["minute"].add(minutes=1)
+        cm.add_tick(101.0)
         
-        # Current should be new, completed should have previous
         assert len(cm._completed) == 1
+        assert cm._current is not None
     
-    def test_transform_returns_dataframe(self):
-        """transform() should return DataFrame for compatibility."""
+    def test_get_candles_returns_list(self):
+        """get_candles() should return list of dicts."""
         cm = CandleManager()
         cm.add_tick(100.0)
         cm.add_tick(101.0)
         
-        df = cm.transform()
+        candles = cm.get_candles()
         
-        assert not df.empty
-        assert "open" in df.columns
-        assert "high" in df.columns
-        assert "low" in df.columns
-        assert "close" in df.columns
+        assert isinstance(candles, list)
+        assert len(candles) > 0
+        assert "open" in candles[0]
+        assert "high" in candles[0]
+        assert "low" in candles[0]
+        assert "close" in candles[0]
+    
+    def test_len_returns_candle_count(self):
+        """len() should return candle count."""
+        cm = CandleManager()
+        cm.add_tick(100.0)
+        
+        assert len(cm) == 1
+    
+    def test_two_candle_pattern_access(self):
+        """Can access -1, -2, -3 indices like ram.py does."""
+        cm = CandleManager()
+        
+        # Add ticks for 3 different minutes
+        base = pdlm.now("Asia/Kolkata").start_of("minute")
+        
+        # Minute 0
+        cm._current = {"open": 100, "high": 105, "low": 98, "close": 103, "minute": base}
+        cm._completed.append(cm._current)
+        
+        # Minute 1
+        cm._current = {"open": 103, "high": 108, "low": 101, "close": 105, "minute": base.add(minutes=1)}
+        cm._completed.append(cm._current)
+        
+        # Current (minute 2)
+        cm._current = {"open": 105, "high": 110, "low": 103, "close": 107, "minute": base.add(minutes=2)}
+        
+        candles = cm.get_candles()
+        
+        # Direct access like ram.py now uses
+        assert candles[-1]["close"] == 107
+        assert candles[-2]["close"] == 105
+        assert candles[-3]["close"] == 103
 
 
 if __name__ == "__main__":

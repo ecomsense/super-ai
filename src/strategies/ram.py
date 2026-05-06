@@ -67,35 +67,51 @@ class Ram:
 
     def wait_for_breakout(self):
         try:
-            candle = self._candle.transform()
-            curr_idx = len(candle)
+            candles = self._candle.get_candles()
+            curr_idx = len(candles)
+            
+            # Need at least 1 candle
+            if curr_idx < 1:
+                return
+            
+            # Current candle
+            curr = candles[-1]
+            
             if (
-                candle.iloc[-1]["low"] <= self._stop
-                and self._last_price > self._stop
+                curr["low"] <= self._stop
+                and curr["close"] > self._stop
                 and self._armed_idx != curr_idx
             ):
                 self._on_signal(curr_idx)
                 self.prev_trade_at = self._stop
                 return
 
-            # two candle condition
+            # Need at least 3 completed candles for 2-candle pattern
             if curr_idx < 4 or (curr_idx - self._armed_idx) < 3:
                 return
-
+            
+            # Need at least 3 candles back (-1 is current, -2 and -3 are previous)
+            if curr_idx < 3:
+                return
+            
+            c2 = candles[-3]  # 3rd candle from end
+            c1 = candles[-2]  # 2nd candle from end
+            
             if (
-                (candle.iloc[-3]["close"] < candle.iloc[-3]["open"])
-                and (candle.iloc[-2]["close"] > candle.iloc[-2]["open"])
-                and self._last_price < self._target
-                and self._last_price > self.prev_trade_at
+                c2["close"] < c2["open"]
+                and c1["close"] > c1["open"]
+                and curr["close"] < self._target
+                and curr["close"] > self.prev_trade_at
             ):
                 self._on_signal(curr_idx)
-                self.prev_trade_at = self._last_price
+                self.prev_trade_at = curr["close"]
 
         except Exception as e:
             logging.error(f"Wait for breakout: {e}")
             print_exc()
 
     def try_exiting_trade(self):
+
         try:
             status = self.rm.status(
                 pos_id=self.pos_id,
@@ -112,7 +128,7 @@ class Ram:
     def run(self, position_book, quotes):
         try:
             self.rm.positions = position_book
-            
+
             ltp = quotes.get(self._tradingsymbol)
             if ltp is None:
                 return
