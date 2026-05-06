@@ -5,28 +5,47 @@ import pendulum as pdlm
 class CandleManager:
     def __init__(self, timeframe_minutes=1):
         self.tf = timeframe_minutes
-        self._ticks = []  # List of (timestamp, price)
-        self._tick_counter = 0  # Ensures unique timestamps
-
+        # Only store last 3 completed + current
+        self._completed = []  # max 3 items
+        self._current = None
+        self._tick_counter = 0
+        
     def add_tick(self, price):
-        """Accepts ticks with a unique timestamp to avoid duplicate second issues."""
-        base = pdlm.now("Asia/Kolkata")
+        """Incrementally track candles - O(1) operation."""
         self._tick_counter += 1
-        timestamp = base.add(microseconds=self._tick_counter)
-        self._ticks.append({"dt": timestamp, "price": price})
-
+        now = pdlm.now("Asia/Kolkata").add(microseconds=self._tick_counter)
+        current_min = now.start_of("minute")
+        
+        if self._current is None:
+            self._current = {"open": price, "high": price, "low": price, "close": price, "minute": current_min}
+            return
+        
+        if current_min != self._current["minute"]:
+            # New minute - close current
+            self._completed.append(self._current)
+            if len(self._completed) > 3:
+                self._completed.pop(0)  # Keep only last 3
+            self._current = {"open": price, "high": price, "low": price, "close": price, "minute": current_min}
+            return
+        
+        # Update current
+        self._current["close"] = price
+        self._current["high"] = max(self._current["high"], price)
+        self._current["low"] = min(self._current["low"], price)
+    
     def transform(self):
-        """Compresses ticks into OHLC and enforces the 5-candle window."""
-        if not self._ticks:
+        """Returns candles as DataFrame (for compatibility)."""
+        candles = self._completed.copy()
+        if self._current:
+            candles.append(self._current)
+        
+        if not candles:
             return pd.DataFrame()
-
-        df_ticks = pd.DataFrame(self._ticks)
-
-        # Resample ticks into OHLC based on the timeframe
-        # '1T' = 1 minute, '5T' = 5 minutes
-        df_ohlc = df_ticks.set_index("dt")["price"].resample(f"{self.tf}min").ohlc()
-
-        # Remove empty rows (intervals with no ticks)
-        df_ohlc = df_ohlc.dropna()
-
-        return df_ohlc.reset_index()  # Returns [dt, open, high, low, close]
+        
+        n = len(candles)
+        base = pdlm.now("Asia/Kolkata").start_of("minute")
+        dts = [base.subtract(minutes=n-1-i) for i in range(n)]
+        
+        df = pd.DataFrame(candles)
+        df["dt"] = dts
+        return df[["dt", "open", "high", "low", "close"]]
