@@ -33,10 +33,10 @@ to_time = pdlm.now().replace(hour=23, minute=20).timestamp()
 
 candles = api.historical('MCX', token, from_time, to_time)
 
-# Generate signals - include both taken and skipped trades
+# Single pass: check ALL signals and mark them as taken or skipped
 signals = []
 prev_trade = stop
-last_signal_idx = 0
+last_entry_idx = 0
 
 for i, c in enumerate(candles):
     t = c['time'][-8:]
@@ -44,15 +44,15 @@ for i, c in enumerate(candles):
     low = float(c['intl'])
     high = float(c['inth'])
     
-    # Check 3-candle interval: skip if too soon after last signal
-    if last_signal_idx > 0 and i - last_signal_idx < 3:
-        continue
-    
     # Entry 1: breakout
     if low <= stop and close > stop and close < target:
-        signals.append([t, close, low, high, "BREAKOUT", "ENTRY"])
-        prev_trade = close
-        last_signal_idx = i + 1
+        if last_entry_idx > 0 and i - last_entry_idx < 3:
+            # Skipped due to <3 candles
+            signals.append([t, close, low, high, "BREAKOUT", "SKIP (<3)"])
+        else:
+            signals.append([t, close, low, high, "BREAKOUT", "ENTRY"])
+            prev_trade = close
+            last_entry_idx = i + 1
         continue
     
     # Entry 2: 2-candle (red then green)
@@ -64,54 +64,13 @@ for i, c in enumerate(candles):
         c1_green = float(c1['intc']) > float(c1['into'])
         
         if c2_red and c1_green and close < target and close > prev_trade:
-            signals.append([t, close, low, high, "2-CANDLE", "ENTRY"])
-            prev_trade = close
-            last_signal_idx = i + 1
-            continue
-
-# Check for skipped signals (but don't skip them - just mark them)
-prev_trade_skipped = stop
-last_skipped_idx = 0
-
-for i, c in enumerate(candles):
-    t = c['time'][-8:]
-    close = float(c['intc'])
-    low = float(c['intl'])
-    high = float(c['inth'])
-    
-    # Skip entries already taken
-    if last_signal_idx > 0 and i + 1 <= last_signal_idx:
-        continue
-    
-    # Check breakout that would be skipped
-    if low <= stop and close > stop and close < target:
-        if last_signal_idx > 0 and i - last_signal_idx < 3:
-            signals.append([t, close, low, high, "BREAKOUT", "SKIP (<3)"])
-        elif last_skipped_idx > 0 and i - last_skipped_idx < 3:
-            signals.append([t, close, low, high, "BREAKOUT", "SKIP (<3)"])
-        else:
-            last_skipped_idx = i + 1
-        continue
-    
-    # Check 2-candle that would be skipped
-    if i >= 2:
-        c1 = candles[i-1]
-        c2 = candles[i-2]
-        
-        c2_red = float(c2['intc']) < float(c2['into'])
-        c1_green = float(c1['intc']) > float(c1['into'])
-        
-        if c2_red and c1_green and close < target and close > prev_trade_skipped:
-            if last_signal_idx > 0 and i - last_signal_idx < 3:
-                signals.append([t, close, low, high, "2-CANDLE", "SKIP (<3)"])
-            elif last_skipped_idx > 0 and i - last_skipped_idx < 3:
+            if last_entry_idx > 0 and i - last_entry_idx < 3:
                 signals.append([t, close, low, high, "2-CANDLE", "SKIP (<3)"])
             else:
-                last_skipped_idx = i + 1
+                signals.append([t, close, low, high, "2-CANDLE", "ENTRY"])
+                prev_trade = close
+                last_entry_idx = i + 1
             continue
-
-# Sort by time (take original order - entries first, then skipped at end)
-signals.sort(key=lambda x: x[0])
 
 # Check target status
 target_hit = False
