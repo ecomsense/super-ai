@@ -63,21 +63,55 @@ else:
 
 candles = api.historical(exchange, token, from_time, to_time)
 
-# Get bot session start timestamps from log
+# Get bot session times from log
 with open("data/log.txt") as f:
     log = f.read()
 
-bot_sessions = []
+# Find session start times
+session_starts = []
 for line in log.split('\n'):
     if "2026-05-06" in line and "Strategy 'ram' start_time" in line:
-        # Extract actual timestamp from log line
-        m = re.search(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
+        # Extract timestamp from log line, format: "2026-05-06 HH:MM:SS"
+        m = re.search(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", line)
         if m:
-            bot_sessions.append(m.group(1)[:16])  # "2026-05-06 HH:MM"
+            session_starts.append(m.group(1))  # "2026-05-06 HH:MM"
 
-session_info = ", ".join(sorted(set(bot_sessions))) if bot_sessions else start_time
+# Sort sessions
+session_starts = sorted(set(session_starts))
+
+session_info = ", ".join(session_starts) if session_starts else start_time
 
 print(f"Instrument: {instrument}, Stop: {stop}, Target: {target}, Sessions: {session_info}")
+
+# Determine if bot was running at a given time
+def was_running(check_time):
+    """Check if bot was running at check_time (HH:MM format)"""
+    for i, session in enumerate(session_starts):
+        # session = "2026-05-06 HH:MM"
+        session_hhmm = session[-5:]  # "HH:MM"
+        
+        # Convert to comparable minutes
+        sh = int(session_hhmm.split(':')[0])
+        sm = int(session_hhmm.split(':')[1])
+        ct = int(check_time.split(':')[0])
+        cm = int(check_time.split(':')[1])
+        
+        session_mins = sh * 60 + sm
+        check_mins = ct * 60 + cm
+        
+        if check_mins >= session_mins:
+            # Check if next session exists
+            if i + 1 < len(session_starts):
+                next_session = session_starts[i + 1]
+                nh = int(next_session[-5:].split(':')[0])
+                nm = int(next_session[-5:].split(':')[1])
+                next_mins = nh * 60 + nm
+                if check_mins < next_mins:
+                    return True
+            else:
+                # Last session - assume running until end of day
+                return True
+    return False
 
 # Backtest signals
 bt_signals = []
@@ -120,10 +154,15 @@ for line in log.split('\n'):
         if m:
             actual.add(m.group(1)[:5])
 
-# Merge
+# Merge - now with stopped status
 signals = []
 for t, price, signal, action in bt_signals:
-    bot = "BOT" if t in actual else "-"
+    if t in actual:
+        bot = "BOT"
+    elif action == "ENTRY" and not was_running(t):
+        bot = "STOPPED"  # Bot wasn't running
+    else:
+        bot = "-"
     signals.append([t, price, signal, action, "BACKTEST", bot])
 
 for t in sorted(actual):
