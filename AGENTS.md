@@ -121,9 +121,42 @@ ssh harinath.r "systemctl --user restart fastapi_app.service"
 - **Fixtures**: Added broker_position_book, broker_order_book, broker_trades fixtures in tests/conftest.py
 - **Status**: Done
 
+### CandleManager Optimization (2026-05-06)
+- **Old behavior**: Resampled all ticks on every tick (expensive O(n))
+- **New behavior**: Incremental O(1) updates, no resample
+- **New method**: `get_candles()` returns list of dicts (no DataFrame overhead)
+- **Fix**: `add_tick()` generates unique timestamps with microsecond counter to avoid duplicates
+- **Status**: Done
+
+### RAM Strategy - Candle Access (2026-05-06)
+- **Old**: Used `candle.iloc[-1]["close"]` (DataFrame access)
+- **New**: Uses `candles[-1]["close"]` (list access via `get_candles()`)
+- **Reason**: Direct list access is faster, no DataFrame conversion needed
+- **Safety**: Added `len(candles) >= 4` check before accessing `candles[-3]`
+- **Status**: Done
+
+### Backtest Comparison (2026-05-06)
+- **Script**: `backtest.py <instrument> [exchange]`
+- **Output**: `data/backtest_{base}_{CALL|PUT}.csv`
+- **Columns**: time, price, signal, action, source, bot
+- **bot values**:
+  - `BOT` = trade taken by bot
+  - `STOPPED` = signal when bot not running
+  - `-` = signal not taken while running
+- **Headers**: instrument, stop, target, session (shows all session start times)
+- **Usage**:
+  ```bash
+  ssh harinath.r "cd /home/harinath/no_venv/super-ai && /.venv/bin/python backtest.py 'NIFTY12MAY26C24000' NFO"
+  scp harinath.r:/home/harinath/no_venv/super-ai/data/backtest_*.csv /data/
+  ```
+- **Status**: Done
+
 ### Running Tests Locally
 
-**Note**: See rules.md for Python/uv setup and test running commands.
+```bash
+cd /home/pannet1/programs/python/github.com/ecomsense/super-ai
+uv run python -m pytest tests/unit/ -v
+```
 
 ### Backtest Report
 
@@ -155,6 +188,7 @@ scp harinath.r:/home/harinath/no_venv/super-ai/data/backtest_NATURALGAS_PUT.csv 
 - `tmux.sh` - Start trading engine in tmux session
 - `stop.sh` - Stop trading engine
 - `status.sh` - Check trading engine status
+- `scripts/simulate_candle.py` - Test CandleManager with live ticks (Ctrl+C to stop)
 
 ## Diagnosis Note - Identifying How Trading Session Started
 
@@ -206,3 +240,59 @@ ssh harinath.r "grep 'start_time:' /home/harinath/no_venv/super-ai/data/log.txt"
 - Error: "Handshake status 502 Bad Gateway"
 - Happens during trading when broker's WS server goes down
 - Does NOT indicate start method - traceable only via journalctl + log comparison
+
+---
+
+## CandleManager Issues Found (2026-05-06)
+
+### Issue #1: add_tick uses now() instead of tick's actual timestamp
+- `add_tick(price)` only accepts price, no timestamp parameter
+- When ticks arrive late/buffered, they get current time instead of actual time
+- **Fix**: Generate unique timestamps with microsecond counter
+
+### Issue #2: Same-second ticks cause resample issues
+- Multiple ticks with identical timestamps confuse resampling
+- **Fix**: Add microsecond offset to ensure uniqueness
+
+### Issue #3: Missing minute gaps (acceptable)
+- Illiquid options may not have ticks every minute
+- Results in gaps between candles
+
+### Issue #4: Session restart needs 3+ minutes for 2-candle pattern (acceptable)
+- CandleManager recreated fresh each session
+- Pattern detection only works after ~3 minutes of ticks
+
+### Tests
+```bash
+cd /home/pannet1/programs/python/github.com/ecomsense/super-ai
+uv run python scripts/simulate_candle.py  # Press Ctrl+C to stop and see candles
+```
+
+---
+
+## RAM Strategy Signal Conditions (2026-05-06)
+
+### BREAKOUT Signal
+```python
+candles = self._candle.get_candles()
+curr = candles[-1]
+
+if curr["low"] <= self._stop and curr["close"] > self._stop:
+    # Trigger entry
+```
+
+### 2-CANDLE Signal
+```python
+candles = self._candle.get_candles()
+curr_idx = len(candles)
+
+# Need 4+ candles and 3 candles since last entry
+if curr_idx >= 4 and (curr_idx - self._armed_idx) >= 3:
+    c2 = candles[-3]  # 3rd candle from end
+    c1 = candles[-2]  # 2nd candle from end
+    curr = candles[-1]
+    
+    if c2["close"] < c2["open"] and c1["close"] > c1["open"]:
+        if curr["close"] < self._target and curr["close"] > self.prev_trade_at:
+            # Trigger entry
+```
