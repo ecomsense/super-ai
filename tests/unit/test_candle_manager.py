@@ -1,5 +1,5 @@
 """
-Tests for CandleManager - unique timestamp fix
+Tests for CandleManager
 """
 import pytest
 import pendulum as pdlm
@@ -21,16 +21,6 @@ class TestCandleManager:
         timestamps = [t["dt"] for t in cm._ticks]
         
         assert len(set(timestamps)) == 3, "All timestamps should be unique"
-        
-    def test_different_timestamps_when_provided(self):
-        """When timestamp is provided, should use it directly."""
-        cm = CandleManager(timeframe_minutes=1)
-        
-        base = pdlm.now("Asia/Kolkata")
-        cm.add_tick(100.0, timestamp=base)
-        cm.add_tick(101.0, timestamp=base.add(minutes=1))
-        
-        assert len(cm._ticks) == 2
         
     def test_resample_works_with_unique_timestamps(self):
         """Unique timestamps should make resample predictable."""

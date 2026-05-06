@@ -8,19 +8,11 @@ class CandleManager:
         self._ticks = []  # List of (timestamp, price)
         self._tick_counter = 0  # Ensures unique timestamps
 
-    def add_tick(self, price, timestamp=None):
-        """Accepts ticks with a guaranteed unique timestamp.
-        
-        If timestamp is provided, uses it. Otherwise, generates sequential
-        timestamps to avoid duplicate second issues.
-        """
-        if timestamp is None:
-            # Generate unique timestamp: now() + incrementing nanoseconds
-            # This ensures no duplicates when ticks arrive fast
-            base = pdlm.now("Asia/Kolkata")
-            self._tick_counter += 1
-            timestamp = base.add(microseconds=self._tick_counter)
-        
+    def add_tick(self, price):
+        """Accepts ticks with a unique timestamp to avoid duplicate second issues."""
+        base = pdlm.now("Asia/Kolkata")
+        self._tick_counter += 1
+        timestamp = base.add(microseconds=self._tick_counter)
         self._ticks.append({"dt": timestamp, "price": price})
 
     def transform(self):
