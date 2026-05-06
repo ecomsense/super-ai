@@ -63,7 +63,7 @@ else:
 
 candles = api.historical(exchange, token, from_time, to_time)
 
-# Get bot session times from log
+# Get bot session times from log (all ram sessions, not filtered by instrument)
 with open("data/log.txt") as f:
     log = f.read()
 
@@ -71,10 +71,10 @@ bot_sessions = []
 for line in log.split('\n'):
     if "2026-05-06" in line and "Strategy 'ram' start_time" in line:
         m = re.search(r"start_time: ([0-9:]+), stop_time: ([0-9:]+)", line)
-        if m and instrument in line:
-            bot_sessions.append((m.group(1), m.group(2)))
+        if m:
+            bot_sessions.append(m.group(1))
 
-session_info = f"start: {', '.join([s[0] for s in bot_sessions])}" if bot_sessions else start_time
+session_info = ", ".join(sorted(set(bot_sessions))) if bot_sessions else start_time
 
 print(f"Instrument: {instrument}, Stop: {stop}, Target: {target}, Sessions: {session_info}")
 
@@ -139,7 +139,7 @@ signals.sort(key=lambda x: x[0])
 target_hit = any(float(c['inth']) >= target for c in candles)
 signals.append(["-", "-", "TARGET", "HIT" if target_hit else "NOT_REACHED", "-", "-"])
 
-# Write CSV with header
+# Write CSV
 filename = f"{S_DATA}backtest_{name}.csv"
 with open(filename, 'w', newline='') as f:
     writer = csv.writer(f)
