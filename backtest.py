@@ -63,16 +63,17 @@ else:
 
 candles = api.historical(exchange, token, from_time, to_time)
 
-# Get bot session times from log (all ram sessions, not filtered by instrument)
+# Get bot session start timestamps from log
 with open("data/log.txt") as f:
     log = f.read()
 
 bot_sessions = []
 for line in log.split('\n'):
     if "2026-05-06" in line and "Strategy 'ram' start_time" in line:
-        m = re.search(r"start_time: ([0-9:]+), stop_time: ([0-9:]+)", line)
+        # Extract actual timestamp from log line
+        m = re.search(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
         if m:
-            bot_sessions.append(m.group(1))
+            bot_sessions.append(m.group(1)[:16])  # "2026-05-06 HH:MM"
 
 session_info = ", ".join(sorted(set(bot_sessions))) if bot_sessions else start_time
 
