@@ -33,10 +33,10 @@ to_time = pdlm.now().replace(hour=23, minute=20).timestamp()
 
 candles = api.historical('MCX', token, from_time, to_time)
 
-# Generate ALL signals (multi-entry allowed)
+# Generate signals with 3-candle interval rule
 signals = []
 prev_trade = stop
-armed_idx = 0
+last_signal_idx = 0  # Track last candle that had a signal (entry or skipped)
 
 for i, c in enumerate(candles):
     t = c['time'][-8:]
@@ -44,15 +44,16 @@ for i, c in enumerate(candles):
     low = float(c['intl'])
     high = float(c['inth'])
     
-    # Skip same candle
-    if armed_idx == i + 1:
+    # Check 3-candle interval from last signal (entry or skip)
+    if last_signal_idx > 0 and i - last_signal_idx < 3:
+        # Too soon after last signal - skip this candle entirely
         continue
     
     # Entry 1: breakout
     if low <= stop and close > stop and close < target:
         signals.append([t, close, low, high, "BREAKOUT", "ENTRY"])
         prev_trade = close
-        armed_idx = i + 1
+        last_signal_idx = i + 1  # 1-indexed to distinguish from 0
         continue
     
     # Entry 2: 2-candle (red then green)
@@ -66,31 +67,10 @@ for i, c in enumerate(candles):
         if c2_red and c1_green and close < target and close > prev_trade:
             signals.append([t, close, low, high, "2-CANDLE", "ENTRY"])
             prev_trade = close
-            armed_idx = i + 1
+            last_signal_idx = i + 1
             continue
-    
-    # Skipped: too soon after last signal
-    if i >= 1:
-        breakout = (low <= stop and close > stop and close < target)
-        
-        if breakout and armed_idx > 0 and i - armed_idx < 3:
-            signals.append([t, close, low, high, "BREAKOUT", "SKIP (<3)"])
-            continue
-        
-        if i >= 2:
-            c1 = candles[i-1]
-            c2 = candles[i-2]
-            
-            c2_red = float(c2['intc']) < float(c2['into'])
-            c1_green = float(c1['intc']) > float(c1['into'])
-            
-            two_candle = c2_red and c1_green and close < target and close > prev_trade
-            
-            if two_candle and armed_idx > 0 and i - armed_idx < 3:
-                signals.append([t, close, low, high, "2-CANDLE", "SKIP (<3)"])
-                continue
 
-# Check for exit if target was reached
+# Check target status
 target_hit = False
 for c in candles:
     if float(c['inth']) >= target:
