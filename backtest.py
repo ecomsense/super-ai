@@ -15,7 +15,7 @@ if len(sys.argv) < 2:
 instrument = sys.argv[1]
 exchange = sys.argv[2] if len(sys.argv) > 2 else "NFO"
 
-# Determine if call or put from instrument name
+# Determine call or put
 if "C" in instrument and any(c.isdigit() for c in instrument.split("C")[-1][:5]):
     opt_type = "CALL"
 elif "P" in instrument and any(c.isdigit() for c in instrument.split("P")[-1][:5]):
@@ -23,25 +23,17 @@ elif "P" in instrument and any(c.isdigit() for c in instrument.split("P")[-1][:5
 else:
     opt_type = "UNKNOWN"
 
-# Get base name (e.g., NIFTY, NATURALGAS)
-base = re.sub(r'[0-9]+', '', instrument.split("C")[0].split("P")[0])
-base = base.rstrip("MAYJUNFEB").strip() or instrument[:6]
-if "NATURALGAS" in instrument:
-    base = "NATURALGAS"
-elif "NIFTY" in instrument:
-    base = "NIFTY"
-
+base = "NATURALGAS" if "NATURALGAS" in instrument else "NIFTY"
 name = f"{base}_{opt_type}"
 
 token = api.instrument_symbol(exchange, instrument)
 
-# Determine stop hour/min
+# Stop time
 if "NATURALGAS" in instrument:
     stop_hour, stop_min = 17, 59
 else:
     stop_hour, stop_min = 9, 14
 
-# Get stop
 stop_time = pdlm.now().replace(hour=stop_hour, minute=stop_min, second=59)
 stop_data = api.historical(exchange, token, 
     stop_time.subtract(hours=1).timestamp(),
@@ -61,13 +53,30 @@ target = stop * 1.5
 if "NATURALGAS" in instrument:
     from_time = pdlm.now().replace(hour=18, minute=0).timestamp()
     to_time = pdlm.now().replace(hour=23, minute=20).timestamp()
+    start_time = "18:00"
+    end_time = "23:20"
 else:
     from_time = pdlm.now().replace(hour=9, minute=15).timestamp()
     to_time = pdlm.now().replace(hour=15, minute=30).timestamp()
+    start_time = "9:15"
+    end_time = "15:30"
 
 candles = api.historical(exchange, token, from_time, to_time)
 
-print(f"Instrument: {instrument}, Type: {opt_type}, Stop: {stop}, Target: {target}, Candles: {len(candles)}")
+# Get bot session times from log
+with open("data/log.txt") as f:
+    log = f.read()
+
+bot_sessions = []
+for line in log.split('\n'):
+    if "2026-05-06" in line and "Strategy 'ram' start_time" in line:
+        m = re.search(r"start_time: ([0-9:]+), stop_time: ([0-9:]+)", line)
+        if m and instrument in line:
+            bot_sessions.append((m.group(1), m.group(2)))
+
+session_info = f"start: {', '.join([s[0] for s in bot_sessions])}" if bot_sessions else start_time
+
+print(f"Instrument: {instrument}, Stop: {stop}, Target: {target}, Sessions: {session_info}")
 
 # Backtest signals
 bt_signals = []
@@ -103,9 +112,6 @@ for i, c in enumerate(candles):
             continue
 
 # Get actual bot trades
-with open("data/log.txt") as f:
-    log = f.read()
-
 actual = set()
 for line in log.split('\n'):
     if "2026-05-06" in line and "'remarks': 'ram'" in line and "COMPLETE" in line and instrument in line:
@@ -133,9 +139,14 @@ signals.sort(key=lambda x: x[0])
 target_hit = any(float(c['inth']) >= target for c in candles)
 signals.append(["-", "-", "TARGET", "HIT" if target_hit else "NOT_REACHED", "-", "-"])
 
+# Write CSV with header
 filename = f"{S_DATA}backtest_{name}.csv"
 with open(filename, 'w', newline='') as f:
     writer = csv.writer(f)
+    writer.writerow(["#", f"instrument={instrument}"])
+    writer.writerow(["#", f"stop={stop}"])
+    writer.writerow(["#", f"target={target}"])
+    writer.writerow(["#", f"session={session_info}"])
     writer.writerow(["time", "price", "signal", "action", "source", "bot"])
     writer.writerows(signals)
 
