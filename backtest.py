@@ -46,7 +46,7 @@ for i, c in enumerate(candles):
     
     if low <= stop and close > stop and close < target:
         action = "SKIP (<3)" if last_entry_idx > 0 and i - last_entry_idx < 3 else "ENTRY"
-        bt_signals.append((t[:5], close, signal="BREAKOUT", action=action))
+        bt_signals.append((t[:5], close, "BREAKOUT", action))
         if action == "ENTRY":
             prev_trade = close
             last_entry_idx = i + 1
@@ -61,7 +61,7 @@ for i, c in enumerate(candles):
         
         if c2_red and c1_green and close < target and close > prev_trade:
             action = "SKIP (<3)" if last_entry_idx > 0 and i - last_entry_idx < 3 else "ENTRY"
-            bt_signals.append((t[:5], close, signal="2-CANDLE", action=action))
+            bt_signals.append((t[:5], close, "2-CANDLE", action))
             if action == "ENTRY":
                 prev_trade = close
                 last_entry_idx = i + 1
