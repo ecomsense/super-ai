@@ -4,6 +4,7 @@ Run with: uv run python scripts/simulate_candle.py
 Press Ctrl+C to stop.
 """
 import random
+import time
 import pendulum as pdlm
 from src.providers.candle_manager import CandleManager
 
@@ -23,20 +24,20 @@ try:
         
         # Print tick arrival
         now = pdlm.now("Asia/Kolkata")
-        print(f"tick {tick_count}: add_tick({price}) at {now.strftime('%H:%M:%S')}")
+        cur = cm._current
+        print(f"tick {tick_count}: price={price} | current: O={cur['open']}, H={cur['high']}, L={cur['low']}, C={cur['close']} | {now.strftime('%H:%M:%S')}")
         
-        # Speed: generate as fast as possible
-        # (no sleep - ticks come instantly)
+        # Small sleep to see output
+        time.sleep(0.2)
         
 except KeyboardInterrupt:
     print("\n=== Stopped ===")
     
-    # Show all candles
     df = cm.transform()
-    print(f"\nCompleted minutes: {len(cm._completed)}")
+    print(f"\nCompleted: {len(cm._completed)}")
     
     if not df.empty:
-        print("\n=== Candles ===")
+        print("\n=== All Candles ===")
         print(df.to_string(index=False))
     
     if cm._current:
