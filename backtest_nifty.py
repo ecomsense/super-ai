@@ -35,15 +35,18 @@ for line in log.split('\n'):
 print(f"Found CALL symbols: {sorted(call_symbols)}")
 print(f"Found PUT symbols: {sorted(put_symbols)}")
 
-# Use the most recent symbol if found, otherwise use defaults
+# Use only the most recent call and put from today (1 each)
+call_sym = sorted(call_symbols)[-1] if call_symbols else "NIFTY12MAY26C24000"
+put_sym = sorted(put_symbols)[-1] if put_symbols else "NIFTY12MAY26P24200"
+
 instrument = sys.argv[1] if len(sys.argv) > 1 else "call"
 
 if instrument == "call":
-    sym = sorted(call_symbols)[-1] if call_symbols else "NIFTY12MAY26C24000"
+    sym = call_sym
     token = api.instrument_symbol('NFO', sym)
     name = "NIFTY_CALL"
 elif instrument == "put":
-    sym = sorted(put_symbols)[-1] if put_symbols else "NIFTY12MAY26P24200"
+    sym = put_sym
     token = api.instrument_symbol('NFO', sym)
     name = "NIFTY_PUT"
 else:
