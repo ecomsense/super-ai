@@ -82,7 +82,7 @@ def generate_backtest(sym, stop, sessions, is_put=False):
     token = api.instrument_symbol('NFO', sym)
     from_time = pdlm.now("Asia/Kolkata").replace(hour=9, minute=15).timestamp()
     to_time = pdlm.now("Asia/Kolkata").replace(hour=15, minute=30).timestamp()
-    candles = api.historical('NFO', token, from_time, to_time)
+    candles = list(reversed(api.historical('NFO', token, from_time, to_time)))
     
     signals = []
     prev_trade_at = stop  # Start with stop price
@@ -116,8 +116,8 @@ def generate_backtest(sym, stop, sessions, is_put=False):
             signals.append([t, close, "-", "WAITING"])
             continue
         
-        # Check 3 candles since last entry (in reverse order, higher armed_idx = earlier time)
-        if armed_idx - idx < 3:
+        # Check 3 candles since last entry (in chronological order, higher idx = later time)
+        if idx - armed_idx < 3:
             signals.append([t, close, "-", "WAITING"])
             continue
         
