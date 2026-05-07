@@ -23,6 +23,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Configure uvicorn loggers to use same handler as main logger
+uvicorn_logger = logging.getLogger("uvicorn")
+uvicorn_logger.setLevel(logging.INFO)
+uvicorn_logger.handlers = [logging.FileHandler(PROJECT_ROOT / "data" / "server.log")]
+
+uvicorn_error_logger = logging.getLogger("uvicorn.error")
+uvicorn_error_logger.setLevel(logging.INFO)
+uvicorn_error_logger.handlers = [logging.FileHandler(PROJECT_ROOT / "data" / "server.log")]
+
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.setLevel(logging.INFO)
+uvicorn_access_logger.handlers = [logging.FileHandler(PROJECT_ROOT / "data" / "server.log")]
+
 app = FastAPI()
 security = HTTPBasic()
 
