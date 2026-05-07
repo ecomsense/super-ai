@@ -46,7 +46,7 @@ if "NATURALGAS" in instrument:
             stop_time.timestamp())
 else:
     stop_hour, stop_min = 9, 15
-    stop_time = pdlm.now().replace(hour=stop_hour, minute=stop_min, second=59)
+    stop_time = pdlm.now("Asia/Kolkata").replace(hour=stop_hour, minute=stop_min, second=59)
     stop_data = api.historical(exchange, token, 
         stop_time.subtract(hours=1).timestamp(),
         stop_time.timestamp())
