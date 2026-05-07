@@ -86,7 +86,7 @@ def generate_backtest(sym, stop, sessions, is_put=False):
     
     signals = []
     prev_trade_at = stop  # Start with stop price
-    armed_idx = 0  # Track which candle index was last triggered
+    armed_idx = len(candles)  # Initialize to high value so first check passes
     
     for idx, c in enumerate(candles):
         t = c['time'][-8:][:5]
