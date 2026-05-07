@@ -38,6 +38,8 @@ class Ram:
                 key="intl",
             )
 
+        logging.info(f"RAM: {self._tradingsymbol} stop={self._stop}, target={calc_highest_target(high=self._stop, target=kwargs.get('target', '50%'))}")
+
         self.prev_trade_at = self._stop
 
         target_set_by_user = kwargs.get("target", "50%")
