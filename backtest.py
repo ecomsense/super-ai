@@ -31,21 +31,30 @@ token = api.instrument_symbol(exchange, instrument)
 # Stop time
 if "NATURALGAS" in instrument:
     stop_hour, stop_min = 17, 59
+    # For NATURALGAS, get stop from previous evening session (yesterday around 5:30 PM)
+    yesterday = pdlm.yesterday("Asia/Kolkata")
+    stop_time = yesterday.replace(hour=17, minute=30, second=0)
+    stop_data = api.historical(exchange, token, 
+        stop_time.subtract(hours=1).timestamp(),
+        stop_time.timestamp())
+    if not stop_data:
+        # Fallback: try last week
+        last_week = pdlm.now("Asia/Kolkata").subtract(days=7)
+        stop_time = last_week.replace(hour=17, minute=30, second=0)
+        stop_data = api.historical(exchange, token, 
+            stop_time.subtract(hours=1).timestamp(),
+            stop_time.timestamp())
 else:
     stop_hour, stop_min = 9, 14
-
-stop_time = pdlm.now().replace(hour=stop_hour, minute=stop_min, second=59)
-stop_data = api.historical(exchange, token, 
-    stop_time.subtract(hours=1).timestamp(),
-    stop_time.timestamp())
+    stop_time = pdlm.now().replace(hour=stop_hour, minute=stop_min, second=59)
+    stop_data = api.historical(exchange, token, 
+        stop_time.subtract(hours=1).timestamp(),
+        stop_time.timestamp())
 
 if stop_data:
     stop = float(stop_data[0]['intl'])
 else:
-    first = api.historical(exchange, token, 
-        pdlm.now().replace(hour=9, minute=15).timestamp(),
-        pdlm.now().replace(hour=9, minute=20).timestamp())
-    stop = float(first[0]['intl'])
+    raise ValueError(f"Could not get stop data for {instrument}")
 
 target = stop * 1.5
 
