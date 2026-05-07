@@ -21,8 +21,6 @@ class CandleManager:
         
         if current_min != self._current["minute"]:
             self._completed.append(self._current)
-            if len(self._completed) > 10:  # Store more for safety
-                self._completed.pop(0)
             self._current = {"open": price, "high": price, "low": price, "close": price, "minute": current_min}
             return
         
