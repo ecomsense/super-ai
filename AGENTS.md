@@ -296,3 +296,59 @@ if curr_idx >= 4 and (curr_idx - self._armed_idx) >= 3:
         if curr["close"] < self._target and curr["close"] > self.prev_trade_at:
             # Trigger entry
 ```
+
+---
+
+## Backtest Comparison Analysis (2026-05-07)
+
+### Issue: Bot "Misbehaved" - What Went Wrong
+
+**Run on**: 2026-05-07, Bot trading NIFTY12MAY26 options
+
+### Root Causes Found
+
+1. **Bot Restarts Caused Missed Trades**
+   - Bot started at 09:15, then restarted at 09:25
+   - Each restart resets candle count to 0
+   - It takes 3+ minutes to build the 2-candle pattern after restart
+   - This causes the bot to miss signals during the first few minutes after each restart
+
+2. **Candle Data Mismatch Between Backtest and Live Trading**
+   - Backtest uses historical 1-minute candles from API (`api.historical()`)
+   - Bot uses live candle data from `CandleManager.add_tick()`
+   - This explains why bot takes trades at times backtest says should be "SKIP (<3)"
+   - Example: For PUT (P24500), backtest marks 09:23 as "SKIP (<3)" but bot column shows "BOT"
+
+3. **Known Bug (Not Fixed Yet)**
+   - Bot uses `self._last_price` (tick price) instead of `candle["close"]` (candle close) for signal detection
+   - This was identified earlier - user said not to fix yet
+
+4. **Backtest Script Was Using Wrong Instruments**
+   - Fixed: Script now extracts trading symbols from log dynamically
+   - Old: Hardcoded NIFTY12MAY26C24000 and P24200
+   - New: Extracts from log (found C24300, C24400, P24400, P24500)
+
+### Backtest Results (2026-05-07)
+
+**CALL (NIFTY12MAY26C24400)**:
+- Stop: 147.95, Target: 221.92
+- 1 bot trade at 09:18 (ACTUAL)
+- 7 backtest signals (BREAKOUT, 2-CANDLE) - bot didn't take any
+
+**PUT (NIFTY12MAY26P24500)**:
+- Stop: 260.85, Target: 391.27
+- 2 bot trades (09:17 ACTUAL, 09:23 BREAKOUT/SKIP but BOT)
+- 7 backtest signals - bot didn't take most of them
+
+### How to Run Backtest
+
+```bash
+# On server
+ssh harinath.r "cd /home/harinath/no_venv/super-ai && .venv/bin/python backtest_nifty.py call"
+ssh harinath.r "cd /home/harinath/no_venv/super-ai && .venv/bin/python backtest_nifty.py put"
+
+# Copy to local
+scp harinath.r:/home/harinath/no_venv/super-ai/data/backtest_NIFTY_*.csv /home/pannet1/programs/python/github.com/ecmsense/super-ai/data/
+```
+
+**Note**: The backtest script now dynamically extracts instruments from log - no hardcoded symbols.
