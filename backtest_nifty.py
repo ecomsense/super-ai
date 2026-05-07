@@ -8,21 +8,48 @@ import re
 
 api = Helper.api()
 
+# Read log to find what instruments the bot traded
+with open("data/log.txt") as f:
+    log = f.read()
+
+# Find the instrument from recent bot activity (today's date)
+today = pdlm.now("Asia/Kolkata").format("YYYY-MM-DD")
+
+# Find the trading symbols from the log - look for RAM strategy entries
+call_symbols = set()
+put_symbols = set()
+
+for line in log.split('\n'):
+    if today in line and "'remarks': 'ram'" in line and "COMPLETE" in line:
+        # Extract the symbol from lines like: tsym': 'NIFTY12MAY26C24300'
+        match = re.search(r"tsym.*'.*(NIFTY\d+[CP]\d+)", line)
+        if match:
+            sym = match.group(1)
+            if 'C' in sym:
+                call_symbols.add(sym)
+            elif 'P' in sym:
+                put_symbols.add(sym)
+
+# Use the most recent symbol if found, otherwise use defaults
 instrument = sys.argv[1] if len(sys.argv) > 1 else "call"
 
-# NIFTY options
 if instrument == "call":
-    token = api.instrument_symbol('NFO', 'NIFTY12MAY26C24000')
+    sym = sorted(call_symbols)[-1] if call_symbols else "NIFTY12MAY26C24000"
+    token = api.instrument_symbol('NFO', sym)
     name = "NIFTY_CALL"
-    sym = "NIFTY12MAY26C24000"
-    stop_hour, stop_min = 9, 14
-else:
-    token = api.instrument_symbol('NFO', 'NIFTY12MAY26P24200')
+elif instrument == "put":
+    sym = sorted(put_symbols)[-1] if put_symbols else "NIFTY12MAY26P24200"
+    token = api.instrument_symbol('NFO', sym)
     name = "NIFTY_PUT"
-    sym = "NIFTY12MAY26P24200"
-    stop_hour, stop_min = 9, 14
+else:
+    sym = instrument
+    token = api.instrument_symbol('NFO', sym)
+    name = f"NIFTY_{sym}"
 
-# Try to get stop, fallback to first candle
+print(f"Using instrument: {sym}, token: {token}")
+
+# Get stop from historical data
+stop_hour, stop_min = 9, 14
 stop_time = pdlm.now().replace(hour=stop_hour, minute=stop_min, second=59)
 stop_data = api.historical('NFO', token, 
     stop_time.subtract(hours=1).timestamp(),
@@ -31,11 +58,15 @@ stop_data = api.historical('NFO', token,
 if stop_data:
     stop = float(stop_data[0]['intl'])
 else:
-    # Use first available candle
+    # Fallback to first available candle
     first_candle = api.historical('NFO', token, 
         pdlm.now().replace(hour=9, minute=15).timestamp(),
         pdlm.now().replace(hour=9, minute=20).timestamp())
-    stop = float(first_candle[0]['intl'])
+    if first_candle:
+        stop = float(first_candle[0]['intl'])
+    else:
+        print("ERROR: Could not get stop data")
+        sys.exit(1)
 
 target = stop * 1.5  # Default 50% for NIFTY
 
@@ -80,16 +111,15 @@ for i, c in enumerate(candles):
                 last_entry_idx = i + 1
             continue
 
-# Get actual bot trades
-with open("data/log.txt") as f:
-    log = f.read()
-
+# Get actual bot trades from log
 actual = set()
 for line in log.split('\n'):
-    if "2026-05-06" in line and "'remarks': 'ram'" in line and "COMPLETE" in line and sym in line:
-        m = re.search(r"^2026-05-06 ([0-9:]+)", line)
+    if today in line and "'remarks': 'ram'" in line and "COMPLETE" in line and sym in line:
+        m = re.search(rf"^{today} ([0-9:]+)", line)
         if m:
             actual.add(m.group(1)[:5])
+
+print(f"Actual bot trades: {sorted(actual)}")
 
 # Merge
 signals = []
@@ -114,6 +144,9 @@ signals.append(["-", "-", "TARGET", "HIT" if target_hit else "NOT_REACHED", "-",
 filename = f"{S_DATA}backtest_{name}.csv"
 with open(filename, 'w', newline='') as f:
     writer = csv.writer(f)
+    writer.writerow(["#", f"instrument={sym}"])
+    writer.writerow(["#", f"stop={stop}"])
+    writer.writerow(["#", f"target={target}"])
     writer.writerow(["time", "price", "signal", "action", "source", "bot"])
     writer.writerows(signals)
 
