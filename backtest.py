@@ -122,13 +122,13 @@ def generate_backtest(sym, stop, sessions, is_put=False):
             continue
         
         # 2-CANDLE: need red(-3), green(-2), and close > prev_trade_at
-        c1 = candles[idx - 1]
+        c3 = candles[idx - 3]
         c2 = candles[idx - 2]
         
-        c2_red = float(c2['intc']) < float(c2['into'])
-        c1_green = float(c1['intc']) > float(c1['into'])
+        c3_red = float(c3['intc']) < float(c3['into'])
+        c2_green = float(c2['intc']) > float(c2['into'])
         
-        if c2_red and c1_green and close < target and close > prev_trade_at:
+        if c3_red and c2_green and close < target and close > prev_trade_at:
             signals.append([t, close, "2-CANDLE", "ENTRY"])
             prev_trade_at = close  # Update to current close
             armed_idx = idx + 1
