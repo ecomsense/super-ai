@@ -98,17 +98,20 @@ def generate_backtest(sym, stop, sessions, is_put=False):
             signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "INACTIVE"])
             continue
         
-        # Need at least 1 candle
-        if idx < 1:
-            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "WAITING"])
-            continue
-        
-        # BREAKOUT: low <= stop and close > stop
+        # BREAKOUT: low <= stop and close > stop (check before idx check, can trigger on first candle)
         breakout_triggered = low <= stop and close > stop
         
-        # Need at least 4 candles for 2-candle pattern (current + 3 previous)
+        # Need at least 3 candles for 2-candle pattern (current + 3 previous)
         if idx < 3:
-            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "WAITING"])
+            if breakout_triggered:
+                signal = "BREAKOUT"
+                action = "ENTRY"
+                prev_trade_at = stop
+                armed_idx = idx + 1
+            else:
+                signal = "-"
+                action = "WAITING"
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", signal, action])
             continue
         
         # Check 3 candles since last entry (in chronological order, higher idx = later time)
