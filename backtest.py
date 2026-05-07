@@ -43,8 +43,23 @@ for line in log.split('\n'):
 call_symbols = sorted(call_symbols)
 put_symbols = sorted(put_symbols)
 
+# Find bot entries from log
+bot_entries = {}  # sym -> set of times (HH:MM) when bot took entry
+for line in log.split('\n'):
+    if today in line and "'remarks': 'ram'" in line and "COMPLETE" in line:
+        match = re.search(r"'tsym':\s*'([^']+)'", line)
+        time_match = re.search(r"(\d{2}:\d{2}):\d{2}", line)
+        if match and time_match:
+            sym = match.group(1)
+            t = time_match.group(1)
+            if sym not in bot_entries:
+                bot_entries[sym] = set()
+            bot_entries[sym].add(t)
+
 print(f"Call symbols: {call_symbols}")
 print(f"Put symbols: {put_symbols}")
+
+print(f"Bot entries: {bot_entries}")
 
 # Get stop for each symbol - try multiple times
 def get_stop(symbol):
@@ -75,7 +90,7 @@ def is_bot_active(t, sessions):
             return True
     return False
 
-def generate_backtest(sym, stop, sessions, is_put=False):
+def generate_backtest(sym, stop, sessions, bot_entries, is_put=False):
     """Generate backtest with correct RAM strategy logic"""
     target = stop * 1.5
     
@@ -88,6 +103,8 @@ def generate_backtest(sym, stop, sessions, is_put=False):
     prev_trade_at = stop  # Start with stop price
     armed_idx = len(candles)  # Initialize to high value so first check passes
     
+    bot_sym_entries = bot_entries.get(sym, set())  # Get bot entries for this symbol
+    
     for idx, c in enumerate(candles):
         t = c['time'][-8:][:5]
         close = float(c['intc'])
@@ -95,7 +112,7 @@ def generate_backtest(sym, stop, sessions, is_put=False):
         
         # Check if bot was active
         if not is_bot_active(t, sessions):
-            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "INACTIVE"])
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "INACTIVE", "-"])
             continue
         
         # BREAKOUT: low <= stop and close > stop (check before idx check, can trigger on first candle)
@@ -111,12 +128,20 @@ def generate_backtest(sym, stop, sessions, is_put=False):
             else:
                 signal = "-"
                 action = "WAITING"
-            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", signal, action])
+            # Determine bot column
+            if action == "ENTRY":
+                if t in bot_sym_entries:
+                    bot_col = "BOT"
+                else:
+                    bot_col = "-"
+            else:
+                bot_col = "-"
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", signal, action, bot_col])
             continue
         
         # Check 3 candles since last entry (in chronological order, higher idx = later time)
         if idx - armed_idx < 3:
-            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "WAITING"])
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "WAITING", "-"])
             continue
         
         # 2-CANDLE: need red(-3), green(-2), and close > prev_trade_at
@@ -148,12 +173,21 @@ def generate_backtest(sym, stop, sessions, is_put=False):
             signal = "-"
             action = "WAITING"
         
+        # Determine bot column
+        if action == "ENTRY":
+            if t in bot_sym_entries:
+                bot_col = "BOT"
+            else:
+                bot_col = "-"
+        else:
+            bot_col = "-"
+        
         signals.append([
             t, close, low, stop,
             c3_open, c3_close, "RED" if c3_red else "GREEN",
             c2_open, c2_close, "GREEN" if c2_green else "RED",
             prev_trade_at, target,
-            signal, action
+            signal, action, bot_col
         ])
     
     return signals
@@ -164,7 +198,7 @@ file_count = 0
 for i, sym in enumerate(call_symbols, 1):
     stop = get_stop(sym)
     if stop:
-        signals = generate_backtest(sym, stop, sessions)
+        signals = generate_backtest(sym, stop, sessions, bot_entries)
         file_count += 1
         filename = f"{S_DATA}{i}_{sym}.csv"
         
@@ -174,7 +208,7 @@ for i, sym in enumerate(call_symbols, 1):
             writer.writerow(["#", f"stop={stop}"])
             writer.writerow(["#", f"target={stop * 1.5}"])
             writer.writerow(["#", f"sessions={','.join(sessions)}"])
-            writer.writerow(["time", "price", "low", "stop", "c3_open", "c3_close", "c3_color", "c2_open", "c2_close", "c2_color", "prev_trade_at", "target", "signal", "action"])
+            writer.writerow(["time", "price", "low", "stop", "c3_open", "c3_close", "c3_color", "c2_open", "c2_close", "c2_color", "prev_trade_at", "target", "signal", "action", "bot"])
             writer.writerows(signals)
         
         print(f"Created {filename}")
@@ -182,7 +216,7 @@ for i, sym in enumerate(call_symbols, 1):
 for i, sym in enumerate(put_symbols, start=len(call_symbols)+1):
     stop = get_stop(sym)
     if stop:
-        signals = generate_backtest(sym, stop, sessions, is_put=True)
+        signals = generate_backtest(sym, stop, sessions, bot_entries, is_put=True)
         file_count += 1
         filename = f"{S_DATA}{i}_{sym}.csv"
         
@@ -192,7 +226,7 @@ for i, sym in enumerate(put_symbols, start=len(call_symbols)+1):
             writer.writerow(["#", f"stop={stop}"])
             writer.writerow(["#", f"target={stop * 1.5}"])
             writer.writerow(["#", f"sessions={','.join(sessions)}"])
-            writer.writerow(["time", "price", "low", "stop", "c3_open", "c3_close", "c3_color", "c2_open", "c2_close", "c2_color", "prev_trade_at", "target", "signal", "action"])
+            writer.writerow(["time", "price", "low", "stop", "c3_open", "c3_close", "c3_color", "c2_open", "c2_close", "c2_color", "prev_trade_at", "target", "signal", "action", "bot"])
             writer.writerows(signals)
         
         print(f"Created {filename}")
