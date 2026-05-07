@@ -95,46 +95,63 @@ def generate_backtest(sym, stop, sessions, is_put=False):
         
         # Check if bot was active
         if not is_bot_active(t, sessions):
-            signals.append([t, close, "-", "INACTIVE"])
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "INACTIVE"])
             continue
         
         # Need at least 1 candle
         if idx < 1:
-            signals.append([t, close, "-", "WAITING"])
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "WAITING"])
             continue
         
         # BREAKOUT: low <= stop and close > stop
-        if low <= stop and close > stop:
-            # Breakout can always trigger, updates prev_trade_at to stop
-            signals.append([t, close, "BREAKOUT", "ENTRY"])
-            prev_trade_at = stop  # Reset to stop
-            armed_idx = idx + 1  # Mark this candle as the trigger point
-            continue
+        breakout_triggered = low <= stop and close > stop
         
         # Need at least 4 candles for 2-candle pattern (current + 3 previous)
         if idx < 3:
-            signals.append([t, close, "-", "WAITING"])
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "WAITING"])
             continue
         
         # Check 3 candles since last entry (in chronological order, higher idx = later time)
         if idx - armed_idx < 3:
-            signals.append([t, close, "-", "WAITING"])
+            signals.append([t, close, low, stop, "-", "-", "-", "-", "-", "-", "-", "-", "-", "WAITING"])
             continue
         
         # 2-CANDLE: need red(-3), green(-2), and close > prev_trade_at
         c3 = candles[idx - 3]
         c2 = candles[idx - 2]
         
-        c3_red = float(c3['intc']) < float(c3['into'])
-        c2_green = float(c2['intc']) > float(c2['into'])
+        c3_open = float(c3['into'])
+        c3_close = float(c3['intc'])
+        c3_red = c3_close < c3_open
         
-        if c3_red and c2_green and close < target and close > prev_trade_at:
-            signals.append([t, close, "2-CANDLE", "ENTRY"])
+        c2_open = float(c2['into'])
+        c2_close = float(c2['intc'])
+        c2_green = c2_close > c2_open
+        
+        two_candle_triggered = c3_red and c2_green and close < target and close > prev_trade_at
+        
+        # Determine signal and action
+        if breakout_triggered:
+            signal = "BREAKOUT"
+            action = "ENTRY"
+            prev_trade_at = stop  # Reset to stop
+            armed_idx = idx + 1  # Mark this candle as the trigger point
+        elif two_candle_triggered:
+            signal = "2-CANDLE"
+            action = "ENTRY"
             prev_trade_at = close  # Update to current close
             armed_idx = idx + 1
-            continue
+        else:
+            signal = "-"
+            action = "WAITING"
         
-        signals.append([t, close, "-", "WAITING"])
+        signals.append([
+            t, close, low, stop,
+            c3_open, c3_close, "RED" if c3_red else "GREEN",
+            c2_open, c2_close, "GREEN" if c2_green else "RED",
+            prev_trade_at, target,
+            signal, action
+        ])
     
     return signals
 
@@ -154,7 +171,7 @@ for i, sym in enumerate(call_symbols, 1):
             writer.writerow(["#", f"stop={stop}"])
             writer.writerow(["#", f"target={stop * 1.5}"])
             writer.writerow(["#", f"sessions={','.join(sessions)}"])
-            writer.writerow(["time", "price", "signal", "action"])
+            writer.writerow(["time", "price", "low", "stop", "c3_open", "c3_close", "c3_color", "c2_open", "c2_close", "c2_color", "prev_trade_at", "target", "signal", "action"])
             writer.writerows(signals)
         
         print(f"Created {filename}")
@@ -172,7 +189,7 @@ for i, sym in enumerate(put_symbols, start=len(call_symbols)+1):
             writer.writerow(["#", f"stop={stop}"])
             writer.writerow(["#", f"target={stop * 1.5}"])
             writer.writerow(["#", f"sessions={','.join(sessions)}"])
-            writer.writerow(["time", "price", "signal", "action"])
+            writer.writerow(["time", "price", "low", "stop", "c3_open", "c3_close", "c3_color", "c2_open", "c2_close", "c2_color", "prev_trade_at", "target", "signal", "action"])
             writer.writerows(signals)
         
         print(f"Created {filename}")
