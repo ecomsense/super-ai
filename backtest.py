@@ -8,122 +8,84 @@ import re
 
 api = Helper.api()
 
-if len(sys.argv) < 2:
-    print("Usage: python backtest.py <instrument> [exchange]")
-    sys.exit(1)
+# Read log to find what instruments the bot traded
+with open("data/log.txt") as f:
+    log = f.read()
 
-instrument = sys.argv[1]
-exchange = sys.argv[2] if len(sys.argv) > 2 else "NFO"
+# Find the instrument from recent bot activity - use both May 6 and May 7 to capture all
+# The bot may have traded yesterday and today
 
-# Determine call or put
-if "C" in instrument and any(c.isdigit() for c in instrument.split("C")[-1][:5]):
-    opt_type = "CALL"
-elif "P" in instrument and any(c.isdigit() for c in instrument.split("P")[-1][:5]):
-    opt_type = "PUT"
+# Find the trading symbols from the log - look for RAM strategy entries
+call_symbols = set()
+put_symbols = set()
+
+# Search for both dates to capture all trades
+for line in log.split('\n'):
+    if "'remarks': 'ram'" in line and "COMPLETE" in line:
+        # Extract the symbol from lines like: 'tsym': 'NIFTY12MAY26C24300'
+        # Use more robust regex
+        match = re.search(r"'tsym':\s*'([^']+)'", line)
+        if match:
+            sym = match.group(1)
+            if 'C' in sym:
+                call_symbols.add(sym)
+            elif 'P' in sym:
+                put_symbols.add(sym)
+
+print(f"Found CALL symbols: {sorted(call_symbols)}")
+print(f"Found PUT symbols: {sorted(put_symbols)}")
+
+# Use only the most recent call and put from today (1 each)
+call_sym = sorted(call_symbols)[-1] if call_symbols else "NIFTY12MAY26C24000"
+put_sym = sorted(put_symbols)[-1] if put_symbols else "NIFTY12MAY26P24200"
+
+instrument = sys.argv[1] if len(sys.argv) > 1 else "call"
+
+if instrument == "call":
+    sym = call_sym
+    token = api.instrument_symbol('NFO', sym)
+    name = "NIFTY_CALL"
+elif instrument == "put":
+    sym = put_sym
+    token = api.instrument_symbol('NFO', sym)
+    name = "NIFTY_PUT"
 else:
-    opt_type = "UNKNOWN"
+    sym = instrument
+    token = api.instrument_symbol('NFO', sym)
+    name = f"NIFTY_{sym}"
 
-base = "NATURALGAS" if "NATURALGAS" in instrument else "NIFTY"
-name = f"{base}_{opt_type}"
+print(f"Using instrument: {sym}, token: {token}")
 
-token = api.instrument_symbol(exchange, instrument)
-
-# Stop time
-if "NATURALGAS" in instrument:
-    stop_hour, stop_min = 17, 59
-    # For NATURALGAS, get stop from previous evening session (yesterday around 5:30 PM)
-    yesterday = pdlm.yesterday("Asia/Kolkata")
-    stop_time = yesterday.replace(hour=17, minute=30, second=0)
-    stop_data = api.historical(exchange, token, 
-        stop_time.subtract(hours=1).timestamp(),
-        stop_time.timestamp())
-    if not stop_data:
-        # Fallback: try last week
-        last_week = pdlm.now("Asia/Kolkata").subtract(days=7)
-        stop_time = last_week.replace(hour=17, minute=30, second=0)
-        stop_data = api.historical(exchange, token, 
-            stop_time.subtract(hours=1).timestamp(),
-            stop_time.timestamp())
-else:
-    stop_hour, stop_min = 9, 15
-    stop_time = pdlm.now("Asia/Kolkata").replace(hour=stop_hour, minute=stop_min, second=59)
-    # Try single point in time instead of range
-    stop_data = api.historical(exchange, token, 
-        stop_time.timestamp(),
-        stop_time.add(seconds=1).timestamp())
+# Get stop from historical data
+stop_hour, stop_min = 9, 14
+stop_time = pdlm.now().replace(hour=stop_hour, minute=stop_min, second=59)
+stop_data = api.historical('NFO', token, 
+    stop_time.subtract(hours=1).timestamp(),
+    stop_time.timestamp())
 
 if stop_data:
     stop = float(stop_data[0]['intl'])
 else:
-    raise ValueError(f"Could not get stop data for {instrument}")
+    # Fallback to first available candle
+    first_candle = api.historical('NFO', token, 
+        pdlm.now().replace(hour=9, minute=15).timestamp(),
+        pdlm.now().replace(hour=9, minute=20).timestamp())
+    if first_candle:
+        stop = float(first_candle[0]['intl'])
+    else:
+        print("ERROR: Could not get stop data")
+        sys.exit(1)
 
-target = stop * 1.5
+target = stop * 1.5  # Default 50% for NIFTY
 
-# Time range
-if "NATURALGAS" in instrument:
-    from_time = pdlm.now().replace(hour=18, minute=0).timestamp()
-    to_time = pdlm.now().replace(hour=23, minute=20).timestamp()
-    start_time = "18:00"
-    end_time = "23:20"
-else:
-    from_time = pdlm.now().replace(hour=9, minute=15).timestamp()
-    to_time = pdlm.now().replace(hour=15, minute=30).timestamp()
-    start_time = "9:15"
-    end_time = "15:30"
+# Get candles from 9:15 to 15:30
+from_time = pdlm.now().replace(hour=9, minute=15).timestamp()
+to_time = pdlm.now().replace(hour=15, minute=30).timestamp()
+candles = api.historical('NFO', token, from_time, to_time)
 
-candles = api.historical(exchange, token, from_time, to_time)
+print(f"Stop: {stop}, Target: {target}, Candles: {len(candles)}")
 
-# Get bot session times from log
-with open("data/log.txt") as f:
-    log = f.read()
-
-# Find session start times
-session_starts = []
-for line in log.split('\n'):
-    if "2026-05-06" in line and "Strategy 'ram' start_time" in line:
-        # Extract timestamp from log line, format: "2026-05-06 HH:MM:SS"
-        m = re.search(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", line)
-        if m:
-            session_starts.append(m.group(1))  # "2026-05-06 HH:MM"
-
-# Sort sessions
-session_starts = sorted(set(session_starts))
-
-session_info = ", ".join(session_starts) if session_starts else start_time
-
-print(f"Instrument: {instrument}, Stop: {stop}, Target: {target}, Sessions: {session_info}")
-
-# Determine if bot was running at a given time
-def was_running(check_time):
-    """Check if bot was running at check_time (HH:MM format)"""
-    for i, session in enumerate(session_starts):
-        # session = "2026-05-06 HH:MM"
-        session_hhmm = session[-5:]  # "HH:MM"
-        
-        # Convert to comparable minutes
-        sh = int(session_hhmm.split(':')[0])
-        sm = int(session_hhmm.split(':')[1])
-        ct = int(check_time.split(':')[0])
-        cm = int(check_time.split(':')[1])
-        
-        session_mins = sh * 60 + sm
-        check_mins = ct * 60 + cm
-        
-        if check_mins >= session_mins:
-            # Check if next session exists
-            if i + 1 < len(session_starts):
-                next_session = session_starts[i + 1]
-                nh = int(next_session[-5:].split(':')[0])
-                nm = int(next_session[-5:].split(':')[1])
-                next_mins = nh * 60 + nm
-                if check_mins < next_mins:
-                    return True
-            else:
-                # Last session - assume running until end of day
-                return True
-    return False
-
-# Backtest signals
+# Generate backtest signals
 bt_signals = []
 prev_trade = stop
 last_entry_idx = 0
@@ -132,6 +94,7 @@ for i, c in enumerate(candles):
     t = c['time'][-8:]
     close = float(c['intc'])
     low = float(c['intl'])
+    high = float(c['inth'])
     
     if low <= stop and close > stop and close < target:
         action = "SKIP (<3)" if last_entry_idx > 0 and i - last_entry_idx < 3 else "ENTRY"
@@ -156,23 +119,21 @@ for i, c in enumerate(candles):
                 last_entry_idx = i + 1
             continue
 
-# Get actual bot trades
+# Get actual bot trades from log for TODAY (May 7)
+today = "2026-05-07"
 actual = set()
 for line in log.split('\n'):
-    if "2026-05-06" in line and "'remarks': 'ram'" in line and "COMPLETE" in line and instrument in line:
-        m = re.search(r"^2026-05-06 ([0-9:]+)", line)
+    if today in line and "'remarks': 'ram'" in line and "COMPLETE" in line and sym in line:
+        m = re.search(rf"^{today} ([0-9:]+)", line)
         if m:
             actual.add(m.group(1)[:5])
 
-# Merge - now with stopped status
+print(f"Actual bot trades for {sym}: {sorted(actual)}")
+
+# Merge
 signals = []
 for t, price, signal, action in bt_signals:
-    if t in actual:
-        bot = "BOT"
-    elif action == "ENTRY" and not was_running(t):
-        bot = "STOPPED"  # Bot wasn't running
-    else:
-        bot = "-"
+    bot = "BOT" if t in actual else "-"
     signals.append([t, price, signal, action, "BACKTEST", bot])
 
 for t in sorted(actual):
@@ -189,14 +150,12 @@ signals.sort(key=lambda x: x[0])
 target_hit = any(float(c['inth']) >= target for c in candles)
 signals.append(["-", "-", "TARGET", "HIT" if target_hit else "NOT_REACHED", "-", "-"])
 
-# Write CSV
 filename = f"{S_DATA}backtest_{name}.csv"
 with open(filename, 'w', newline='') as f:
     writer = csv.writer(f)
-    writer.writerow(["#", f"instrument={instrument}"])
+    writer.writerow(["#", f"instrument={sym}"])
     writer.writerow(["#", f"stop={stop}"])
     writer.writerow(["#", f"target={target}"])
-    writer.writerow(["#", f"session={session_info}"])
     writer.writerow(["time", "price", "signal", "action", "source", "bot"])
     writer.writerows(signals)
 
