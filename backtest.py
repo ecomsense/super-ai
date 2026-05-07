@@ -116,8 +116,8 @@ def generate_backtest(sym, stop, sessions, is_put=False):
             signals.append([t, close, "-", "WAITING"])
             continue
         
-        # Check 3 candles since last entry
-        if (idx + 1) - armed_idx < 3:
+        # Check 3 candles since last entry (in reverse order, higher armed_idx = earlier time)
+        if armed_idx - idx < 3:
             signals.append([t, close, "-", "WAITING"])
             continue
         
