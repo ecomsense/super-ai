@@ -12,23 +12,28 @@ api = Helper.api()
 with open("data/log.txt") as f:
     log = f.read()
 
-# Find the instrument from recent bot activity (today's date)
-today = pdlm.now("Asia/Kolkata").format("YYYY-MM-DD")
+# Find the instrument from recent bot activity - use both May 6 and May 7 to capture all
+# The bot may have traded yesterday and today
 
 # Find the trading symbols from the log - look for RAM strategy entries
 call_symbols = set()
 put_symbols = set()
 
+# Search for both dates to capture all trades
 for line in log.split('\n'):
-    if today in line and "'remarks': 'ram'" in line and "COMPLETE" in line:
-        # Extract the symbol from lines like: tsym': 'NIFTY12MAY26C24300'
-        match = re.search(r"tsym.*'.*(NIFTY\d+[CP]\d+)", line)
+    if "'remarks': 'ram'" in line and "COMPLETE" in line:
+        # Extract the symbol from lines like: 'tsym': 'NIFTY12MAY26C24300'
+        # Use more robust regex
+        match = re.search(r"'tsym':\s*'([^']+)'", line)
         if match:
             sym = match.group(1)
             if 'C' in sym:
                 call_symbols.add(sym)
             elif 'P' in sym:
                 put_symbols.add(sym)
+
+print(f"Found CALL symbols: {sorted(call_symbols)}")
+print(f"Found PUT symbols: {sorted(put_symbols)}")
 
 # Use the most recent symbol if found, otherwise use defaults
 instrument = sys.argv[1] if len(sys.argv) > 1 else "call"
@@ -111,7 +116,8 @@ for i, c in enumerate(candles):
                 last_entry_idx = i + 1
             continue
 
-# Get actual bot trades from log
+# Get actual bot trades from log for TODAY (May 7)
+today = "2026-05-07"
 actual = set()
 for line in log.split('\n'):
     if today in line and "'remarks': 'ram'" in line and "COMPLETE" in line and sym in line:
@@ -119,7 +125,7 @@ for line in log.split('\n'):
         if m:
             actual.add(m.group(1)[:5])
 
-print(f"Actual bot trades: {sorted(actual)}")
+print(f"Actual bot trades for {sym}: {sorted(actual)}")
 
 # Merge
 signals = []
