@@ -47,9 +47,10 @@ if "NATURALGAS" in instrument:
 else:
     stop_hour, stop_min = 9, 15
     stop_time = pdlm.now("Asia/Kolkata").replace(hour=stop_hour, minute=stop_min, second=59)
+    # Try single point in time instead of range
     stop_data = api.historical(exchange, token, 
-        stop_time.subtract(hours=1).timestamp(),
-        stop_time.timestamp())
+        stop_time.timestamp(),
+        stop_time.add(seconds=1).timestamp())
 
 if stop_data:
     stop = float(stop_data[0]['intl'])
