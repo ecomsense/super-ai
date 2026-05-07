@@ -45,7 +45,7 @@ class RiskManager:
         """Fetches real-time net quantity from the broker."""
         try:
             positions = self.broker.positions
-            return next((p for p in positions if p["symbol"] == symbol), {})
+            return next((p for p in positions if p.get("symbol") == symbol), {})
         except Exception as e:
             logging.error(f"RM Error fetching positions: {e}")
             return {}

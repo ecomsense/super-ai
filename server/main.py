@@ -4,7 +4,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Form
+from fastapi import FastAPI, Request, Depends, HTTPException, status as fastapi_status, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -38,12 +38,12 @@ def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
     if not expected_user or not expected_pass:
         logger.error("DASHBOARD_USER or DASHBOARD_PASS not set in environment")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server configuration error",
         )
     if credentials.username != expected_user or credentials.password != expected_pass:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=fastapi_status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Basic"},
         )
